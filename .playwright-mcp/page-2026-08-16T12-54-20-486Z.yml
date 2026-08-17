@@ -1,0 +1,80 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e5]:
+        - strong [ref=f2e6]: Free. Open. No account needed.
+        - generic [ref=f2e7]: Anyone can read. Anyone can contribute.
+        - generic [ref=f2e8] [cursor=pointer]: How it works →
+      - button "Dismiss banner" [ref=f2e9] [cursor=pointer]
+    - banner [ref=f2e12]:
+      - generic [ref=f2e13]:
+        - button "Caleb's Library — home" [ref=f2e14] [cursor=pointer]:
+          - generic [ref=f2e15]: Caleb's
+          - generic [ref=f2e16]: Library
+        - searchbox "Search the library" [ref=f2e21]
+        - navigation [ref=f2e22]:
+          - button "Browse" [ref=f2e23] [cursor=pointer]
+          - button "About" [ref=f2e24] [cursor=pointer]
+          - button "Contribute" [ref=f2e25] [cursor=pointer]
+    - main [ref=f2e28]:
+      - generic [ref=f2e29]:
+        - generic [ref=f2e30]: The library
+        - heading "Everything, sorted by subject." [level=1] [ref=f2e31]
+        - paragraph [ref=f2e32]: Hover a book to lift it. Click to open. Every paper was uploaded by someone who wanted the next reader to have an easier time.
+        - generic [ref=f2e33]:
+          - generic [ref=f2e34]:
+            - generic [ref=f2e37]: Filter
+            - button "All subjects" [ref=f2e39] [cursor=pointer]
+            - generic [ref=f2e41]:
+              - button "All types" [ref=f2e42] [cursor=pointer]
+              - button "Study Guide" [ref=f2e43] [cursor=pointer]
+              - button "Lecture Notes" [ref=f2e44] [cursor=pointer]
+              - button "Past Exam" [ref=f2e45] [cursor=pointer]
+              - button "Problem Set" [ref=f2e46] [cursor=pointer]
+              - button "Essay" [ref=f2e47] [cursor=pointer]
+              - button "Cheat Sheet" [ref=f2e48] [cursor=pointer]
+              - button "Slides" [ref=f2e49] [cursor=pointer]
+              - button "Notes" [ref=f2e50] [cursor=pointer]
+          - generic [ref=f2e51]:
+            - generic [ref=f2e52]: 0 papers
+            - generic [ref=f2e53]:
+              - button "Shelves" [ref=f2e54] [cursor=pointer]
+              - button "Grid" [ref=f2e57] [cursor=pointer]
+        - generic [ref=f2e63]:
+          - generic [ref=f2e64]: These shelves are empty
+          - generic [ref=f2e65]: Try loosening your filters.
+    - contentinfo [ref=f2e66]:
+      - generic [ref=f2e67]:
+        - generic [ref=f2e68]:
+          - generic [ref=f2e69]:
+            - generic [ref=f2e70]:
+              - generic [ref=f2e71]: Caleb's
+              - generic [ref=f2e72]: Library
+            - paragraph [ref=f2e73]: An open, community-run library of student notes, study guides, and papers. Free to read. Free to contribute. No account needed.
+          - generic [ref=f2e74]:
+            - generic [ref=f2e75]: Library
+            - generic [ref=f2e76]:
+              - generic [ref=f2e77] [cursor=pointer]: Browse everything
+              - generic [ref=f2e78] [cursor=pointer]: Search
+              - generic [ref=f2e79] [cursor=pointer]: Contribute a paper
+              - generic [ref=f2e80] [cursor=pointer]: Moderation queue
+          - generic [ref=f2e81]:
+            - generic [ref=f2e82]: Community
+            - generic [ref=f2e83]:
+              - generic [ref=f2e84] [cursor=pointer]: About
+              - generic [ref=f2e85] [cursor=pointer]: How it works
+              - generic [ref=f2e86] [cursor=pointer]: Contributors
+              - generic [ref=f2e87] [cursor=pointer]: Founder’s note
+          - generic [ref=f2e88]:
+            - generic [ref=f2e89]: Legal
+            - generic [ref=f2e90]:
+              - generic [ref=f2e91] [cursor=pointer]: Privacy
+              - generic [ref=f2e92] [cursor=pointer]: Terms
+              - generic [ref=f2e93] [cursor=pointer]: Content policy
+              - generic [ref=f2e94] [cursor=pointer]: Contact
+        - generic [ref=f2e95]:
+          - generic [ref=f2e96]: © 2026 · Caleb's Library · A community project
+          - generic [ref=f2e97]: Made with care. Kept alive by contributors.
+  - generic [ref=f2e98]:
+    - generic "Toggle devtools panel" [ref=f2e99] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f2e105] [cursor=pointer]

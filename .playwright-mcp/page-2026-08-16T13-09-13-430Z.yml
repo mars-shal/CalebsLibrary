@@ -1,0 +1,100 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - strong [ref=e6]: Free. Open. No account needed.
+        - generic [ref=e7]: Anyone can read. Anyone can contribute.
+        - generic [ref=e8] [cursor=pointer]: How it works →
+      - button "Dismiss banner" [ref=e9] [cursor=pointer]
+    - banner [ref=e12]:
+      - generic [ref=e13]:
+        - button "Caleb's Library — home" [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: Caleb's
+          - generic [ref=e16]: Library
+        - navigation [ref=e17]:
+          - button "Browse" [ref=e18] [cursor=pointer]
+          - button "About" [ref=e19] [cursor=pointer]
+          - button "Contribute" [ref=e20] [cursor=pointer]
+    - main [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Est. 2019 · A community library
+          - heading "Caleb's Library." [level=1] [ref=e27]
+          - paragraph [ref=e28]: A student-run library of notes, papers, and study guides. Open to anyone. Kept by whoever shows up.
+          - generic [ref=e29]:
+            - textbox "Search the library…" [ref=e30]
+            - generic: Enter ↵
+          - generic [ref=e31]:
+            - generic [ref=e32]: "Or browse:"
+            - button "All 0 subjects →" [ref=e33] [cursor=pointer]
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - generic [ref=e36]: "0"
+              - generic [ref=e37]: Papers
+            - generic [ref=e38]:
+              - generic [ref=e39]: "0"
+              - generic [ref=e40]: Contributors
+            - generic [ref=e41]:
+              - generic [ref=e42]: "0"
+              - generic [ref=e43]: Reads/month
+            - generic [ref=e44]:
+              - generic [ref=e45]: "0"
+              - generic [ref=e46]: Subjects
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: This week
+              - generic [ref=e51]: Recently added
+            - button "View all →" [ref=e53] [cursor=pointer]
+          - generic [ref=e54]: Loading the library…
+        - generic [ref=e57]:
+          - generic [ref=e58]: All-time
+          - generic [ref=e59]: Most loved by readers
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: Have notes to share?
+            - generic [ref=e64]: Pass along the notes that carried you through.
+            - generic [ref=e65]: Upload a PDF, add a title, and it goes on the shelves once a moderator confirms it. No account. No signup. Two minutes.
+          - button "Contribute a paper →" [ref=e66] [cursor=pointer]
+        - generic [ref=e67]:
+          - generic [ref=e68]: CH
+          - generic [ref=e69]:
+            - blockquote [ref=e70]: “I started this as a shared drive with three friends in 2019. It grew because people kept adding things. That's the whole model — add what you can, take what you need.”
+            - generic [ref=e71]:
+              - strong [ref=e72]: Caleb H.
+              - text: — founder, still uploading
+    - contentinfo [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: Caleb's
+              - generic [ref=e79]: Library
+            - paragraph [ref=e80]: An open, community-run library of student notes, study guides, and papers. Free to read. Free to contribute. No account needed.
+          - generic [ref=e81]:
+            - generic [ref=e82]: Library
+            - generic [ref=e83]:
+              - generic [ref=e84] [cursor=pointer]: Browse everything
+              - generic [ref=e85] [cursor=pointer]: Search
+              - generic [ref=e86] [cursor=pointer]: Contribute a paper
+              - generic [ref=e87] [cursor=pointer]: Moderation queue
+          - generic [ref=e88]:
+            - generic [ref=e89]: Community
+            - generic [ref=e90]:
+              - generic [ref=e91] [cursor=pointer]: About
+              - generic [ref=e92] [cursor=pointer]: How it works
+              - generic [ref=e93] [cursor=pointer]: Contributors
+              - generic [ref=e94] [cursor=pointer]: Founder’s note
+          - generic [ref=e95]:
+            - generic [ref=e96]: Legal
+            - generic [ref=e97]:
+              - generic [ref=e98] [cursor=pointer]: Privacy
+              - generic [ref=e99] [cursor=pointer]: Terms
+              - generic [ref=e100] [cursor=pointer]: Content policy
+              - generic [ref=e101] [cursor=pointer]: Contact
+        - generic [ref=e102]:
+          - generic [ref=e103]: © 2026 · Caleb's Library · A community project
+          - generic [ref=e104]: Made with care. Kept alive by contributors.
+  - generic [ref=e105]:
+    - generic "Toggle devtools panel" [ref=e106] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=e112] [cursor=pointer]

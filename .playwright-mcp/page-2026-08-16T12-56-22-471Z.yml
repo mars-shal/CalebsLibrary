@@ -1,0 +1,54 @@
+- generic [ref=f14e1]:
+  - generic [ref=f14e2]:
+    - banner [ref=f14e3]:
+      - generic [ref=f14e5]:
+        - strong [ref=f14e6]: Free. Open. No account needed.
+        - generic [ref=f14e7]: Anyone can read. Anyone can contribute.
+        - generic [ref=f14e8] [cursor=pointer]: How it works →
+      - button "Dismiss banner" [ref=f14e9] [cursor=pointer]
+    - banner [ref=f14e12]:
+      - generic [ref=f14e13]:
+        - button "Caleb's Library — home" [ref=f14e14] [cursor=pointer]:
+          - generic [ref=f14e15]: Caleb's
+          - generic [ref=f14e16]: Library
+        - searchbox "Search the library" [ref=f14e21]
+        - navigation [ref=f14e22]:
+          - button "Browse" [ref=f14e23] [cursor=pointer]
+          - button "About" [ref=f14e24] [cursor=pointer]
+          - button "Contribute" [ref=f14e25] [cursor=pointer]
+    - main
+    - contentinfo [ref=f14e28]:
+      - generic [ref=f14e29]:
+        - generic [ref=f14e30]:
+          - generic [ref=f14e31]:
+            - generic [ref=f14e32]:
+              - generic [ref=f14e33]: Caleb's
+              - generic [ref=f14e34]: Library
+            - paragraph [ref=f14e35]: An open, community-run library of student notes, study guides, and papers. Free to read. Free to contribute. No account needed.
+          - generic [ref=f14e36]:
+            - generic [ref=f14e37]: Library
+            - generic [ref=f14e38]:
+              - generic [ref=f14e39] [cursor=pointer]: Browse everything
+              - generic [ref=f14e40] [cursor=pointer]: Search
+              - generic [ref=f14e41] [cursor=pointer]: Contribute a paper
+              - generic [ref=f14e42] [cursor=pointer]: Moderation queue
+          - generic [ref=f14e43]:
+            - generic [ref=f14e44]: Community
+            - generic [ref=f14e45]:
+              - generic [ref=f14e46] [cursor=pointer]: About
+              - generic [ref=f14e47] [cursor=pointer]: How it works
+              - generic [ref=f14e48] [cursor=pointer]: Contributors
+              - generic [ref=f14e49] [cursor=pointer]: Founder’s note
+          - generic [ref=f14e50]:
+            - generic [ref=f14e51]: Legal
+            - generic [ref=f14e52]:
+              - generic [ref=f14e53] [cursor=pointer]: Privacy
+              - generic [ref=f14e54] [cursor=pointer]: Terms
+              - generic [ref=f14e55] [cursor=pointer]: Content policy
+              - generic [ref=f14e56] [cursor=pointer]: Contact
+        - generic [ref=f14e57]:
+          - generic [ref=f14e58]: © 2026 · Caleb's Library · A community project
+          - generic [ref=f14e59]: Made with care. Kept alive by contributors.
+  - generic [ref=f14e60]:
+    - generic "Toggle devtools panel" [ref=f14e61] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f14e67] [cursor=pointer]

@@ -9,6 +9,12 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
+
+# Environment (never commit secrets)
+.env
+.env.*
+!.env.example
+client_secret*.json
 dist
 dist-ssr
 coverage
