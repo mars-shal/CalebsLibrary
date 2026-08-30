@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 import Icon from './Icon.vue'
+import logoUrl from '@/assets/icon.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -55,6 +56,7 @@ function handleBlur(): void {
   <header class="strip">
     <div class="inner">
       <button class="logo" @click="goHome" aria-label="Caleb's Library — home">
+
         <span class="logo-serif">Caleb's</span>
         <span class="logo-caps">Library</span>
       </button>
@@ -138,6 +140,14 @@ function handleBlur(): void {
   cursor: pointer;
   padding: 0;
   background: none;
+  flex-shrink: 0;
+}
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  align-self: center;
   flex-shrink: 0;
 }
 .logo-serif {

@@ -10,6 +10,7 @@ import PaperCard from '@/components/PaperCard.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
 import Avatar from '@/components/Avatar.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const drive = useDriveStore()
 const route = useRoute()
@@ -20,6 +21,8 @@ const user = computed(() => getContributor(String(route.params.id)))
 const papers = computed<Paper[]>(() =>
   drive.papers.filter((p) => p.contributor === user.value.id),
 )
+
+const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
 const tab = ref<'papers' | 'shelves' | 'about'>('papers')
 const tabs = computed(() => [
@@ -83,7 +86,10 @@ function openPaper(p: Paper) {
       <!-- Papers -->
       <div v-if="tab === 'papers'">
         <SectionHeader eyebrow="On the shelf" title="Contributed papers" />
-        <div class="grid-4">
+        <div v-if="isLoading" class="grid-4">
+          <SkeletonCard v-for="i in 4" :key="i" size="md" />
+        </div>
+        <div v-else class="grid-4">
           <PaperCard
             v-for="p in papers"
             :key="p.id"
@@ -247,6 +253,10 @@ function openPaper(p: Paper) {
   color: var(--ink-100);
   font-weight: 500;
   letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .about-col {

@@ -72,6 +72,8 @@ const page = ref(1)
 const pageCount = computed(() => Math.max(1, Math.ceil(results.value.length / PAGE)))
 const pageResults = computed(() => results.value.slice((page.value - 1) * PAGE, page.value * PAGE))
 
+const isLoading = computed(() => drive.loading && drive.papers.length === 0)
+
 watch([selSubjects, selTypes, sort, query], () => {
   page.value = 1
 })
@@ -262,7 +264,19 @@ function handleBlur(): void {
           </button>
         </div>
 
-        <div v-if="pageResults.length">
+        <div v-if="isLoading" class="results-skeleton">
+          <div v-for="i in 5" :key="i" class="sk-row">
+            <div class="sk sk-cover" />
+            <div class="sk-main">
+              <div class="sk sk-tag" />
+              <div class="sk sk-line" style="width: 60%; height: 18px" />
+              <div class="sk sk-line" style="width: 40%" />
+            </div>
+            <div class="sk sk-side" />
+          </div>
+        </div>
+
+        <div v-else-if="pageResults.length">
           <div v-for="p in pageResults" :key="p.id" class="result-row" @click="openPaper(p)">
             <BookCover :paper="p" size="xs" />
             <div class="result-main">
@@ -606,6 +620,10 @@ function handleBlur(): void {
   margin-bottom: 8px;
 }
 .result-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -617,6 +635,74 @@ function handleBlur(): void {
   font-size: 14px;
   color: var(--ink-40);
   margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Result skeleton while the library loads */
+.results-skeleton {
+  display: flex;
+  flex-direction: column;
+}
+.sk-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 20px;
+  padding: 24px 16px;
+  border-bottom: 1px solid var(--rule);
+  align-items: start;
+}
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.sk-cover {
+  width: 80px;
+  height: 108px;
+  border-radius: 2px 6px 6px 2px;
+  aspect-ratio: 2 / 3;
+}
+.sk-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sk-tag {
+  width: 100px;
+  height: 16px;
+  border-radius: 3px;
+}
+.sk-line {
+  height: 12px;
+  border-radius: 4px;
+}
+.sk-side {
+  width: 90px;
+  height: 12px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 .result-meta {
   display: flex;

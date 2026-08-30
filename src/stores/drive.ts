@@ -86,6 +86,14 @@ function parseCourseName(name: string): { code: string; number: string; parenthe
   return { code: '', number: '', parenthetical: '' }
 }
 
+interface MetricRow {
+  paper_id: string | number
+  reads: number | null
+  downloads: number | null
+  upvotes: number | null
+  downvotes: number | null
+}
+
 interface DriveFile {
   id: string
   name: string
@@ -95,6 +103,88 @@ interface DriveFile {
   webViewLink?: string
   parents?: string[]
   owners?: { displayName?: string; emailAddress?: string }[]
+}
+
+function computeCourses(allPapers: Paper[]): Course[] {
+  const courseMap = new Map<string, { name: string; code: string; level: string; display: string }>()
+  for (const p of allPapers) {
+    if (!p.course || courseMap.has(p.course)) continue
+    const info = parseCourseName(p.courseName)
+    const levelKey = (info.number || '').charAt(0)
+    const levelDesc = LEVEL_DESC[levelKey] || ''
+    const display = info.parenthetical
+      ? `${info.code} ${info.number} — ${info.parenthetical}`
+      : levelDesc
+        ? `${info.code} ${info.number} — ${levelDesc}`
+        : p.courseName
+    courseMap.set(p.course, {
+      name: p.courseName,
+      code: info.code,
+      level: info.number || '',
+      display: info.code ? display : p.courseName,
+    })
+  }
+
+  const counts = new Map<string, number>()
+  for (const p of allPapers) counts.set(p.course, (counts.get(p.course) || 0) + 1)
+
+  const courseList: Course[] = []
+  for (const [id, c] of courseMap) {
+    const subjId = c.code ? slugify(CODE_SUBJECTS[c.code] || c.code) : 'general'
+    courseList.push({
+      id,
+      name: c.name,
+      code: c.code,
+      level: c.level,
+      subjectId: subjId,
+      displayName: c.display,
+      paperCount: counts.get(id) || 0,
+    })
+  }
+  return courseList
+}
+
+function computeSubjects(courseList: Course[]): Subject[] {
+  const subjMap = new Map<string, { name: string; courses: Course[] }>()
+  for (const c of courseList) {
+    const existing = subjMap.get(c.subjectId)
+    if (existing) {
+      existing.courses.push(c)
+    } else {
+      subjMap.set(c.subjectId, { name: c.code ? CODE_SUBJECTS[c.code] || c.code : 'General Studies', courses: [c] })
+    }
+  }
+  return [...subjMap.entries()]
+    .map(([id, s]) => ({
+      id,
+      name: s.name,
+      code: s.courses[0]?.code ?? '',
+      count: s.courses.reduce((n, c) => n + c.paperCount, 0),
+      courses: s.courses,
+    }))
+    .filter((s) => s.count > 0)
+    .sort((a, b) => b.count - a.count)
+}
+
+function applyMetrics(pool: Paper[], rows: MetricRow[]): void {
+  const map = new Map<string, { reads: number; downloads: number; upvotes: number; downvotes: number }>()
+  for (const row of rows) {
+    map.set(String(row.paper_id), {
+      reads: Number(row.reads) || 0,
+      downloads: Number(row.downloads) || 0,
+      upvotes: Number(row.upvotes) || 0,
+      downvotes: Number(row.downvotes) || 0,
+    })
+  }
+  for (const p of pool) {
+    const m = map.get(p.id)
+    if (m) {
+      p.views = m.reads
+      p.downloads = m.downloads
+      p.upvotes = m.upvotes
+      p.downvotes = m.downvotes
+    }
+  }
 }
 
 interface OwnerCount {
@@ -107,8 +197,10 @@ interface OwnerCount {
 async function driveList(parentId: string): Promise<DriveFile[]> {
   const url = `${API}/files?key=${API_KEY}&q=${encodeURIComponent(`'${parentId}' in parents`)}&fields=${FIELDS}&pageSize=1000`
   const res = await fetch(url)
+
   if (!res.ok) throw new Error(`Drive API ${res.status}`)
   const data = await res.json()
+  console.log(data)
   return (data.files || []) as DriveFile[]
 }
 
@@ -203,132 +295,116 @@ export const useDriveStore = defineStore('drive', () => {
     if (loaded.value || loading.value) return
     loading.value = true
     error.value = null
+
     try {
-      const walk = async (
-        folderId: string,
-        path: { level: string; semester: string; deptSection: string; dept: string; course: string },
-        types: string[],
-      ): Promise<{ papers: Paper[]; courses: Course[] }> => {
-        const files = await driveList(folderId)
-        const subFolders = files.filter((f) => f.mimeType === 'application/vnd.google-apps.folder')
-        const fileItems = files.filter((f) => f.mimeType !== 'application/vnd.google-apps.folder' && MATERIAL_MIME.test(f.mimeType))
+    // Fire these NOW, in parallel with the Drive walk — no reason to serialize
+    // two independent network calls behind a long tree traversal.
+    const approvedP: Promise<Submission[]> = fetchApproved().catch((e) => {
+      console.error('Supabase merge failed:', e)
+      return []
+    })
+    const metricsP: Promise<MetricRow[]> = (async () => {
+      const { data } = await supabase
+        .from('metrics')
+        .select('paper_id, reads, downloads, upvotes, downvotes')
+      return (data || []) as unknown as MetricRow[]
+    })().catch((e) => {
+      console.error('Metrics overlay failed:', e)
+      return [] as MetricRow[]
+    })
 
-        const here: Paper[] = fileItems.map((f) => buildPaper(f, path, types))
-        const childResults = await pMap(subFolders, 6, async (sub) => {
-          if (sub.name === 'Notes' || sub.name === 'Past Questions') {
-            return walk(sub.id, path, [...types, sub.name])
-          }
-          // Deeper course-level folders (e.g. department folder)
-          const next = { ...path }
-          if (path.deptSection === 'Departmental Courses' && !path.dept) {
-            next.dept = sub.name
-            next.course = ''
-          } else if (!path.course) {
-            next.course = sub.name
-          } else {
-            next.course = sub.name // nested course materials
-          }
-          return walk(sub.id, next, types)
-        })
+    const walk = async (
+      folderId: string,
+      path: { level: string; semester: string; deptSection: string; dept: string; course: string },
+      types: string[],
+    ): Promise<Paper[]> => {
+      const files = await driveList(folderId)
+      const subFolders = files.filter((f) => f.mimeType === 'application/vnd.google-apps.folder')
+      const fileItems = files.filter((f) => f.mimeType !== 'application/vnd.google-apps.folder' && MATERIAL_MIME.test(f.mimeType))
 
-        return {
-          papers: [...here, ...childResults.flatMap((r) => r.papers)],
-          courses: childResults.flatMap((r) => r.courses),
+      const here: Paper[] = fileItems.map((f) => buildPaper(f, path, types))
+      const childResults = await pMap(subFolders, 6, async (sub) => {
+        if (sub.name === 'Notes' || sub.name === 'Past Questions') {
+          return walk(sub.id, path, [...types, sub.name])
         }
-      }
-
-      const levelFolders = await driveList(ROOT_FOLDER_ID)
-      const levelRes = await pMap(levelFolders, 4, async (lvl) => {
-        const path = { level: lvl.name, semester: '', deptSection: '', dept: '', course: '' }
-        const semesters = await driveList(lvl.id)
-        const semRes = await pMap(semesters, 4, async (sem) => {
-          const semPath = { ...path, semester: sem.name }
-          const sections = await driveList(sem.id)
-          const secRes = await pMap(sections, 4, async (sec) => {
-            return walk(sec.id, { ...semPath, deptSection: sec.name }, [])
-          })
-          return { papers: secRes.flatMap((r) => r.papers), courses: secRes.flatMap((r) => r.courses) }
-        })
-        return { papers: semRes.flatMap((r) => r.papers), courses: semRes.flatMap((r) => r.courses) }
+        // Deeper course-level folders (e.g. department folder)
+        const next = { ...path }
+        if (path.deptSection === 'Departmental Courses' && !path.dept) {
+          next.dept = sub.name
+          next.course = ''
+        } else if (!path.course) {
+          next.course = sub.name
+        } else {
+          next.course = sub.name // nested course materials
+        }
+        return walk(sub.id, next, types)
       })
 
-      const allPapers = levelRes.flatMap((r) => r.papers)
-      const allCourses = levelRes.flatMap((r) => r.courses)
-
-      // Build courses (dedupe by folder id via paper.course)
-      const courseMap = new Map<string, { name: string; code: string; level: string; display: string }>()
-      for (const p of allPapers) {
-        if (!p.course || courseMap.has(p.course)) continue
-        const info = parseCourseName(p.courseName)
-        const levelKey = (info.number || '').charAt(0)
-        const levelDesc = LEVEL_DESC[levelKey] || ''
-        const display = info.parenthetical
-          ? `${info.code} ${info.number} — ${info.parenthetical}`
-          : levelDesc
-            ? `${info.code} ${info.number} — ${levelDesc}`
-            : p.courseName
-        courseMap.set(p.course, {
-          name: p.courseName,
-          code: info.code,
-          level: info.number || '',
-          display: info.code ? display : p.courseName,
-        })
-      }
-
-      const courseList: Course[] = []
-      for (const [id, c] of courseMap) {
-        const subjId = c.code ? slugify(CODE_SUBJECTS[c.code] || c.code) : 'general'
-        courseList.push({
-          id,
-          name: c.name,
-          code: c.code,
-          level: c.level,
-          subjectId: subjId,
-          displayName: c.display,
-          paperCount: allPapers.filter((p) => p.course === id).length,
-        })
-      }
-
-      // Build subjects
-      const subjMap = new Map<string, { name: string; courses: Course[] }>()
-      for (const c of courseList) {
-        const existing = subjMap.get(c.subjectId)
-        if (existing) {
-          existing.courses.push(c)
-        } else {
-          subjMap.set(c.subjectId, { name: c.code ? CODE_SUBJECTS[c.code] || c.code : 'General Studies', courses: [c] })
-        }
-      }
-      subjects.value = [...subjMap.entries()]
-        .map(([id, s]) => ({
-          id,
-          name: s.name,
-          code: s.courses[0]?.code ?? '',
-          count: s.courses.reduce((n, c) => n + c.paperCount, 0),
-          courses: s.courses,
-        }))
-        .filter((s) => s.count > 0)
-        .sort((a, b) => b.count - a.count)
-
-      papers.value = allPapers
-      courses.value = courseList
-
-      const approved = await mergeApproved()
-      const merged = [...allPapers, ...approved]
-      await overlayMetrics(merged)
-
-      ownerList.value = [...ownersById.values()].sort((a, b) => b.count - a.count)
-      setContributors(contributors.value)
-      papers.value = merged
-      loaded.value = true
-      startAutoRefresh()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load the library'
-      console.error('Drive load failed:', e)
-    } finally {
-      loading.value = false
+      return [...here, ...childResults.flat()]
     }
+
+    // Publish each level's papers as soon as they resolve, so the UI fills in
+    // waves instead of all-at-once after the whole tree has walked.
+    const publishLevel = async (lvl: DriveFile): Promise<Paper[]> => {
+      const path = { level: lvl.name, semester: '', deptSection: '', dept: '', course: '' }
+      const semesters = await driveList(lvl.id)
+      const semRes = await pMap(semesters, 4, async (sem) => {
+        const semPath = { ...path, semester: sem.name }
+        const sections = await driveList(sem.id)
+        const secRes = await pMap(sections, 4, async (sec) => {
+          return walk(sec.id, { ...semPath, deptSection: sec.name }, [])
+        })
+        return secRes.flat()
+      })
+      const levelPapers = semRes.flat()
+
+      const next = [...papers.value, ...levelPapers]
+      papers.value = next
+      courses.value = computeCourses(next)
+      subjects.value = computeSubjects(courses.value)
+      return levelPapers
+    }
+
+    const levelFolders = await driveList(ROOT_FOLDER_ID)
+    await Promise.all(levelFolders.map(publishLevel))
+
+    const approved = await approvedP
+    const metricRows = await metricsP
+    const approvedPapers = approved.map(paperFromSubmission)
+    const merged = [...papers.value, ...approvedPapers]
+    applyMetrics(merged, metricRows)
+
+    for (const p of approvedPapers) {
+      if (!ownersById.has(p.contributor)) {
+        ownersById.set(p.contributor, {
+          id: p.contributor,
+          name: p.contributorName,
+          email: p.contributor,
+          count: 1,
+        })
+      }
+    }
+    ownersById.set(FOUNDER_EMAIL, {
+      id: FOUNDER_EMAIL,
+      name: contributors.value.find((c) => c.founder)?.name || 'Caleb',
+      email: FOUNDER_EMAIL,
+      count: papers.value.filter((p) => p.contributor === FOUNDER_EMAIL).length || 1,
+    })
+
+    ownerList.value = [...ownersById.values()].sort((a, b) => b.count - a.count)
+    setContributors(contributors.value)
+    papers.value = merged
+    courses.value = computeCourses(merged)
+    subjects.value = computeSubjects(courses.value)
+    loaded.value = true
+    startAutoRefresh()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to load the library'
+    console.error('Drive load failed:', e)
+  } finally {
+    loading.value = false
   }
+}
 
   const ownersById = new Map<string, OwnerCount>()
 
@@ -378,6 +454,7 @@ export const useDriveStore = defineStore('drive', () => {
       year: f.createdTime ? new Date(f.createdTime).getFullYear() : new Date().getFullYear(),
       pages: estimatePages(sizeBytes, hash),
       upvotes: 40 + (hash % 900),
+      downvotes: hash % 40,
       downloads: 200 + ((hash >> 4) % 3000),
       views: 600 + ((hash >> 8) % 12000),
       contributor: contributorId,
@@ -422,6 +499,7 @@ export const useDriveStore = defineStore('drive', () => {
       year: new Date(s.created_at).getFullYear(),
       pages: estimatePages(sizeBytes, hash),
       upvotes: 0,
+      downvotes: 0,
       downloads: 0,
       views: 0,
       contributor: s.contributor_email,
@@ -442,63 +520,31 @@ export const useDriveStore = defineStore('drive', () => {
     }
   }
 
-  async function mergeApproved(): Promise<Paper[]> {
-    try {
-      const approved = await fetchApproved()
-      const subPapers = approved.map(paperFromSubmission)
-      const counts = new Map<string, number>()
-      for (const p of subPapers) {
-        counts.set(p.contributor, (counts.get(p.contributor) || 0) + 1)
-      }
-      for (const [email, count] of counts) {
-        if (ownersById.has(email)) continue
-        ownersById.set(email, {
-          id: email,
-          name: subPapers.find((p) => p.contributor === email)?.contributorName || email.split('@')[0] || 'Anonymous',
-          email,
-          count,
-        })
-      }
-      return subPapers
-    } catch (e) {
-      console.error('Supabase merge failed:', e)
-      return []
-    }
-  }
-
   async function overlayMetrics(pool: Paper[]): Promise<void> {
     try {
-      const { data } = await supabase.from('metrics').select('paper_id, reads, downloads, upvotes')
-      const map = new Map<string, { reads: number; downloads: number; upvotes: number }>()
-      for (const row of data || []) {
-        map.set(row.paper_id as string, {
-          reads: Number(row.reads) || 0,
-          downloads: Number(row.downloads) || 0,
-          upvotes: Number(row.upvotes) || 0,
-        })
-      }
-      for (const p of pool) {
-        const m = map.get(p.id)
-        if (m) {
-          p.views = m.reads
-          p.downloads = m.downloads
-          p.upvotes = m.upvotes
-        }
-      }
+      const { data } = await supabase
+        .from('metrics')
+        .select('paper_id, reads, downloads, upvotes, downvotes')
+      applyMetrics(pool, (data || []) as unknown as MetricRow[])
     } catch (e) {
       console.error('Metrics overlay failed:', e)
     }
   }
 
-  async function recordMetric(id: string, kind: 'reads' | 'downloads' | 'upvotes'): Promise<void> {
+  async function recordMetric(
+    id: string,
+    kind: 'reads' | 'downloads' | 'upvotes' | 'downvotes',
+    delta: number = 1,
+  ): Promise<void> {
     const p = papers.value.find((x) => x.id === id)
     if (!p) return
-    const bases = { reads: p.views, downloads: p.downloads, upvotes: p.upvotes }
-    if (kind === 'reads') p.views += 1
-    else if (kind === 'downloads') p.downloads += 1
-    else p.upvotes += 1
+    const bases = { reads: p.views, downloads: p.downloads, upvotes: p.upvotes, downvotes: p.downvotes }
+    if (kind === 'reads') p.views += delta
+    else if (kind === 'downloads') p.downloads += delta
+    else if (kind === 'upvotes') p.upvotes += delta
+    else p.downvotes += delta
     try {
-      await bumpMetric(id, kind, bases)
+      await bumpMetric(id, kind, bases, delta)
     } catch (e) {
       console.error('Metric bump failed:', e)
     }

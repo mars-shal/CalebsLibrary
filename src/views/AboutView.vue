@@ -131,7 +131,7 @@ const moderators = computed(() => {
 .hero-title {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: clamp(48px, 9vw, 72px);
+  font-size: clamp(36px, 8vw, 72px);
   line-height: 1;
   margin: 0;
   letter-spacing: -0.03em;

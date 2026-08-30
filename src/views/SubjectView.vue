@@ -9,6 +9,7 @@ import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Avatar from '@/components/Avatar.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const drive = useDriveStore()
 const route = useRoute()
@@ -19,6 +20,8 @@ const subject = computed(() => drive.getSubject(String(route.params.id)))
 const papers = computed<Paper[]>(() =>
   subject.value ? drive.papersBySubject(subject.value.id) : [],
 )
+
+const isLoading = computed(() => drive.loading && !subject.value)
 
 const essentials = computed<Paper[]>(() => papers.value.slice(0, 4))
 
@@ -41,7 +44,15 @@ function openPaper(p: Paper) {
 <template>
   <div class="screen-wrap">
     <!-- Hero -->
-    <section v-if="subject" class="hero">
+    <section v-if="isLoading" class="hero">
+      <div class="wrap hero-inner">
+        <div class="sk sk-line" style="width: 120px; height: 12px" />
+        <div class="sk sk-line" style="width: 45%; height: 40px; margin-top: 24px" />
+      </div>
+    </section>
+
+    <!-- Hero -->
+    <section v-else-if="subject" class="hero">
       <div class="wrap hero-inner">
         <div class="breadcrumb">
           <button class="crumb" @click="router.push({ name: 'browse' })">Library</button>
@@ -62,7 +73,14 @@ function openPaper(p: Paper) {
       </div>
     </section>
 
-    <div class="wrap body" v-if="subject">
+    <div class="wrap body" v-if="isLoading">
+      <div class="sk sk-line" style="width: 220px; height: 24px" />
+      <div class="grid-4">
+        <SkeletonCard v-for="i in 4" :key="i" size="md" />
+      </div>
+    </div>
+
+    <div class="wrap body" v-else-if="subject">
       <!-- Essentials -->
       <SectionHeader eyebrow="This term" title="This term's essentials" />
       <div class="grid-4">
@@ -229,6 +247,9 @@ function openPaper(p: Paper) {
   font-weight: 500;
   color: var(--ink-100);
   letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .course-count {
   font-size: 11px;
@@ -268,6 +289,10 @@ function openPaper(p: Paper) {
   font-weight: 500;
   color: var(--ink-100);
   margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .missing {
   padding: 96px 32px;
@@ -281,6 +306,34 @@ function openPaper(p: Paper) {
   font-size: 20px;
   font-weight: 500;
   color: var(--ink-100);
+}
+
+/* Shimmer placeholders while loading */
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+  border-radius: 4px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 @media (max-width: 960px) {

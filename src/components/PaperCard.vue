@@ -37,6 +37,10 @@ defineEmits<{ (e: 'click'): void }>()
   transform: translateY(-2px);
 }
 .card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: 14.5px;
   line-height: 1.3;
   font-weight: 500;

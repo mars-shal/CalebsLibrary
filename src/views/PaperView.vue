@@ -1,11 +1,15 @@
 <script setup lang="ts">
-// Paper detail — preview, citation, discussion. Ported from PaperDetail.jsx.
+// Paper detail — preview, citation, live discussion. Ported from PaperDetail.jsx.
 // Uses REAL Drive data: iframe preview via paper.previewUrl, real download URL.
-import { computed, onMounted, ref } from 'vue'
+// Discussion = real comments over Supabase Realtime (WebSocket) + real vote
+// counts persisted in the metrics table (upvotes AND downvotes).
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor, formatCount, timeAgo } from '@/script/design'
 import type { Paper } from '@/script/design'
+import { fetchComments, postComment, subscribeComments } from '@/script/supabase'
+import type { DiscussionComment } from '@/script/supabase'
 import Icon from '@/components/Icon.vue'
 import BookCover from '@/components/BookCover.vue'
 import Avatar from '@/components/Avatar.vue'
@@ -18,9 +22,16 @@ const router = useRouter()
 const paper = computed<Paper | undefined>(() => drive.getPaper(String(route.params.id)))
 const contributor = computed(() => (paper.value ? getContributor(paper.value.contributor) : undefined))
 const subject = computed(() => (paper.value ? drive.getSubject(paper.value.subject) : undefined))
+const isLoading = computed(() => drive.loading && !paper.value)
 
 onMounted(() => {
   if (paper.value) drive.recordMetric(paper.value.id, 'reads')
+  loadComments()
+  unsubComments = subscribeComments(paperId(), onLiveComment)
+})
+
+onBeforeUnmount(() => {
+  if (unsubComments) unsubComments()
 })
 
 const related = computed<Paper[]>(() =>
@@ -35,11 +46,40 @@ const tabs = computed(() => [
   { id: 'citation' as const, label: 'Citation' },
   { id: 'comments' as const, label: `Discussion (${comments.value.length})` },
 ])
-const voted = ref<0 | 1 | -1>(0)
 const saved = ref(false)
 const copied = ref<string | null>(null)
 const commentBody = ref('')
 const commentName = ref('')
+const posting = ref(false)
+const comments = ref<DiscussionComment[]>([])
+const commentsLoading = ref(false)
+let unsubComments: (() => void) | null = null
+
+const VOTE_KEY = 'calebsLibraryVotes'
+function readVotes(): Record<string, 1 | 0 | -1> {
+  try {
+    const raw = localStorage.getItem(VOTE_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, 1 | 0 | -1>) : {}
+  } catch {
+    return {}
+  }
+}
+function writeVotes(votes: Record<string, 1 | 0 | -1>): void {
+  localStorage.setItem(VOTE_KEY, JSON.stringify(votes))
+}
+const voteRef = ref<1 | 0 | -1>(0)
+function paperId(): string {
+  return String(route.params.id)
+}
+if (typeof window !== 'undefined') {
+  voteRef.value = readVotes()[paperId()] ?? 0
+}
+
+function persistVote(direction: 1 | 0 | -1): void {
+  const votes = readVotes()
+  votes[paperId()] = direction
+  writeVotes(votes)
+}
 
 // saved state — mirror of localStorage calebsLibraryBookmarks
 function readSaved(): string[] {
@@ -63,7 +103,8 @@ if (typeof window !== 'undefined' && paper.value) {
   saved.value = readSaved().includes(paper.value.id)
 }
 
-const showVotes = computed(() => paper.value?.upvotes ?? 0)
+const upCount = computed(() => paper.value?.upvotes ?? 0)
+const downCount = computed(() => paper.value?.downvotes ?? 0)
 
 const citations = computed<Record<string, string>>((): Record<string, string> => {
   const p = paper.value
@@ -95,13 +136,6 @@ function download() {
   drive.recordMetric(paper.value.id, 'downloads')
 }
 
-function toggleVote(dir: 1 | -1) {
-  if (!paper.value) return
-  const next = voted.value === dir ? 0 : dir
-  voted.value = next
-  if (next === 1) drive.recordMetric(paper.value.id, 'upvotes')
-}
-
 async function share() {
   try {
     await navigator.clipboard.writeText(window.location.href)
@@ -125,16 +159,52 @@ const details = computed<[string, string][]>(() => {
   ]
 })
 
-const comments = computed(() => {
-  const c = drive.contributors[0]!
-  const c2 = drive.contributors[1] ?? c
-  const c3 = drive.contributors[2] ?? c
-  return [
-    { user: c, time: '2 days ago', body: 'This absolutely saved me for the midterm. The diagram on page 12 is worth the download alone.' },
-    { user: c2, time: '1 week ago', body: 'Small correction — the enzyme name on page 8 should be RuBisCO (with a lowercase b). Otherwise, phenomenal work.', replies: 2 },
-    { user: c3, time: '3 weeks ago', body: 'Requested access for our class group. Prof. Halloway referenced these notes explicitly last lecture.' },
-  ]
-})
+function toggleVote(dir: 1 | -1) {
+  if (!paper.value) return
+  const prev = voteRef.value
+  const next: 1 | 0 | -1 = prev === dir ? 0 : dir
+  voteRef.value = next
+  persistVote(next)
+  if (prev === next) return
+  if (prev === 1) drive.recordMetric(paper.value.id, 'upvotes', -1)
+  if (prev === -1) drive.recordMetric(paper.value.id, 'downvotes', -1)
+  if (next === 1) drive.recordMetric(paper.value.id, 'upvotes', 1)
+  if (next === -1) drive.recordMetric(paper.value.id, 'downvotes', 1)
+}
+
+async function loadComments(): Promise<void> {
+  const pid = paperId()
+  if (!pid) return
+  commentsLoading.value = true
+  try {
+    comments.value = await fetchComments(pid)
+  } catch {
+    comments.value = []
+  } finally {
+    commentsLoading.value = false
+  }
+}
+
+function onLiveComment(c: DiscussionComment): void {
+  if (c.paper_id !== paperId()) return
+  const exists = comments.value.some((x) => x.id === c.id)
+  if (!exists) comments.value = [...comments.value, c]
+}
+
+async function postDiscussion(): Promise<void> {
+  const body = commentBody.value.trim()
+  if (!body || posting.value || !paper.value) return
+  posting.value = true
+  try {
+    await postComment(paper.value.id, commentName.value.trim() || 'Anonymous', body)
+    commentBody.value = ''
+    commentName.value = ''
+  } catch {
+    // realtime insert failed — keep the text so the user can retry
+  } finally {
+    posting.value = false
+  }
+}
 </script>
 
 <template>
@@ -205,12 +275,12 @@ const comments = computed(() => {
           </button>
         </div>
         <div class="vote-group">
-          <button class="vote-up" :class="{ active: voted === 1 }" @click="toggleVote(1)">
-            <Icon name="arrow-up" :size="14" /> {{ showVotes }}
+          <button class="vote-up" :class="{ active: voteRef === 1 }" @click="toggleVote(1)">
+            <Icon name="arrow-up" :size="14" /> {{ upCount }}
           </button>
           <div class="vote-divider" />
-          <button class="vote-down" :class="{ active: voted === -1 }" @click="toggleVote(-1)">
-            <Icon name="arrow-down" :size="14" />
+          <button class="vote-down" :class="{ active: voteRef === -1 }" @click="toggleVote(-1)">
+            <Icon name="arrow-down" :size="14" /> {{ downCount }}
           </button>
         </div>
         <button class="btn-ghost report">
@@ -265,7 +335,7 @@ const comments = computed(() => {
         <!-- Comments -->
         <div v-else class="comments-tab">
           <div class="composer">
-            <Avatar :user="contributor" :size="32" />
+            <Avatar :name="commentName || 'You'" :size="32" />
             <div class="composer-main">
               <textarea
                 v-model="commentBody"
@@ -274,25 +344,43 @@ const comments = computed(() => {
               />
               <div class="composer-foot">
                 <input v-model="commentName" class="composer-name" placeholder="Your name (optional)" />
-                <button class="btn btn-primary composer-post" @click="commentBody = ''">Post</button>
+                <button
+                  class="btn btn-primary composer-post"
+                  :disabled="posting || !commentBody.trim()"
+                  @click="postDiscussion"
+                >
+                  {{ posting ? 'Posting…' : 'Post' }}
+                </button>
               </div>
             </div>
           </div>
 
-          <div v-for="c in comments" :key="c.user.id + c.time" class="comment">
-            <Avatar :user="c.user" :size="32" />
-            <div class="comment-main">
-              <div class="comment-head">
-                <span class="comment-name">{{ c.user.name }}</span>
-                <span class="mono-meta">{{ c.time }}</span>
-              </div>
-              <div class="comment-body">{{ c.body }}</div>
-              <div class="comment-actions">
-                <button class="ca-btn"><Icon name="arrow-up" :size="11" /> 12</button>
-                <button class="ca-btn">Reply</button>
-                <span v-if="c.replies" class="ca-count">{{ c.replies }} replies</span>
+          <div v-if="commentsLoading" class="comments-skeleton">
+            <div v-for="i in 3" :key="i" class="comment sk-comment">
+              <div class="sk sk-avatar" />
+              <div class="comment-main">
+                <div class="sk sk-line" style="width: 35%" />
+                <div class="sk sk-line" style="width: 85%; margin-top: 8px" />
+                <div class="sk sk-line" style="width: 60%; margin-top: 6px" />
               </div>
             </div>
+          </div>
+
+          <div v-else-if="comments.length">
+            <div v-for="c in comments" :key="c.id" class="comment">
+              <Avatar :name="c.author_name" :size="32" />
+              <div class="comment-main">
+                <div class="comment-head">
+                  <span class="comment-name">{{ c.author_name }}</span>
+                  <span class="mono-meta">{{ timeAgo(c.created_at) }}</span>
+                </div>
+                <div class="comment-body">{{ c.body }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="comments-empty">
+            No discussion yet. Be the first to add a note.
           </div>
         </div>
       </div>
@@ -326,6 +414,19 @@ const comments = computed(() => {
     </div>
   </div>
 
+  <div v-else-if="isLoading" class="screen-wrap paper-loading">
+    <div class="sk sk-line" style="width: 160px; height: 12px" />
+    <div class="loading-layout">
+      <div class="sk sk-cover-lg" />
+      <div class="loading-main">
+        <div class="sk sk-line" style="width: 70%; height: 30px" />
+        <div class="sk sk-line" style="width: 45%; height: 18px; margin-top: 14px" />
+        <div class="sk sk-line" style="width: 55%; height: 14px; margin-top: 10px" />
+      </div>
+    </div>
+    <div class="sk sk-line" style="width: 100%; height: 320px; margin-top: 40px" />
+  </div>
+
   <div v-else class="screen-wrap missing">
     <div class="no-title">Paper not found.</div>
     <button class="btn btn-secondary" @click="router.push({ name: 'browse' })">Browse the library</button>
@@ -340,7 +441,9 @@ const comments = computed(() => {
 }
 .breadcrumb {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  row-gap: 6px;
   gap: 8px;
   font-size: 12px;
   color: var(--ink-40);
@@ -679,26 +782,89 @@ const comments = computed(() => {
   color: var(--ink-70);
   font-size: 14px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
-.comment-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: 10px;
-  font-size: 12px;
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.sk-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sk-line {
+  height: 12px;
+  border-radius: 4px;
+}
+.comments-empty {
+  padding: 32px 4px;
   color: var(--ink-40);
+  font-size: 14px;
+  text-align: center;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
 }
-.ca-btn {
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+  border-radius: 4px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.sk-cover-lg {
+  width: 180px;
+  aspect-ratio: 2 / 3;
+  border-radius: 2px 6px 6px 2px;
+}
+.paper-loading {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--ink-40);
-  background: none;
-  border: none;
-  cursor: pointer;
+  flex-direction: column;
 }
-.ca-btn:hover {
-  color: var(--ink-100);
+.loading-layout {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 32px;
+  margin-top: 40px;
+}
+.loading-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 40px;
 }
 
 /* Sidebar */
@@ -757,6 +923,10 @@ const comments = computed(() => {
   line-height: 1.3;
   letter-spacing: -0.005em;
   margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .missing {

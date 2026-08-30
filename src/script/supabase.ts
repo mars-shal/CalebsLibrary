@@ -39,11 +39,20 @@ export interface Submission {
   reviewed_at: string | null
 }
 
+export interface DiscussionComment {
+  id: number
+  paper_id: string
+  author_name: string
+  body: string
+  created_at: string
+}
+
 // RPC wrappers (typed) — mirror the Postgres functions in supabase/schema.sql
 export async function bumpMetric(
   paperId: string,
-  kind: 'reads' | 'downloads' | 'upvotes',
-  bases: { reads: number; downloads: number; upvotes: number },
+  kind: 'reads' | 'downloads' | 'upvotes' | 'downvotes',
+  bases: { reads: number; downloads: number; upvotes: number; downvotes: number },
+  delta: number = 1,
 ): Promise<void> {
   await supabase.rpc('bump_metric', {
     p_paper_id: paperId,
@@ -51,7 +60,48 @@ export async function bumpMetric(
     p_base_reads: bases.reads,
     p_base_downloads: bases.downloads,
     p_base_upvotes: bases.upvotes,
+    p_base_downvotes: bases.downvotes,
+    p_delta: delta,
   })
+}
+
+// Live WebSocket delivery for comments on a paper (Supabase Realtime).
+export function subscribeComments(
+  paperId: string,
+  onInsert: (comment: DiscussionComment) => void,
+): () => void {
+  const channel = supabase
+    .channel(`comments-${paperId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'comments', filter: `paper_id=eq.${paperId}` },
+      (payload) => {
+        onInsert(payload.new as DiscussionComment)
+      },
+    )
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}
+
+export async function fetchComments(paperId: string): Promise<DiscussionComment[]> {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('paper_id', paperId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data || []) as DiscussionComment[]
+}
+
+export async function postComment(paperId: string, authorName: string, body: string): Promise<void> {
+  const { error } = await supabase.from('comments').insert({
+    paper_id: paperId,
+    author_name: authorName,
+    body,
+  })
+  if (error) throw error
 }
 
 export async function adminOk(passphrase: string): Promise<boolean> {

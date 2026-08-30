@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Home — search-first landing. Ported from design_handoff Home.jsx.
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { formatCount } from '@/script/design'
@@ -11,10 +11,21 @@ import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
 import Avatar from '@/components/Avatar.vue'
 import BookCover from '@/components/BookCover.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
+import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 
 const drive = useDriveStore()
 const router = useRouter()
-const query = ref('')
+const {
+  query,
+  suggestions,
+  showDropdown,
+  highlightedIndex,
+  selectSuggestion,
+  handleKeydown,
+  containerRef,
+  onInput,
+} = useSearchAutocomplete()
 
 const stats = computed(() => [
   { value: drive.stats.papers.toLocaleString(), label: 'Papers' },
@@ -25,38 +36,122 @@ const stats = computed(() => [
 
 const caleb = computed(() => drive.founder)
 
-function goSearch() {
-  const q = query.value.trim()
-  if (q) router.push({ name: 'search', query: { q } })
-}
-
 function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
 }
+
+function handleBlur(): void {
+  window.setTimeout(() => {
+    showDropdown.value = false
+    highlightedIndex.value = -1
+  }, 120)
+}
+const DAY_PHRASES = [
+  'What do you wanna learn today?',
+  'Good morning — what are we studying?',
+  'Locked in. I see you.',
+  'Semester survival starts here.',
+  "Coffee in hand? Let's find your book.",
+  'Lecture notes not cutting it? Let\'s dig deeper.',
+  "Deadline szn or just curious today?",
+  "What's today's rabbit hole?",
+  'Back at it. What are we reading?',
+  "Library's open, brain's (hopefully) online.",
+];
+
+const NIGHT_PHRASES = [
+  'Hey night owl…',
+  'Burning the midnight oil?',
+  "It's late — the library is still open.",
+  'Night shift. I see you.',
+  'Essay due tomorrow? I got you.',
+  '3am thoughts, 3am research.',
+  'The library never sleeps. Neither do you, apparently.',
+  "Cramming or just can't sleep?",
+  "Quiet hours, loud thoughts. What's up?",
+  "Everyone else is asleep. We're not.",
+  'Last-minute reading list? Let\'s go.',
+  'Dark mode on. Brain still on too.',
+];
+
+const cycledText = ref('')
+
+function phraseFor(date: Date): string {
+  const h = date.getHours()
+  const isNight = h >= 18 || h < 6
+  const list = isNight ? NIGHT_PHRASES : DAY_PHRASES
+  const dayNum = Math.floor(date.getTime() / 86400000)
+  return list[dayNum % list.length]!
+}
+
+function nextBoundary(now: Date): Date {
+  const at6 = new Date(now)
+  at6.setHours(6, 0, 0, 0)
+  if (at6 <= now) at6.setDate(at6.getDate() + 1)
+  const at18 = new Date(now)
+  at18.setHours(18, 0, 0, 0)
+  if (at18 <= now) at18.setDate(at18.getDate() + 1)
+  return at6 < at18 ? at6 : at18
+}
+
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleRefresh(): void {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  const wait = nextBoundary(new Date()).getTime() - Date.now()
+  refreshTimer = setTimeout(() => {
+    cycledText.value = phraseFor(new Date())
+    scheduleRefresh()
+  }, wait)
+}
+onMounted(() => {
+  cycledText.value = phraseFor(new Date())
+  scheduleRefresh()
+})
+onBeforeUnmount(() => {
+  if (refreshTimer) clearTimeout(refreshTimer)
+})
+const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 </script>
 
 <template>
   <div class="screen-wrap">
     <!-- Masthead -->
     <section class="masthead">
-      <div class="smallcaps" style="margin-bottom: 24px">Est. 2019 · A community library</div>
-      <h1 class="masthead-title">
-        <span class="serif-italic">Caleb's</span> <span class="serif-plain">Library.</span>
-      </h1>
-      <p class="tagline">
-        A student-run library of notes, papers, and study guides. Open to anyone. Kept by whoever shows up.
-      </p>
 
-      <div class="big-search">
+      <h1 class="masthead-title">
+        <Transition name="cycle" mode="out-in">
+          <span :key="cycledText" class="serif-italic">{{ cycledText }}</span>
+        </Transition>
+      </h1>
+
+      <div ref="containerRef" class="big-search">
         <Icon name="search" :size="20" class="big-search-icon" />
         <input
           v-model="query"
           class="big-search-input"
           type="text"
+          autocomplete="off"
           placeholder="Search the library…"
-          @keyup.enter="goSearch"
+          @input="onInput"
+          @keydown="handleKeydown"
+          @focus="onInput"
+          @blur="handleBlur"
         />
         <span class="enter-chip">Enter ↵</span>
+        <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
+          <button
+            v-for="(s, i) in suggestions"
+            :key="s.text + s.type"
+            class="ac-item"
+            :class="{ highlighted: highlightedIndex === i }"
+            @mousedown.prevent="selectSuggestion(s.text)"
+            @mouseenter="highlightedIndex = i"
+          >
+            <Icon :name="s.icon" :size="14" class="ac-icon" />
+            <span class="ac-text">{{ s.text }}</span>
+            <span class="ac-badge">{{ s.type }}</span>
+          </button>
+        </div>
       </div>
 
       <div class="quick-row">
@@ -86,7 +181,8 @@ function openPaper(p: Paper) {
           <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
         </template>
       </SectionHeader>
-      <div v-if="drive.recentPapers.length" class="grid-6">
+      <SkeletonCard v-if="isLoading" :count="6" size="sm" />
+      <div v-else-if="drive.recentPapers.length" class="grid-6">
         <PaperCard
           v-for="p in drive.recentPapers"
           :key="p.id"
@@ -95,13 +191,23 @@ function openPaper(p: Paper) {
           @click="openPaper(p)"
         />
       </div>
-      <div v-else class="loading-box">{{ drive.error || 'Loading the library…' }}</div>
+      <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
     </section>
 
     <!-- Most loved -->
     <section class="wrap" style="padding-top: 80px">
       <SectionHeader eyebrow="All-time" title="Most loved by readers" />
-      <div class="loved-box">
+      <div v-if="isLoading" class="loved-box">
+        <div v-for="i in 8" :key="i" class="loved-row">
+          <div class="sk sk-rank" />
+          <div class="sk sk-cover-xs" />
+          <div class="loved-main">
+            <div class="sk sk-line" style="width: 70%" />
+            <div class="sk sk-line" style="width: 45%; margin-top: 8px" />
+          </div>
+        </div>
+      </div>
+      <div v-else class="loved-box">
         <div v-for="(p, i) in drive.lovedPapers" :key="p.id" class="loved-row" @click="openPaper(p)">
           <div class="loved-rank">{{ String(i + 1).padStart(2, '0') }}</div>
           <BookCover :paper="p" size="xs" />
@@ -154,17 +260,18 @@ function openPaper(p: Paper) {
 }
 .masthead-title {
   font-family: var(--font-serif);
-  font-size: clamp(56px, 11vw, 120px);
+  font-size: clamp(40px, 8vw, 80px);
   line-height: 0.9;
   letter-spacing: -0.04em;
   font-weight: 500;
   color: var(--ink-100);
   margin: 0;
 }
-.serif-italic {
-  font-style: italic;
-}
+
 .serif-plain {
+  font-style: normal;
+}
+.serif-italic {
   font-style: normal;
 }
 .tagline {
@@ -219,6 +326,73 @@ function openPaper(p: Paper) {
   padding: 3px 8px;
   border-radius: 4px;
   pointer-events: none;
+}
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-book);
+  overflow: hidden;
+  z-index: 100;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.ac-item:hover,
+.ac-item.highlighted {
+  background: var(--paper-2);
+}
+.ac-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.ac-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-badge {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-quiet);
+  background: var(--paper-3);
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cycle-enter-active,
+.cycle-leave-active {
+  transition: opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
+}
+.cycle-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.cycle-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 .quick-row {
   margin-top: 32px;
@@ -287,6 +461,44 @@ function openPaper(p: Paper) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   overflow: hidden;
+}
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+  border-radius: 4px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.sk-rank {
+  width: 34px;
+  height: 26px;
+}
+.sk-cover-xs {
+  width: 56px;
+  height: 84px;
+  border-radius: 2px 6px 6px 2px;
+}
+.sk-line {
+  height: 12px;
+}
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 .loved-row {
   display: grid;
@@ -439,6 +651,21 @@ function openPaper(p: Paper) {
   }
   .loved-rank {
     font-size: 26px;
+  }
+}
+@media (max-width: 380px) {
+  .loved-row {
+    grid-template-columns: 32px 48px 1fr;
+    gap: 10px;
+  }
+  .loved-rank {
+    font-size: 22px;
+  }
+  .loved-side {
+    grid-column: 3;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 }
 </style>

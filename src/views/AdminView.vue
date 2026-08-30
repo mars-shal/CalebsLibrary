@@ -208,25 +208,33 @@ async function decide(status: 'approved' | 'rejected') {
       <div class="queue-body">
         <!-- Rail -->
         <div class="rail">
-          <button
-            v-for="(s, i) in filteredQueue"
-            :key="s.id"
-            class="rail-row"
-            :class="{ active: selected === i }"
-            @click="selected = i"
-          >
-            <div class="rail-badges">
-              <span class="mono rail-id">#{{ String(s.id).padStart(4, '0') }}</span>
-              <span v-if="s.status === 'rejected'" class="badge badge-rej">REJECTED</span>
+          <div v-if="busy && !filteredQueue.length" class="rail-skeleton">
+            <div v-for="i in 5" :key="i" class="sk sk-row">
+              <div class="sk sk-line" style="width: 30%" />
+              <div class="sk sk-line" style="width: 80%; margin-top: 8px" />
             </div>
-            <div class="rail-title">{{ s.title }}</div>
-            <div class="rail-meta">
-              <Avatar :name="s.contributor_name" :size="16" />
-              <span class="rail-name">{{ s.contributor_name }}</span>
-              <span class="rail-time mono-meta">{{ timeAgo(s.created_at) }}</span>
-            </div>
-          </button>
-          <div v-if="!filteredQueue.length" class="rail-empty">No items in this view.</div>
+          </div>
+          <template v-else>
+            <button
+              v-for="(s, i) in filteredQueue"
+              :key="s.id"
+              class="rail-row"
+              :class="{ active: selected === i }"
+              @click="selected = i"
+            >
+              <div class="rail-badges">
+                <span class="mono rail-id">#{{ String(s.id).padStart(4, '0') }}</span>
+                <span v-if="s.status === 'rejected'" class="badge badge-rej">REJECTED</span>
+              </div>
+              <div class="rail-title">{{ s.title }}</div>
+              <div class="rail-meta">
+                <Avatar :name="s.contributor_name" :size="16" />
+                <span class="rail-name">{{ s.contributor_name }}</span>
+                <span class="rail-time mono-meta">{{ timeAgo(s.created_at) }}</span>
+              </div>
+            </button>
+            <div v-if="!filteredQueue.length" class="rail-empty">No items in this view.</div>
+          </template>
         </div>
 
         <!-- Review panel -->
@@ -521,6 +529,9 @@ async function decide(status: 'approved' | 'rejected') {
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rail-meta {
   display: flex;
@@ -540,6 +551,48 @@ async function decide(status: 'approved' | 'rejected') {
   text-align: center;
   color: var(--ink-40);
   font-size: 13px;
+}
+
+/* Queue rail skeleton while loading */
+.rail-skeleton {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-3);
+  border-radius: 4px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.sk-row {
+  display: block;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.sk-line {
+  height: 12px;
+}
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 /* Panel */
@@ -587,6 +640,10 @@ async function decide(status: 'approved' | 'rejected') {
   margin-bottom: 8px;
   font-weight: 500;
   letter-spacing: -0.025em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .panel-sub {
   color: var(--ink-70);

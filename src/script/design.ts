@@ -42,6 +42,7 @@ export interface Paper {
   year: number
   pages: number
   upvotes: number
+  downvotes: number
   downloads: number
   views: number
   contributor: string // contributor id

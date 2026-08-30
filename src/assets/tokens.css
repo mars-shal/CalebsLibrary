@@ -187,6 +187,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'ss01', 'cv11';
   letter-spacing: -0.005em;
+  /* clip (not hidden) so no sticky descendant breaks and stray wide content
+     can never create a page-wide horizontal scrollbar on any screen size. */
+  overflow-x: clip;
+}
+
+img,
+iframe,
+video {
+  max-width: 100%;
 }
 
 /* Utility classes */
@@ -414,6 +423,28 @@ a {
   font-size: 11px;
   color: var(--ink-40);
   letter-spacing: 0.02em;
+}
+
+/* Text overflow guards */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.min-w-0 {
+  min-width: 0;
 }
 
 /* Screen entrance transition */

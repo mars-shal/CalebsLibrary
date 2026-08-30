@@ -7,6 +7,7 @@ import { PAPER_TYPES } from '@/script/design'
 import type { Paper, Subject } from '@/script/design'
 import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const drive = useDriveStore()
 const router = useRouter()
@@ -40,6 +41,8 @@ const bySubject = computed(() => {
 const totalCount = computed(() => Object.values(bySubject.value).reduce((n, arr) => n + arr.length, 0))
 
 const anyResults = computed(() => totalCount.value > 0)
+
+const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
 function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
@@ -112,8 +115,13 @@ function openPaper(p: Paper) {
       </div>
     </div>
 
+    <!-- Loading state -->
+    <div v-if="isLoading" class="grid-view">
+      <SkeletonCard v-for="i in 12" :key="i" size="sm" />
+    </div>
+
     <!-- Empty state -->
-    <div v-if="!anyResults" class="empty-state">
+    <div v-else-if="!anyResults" class="empty-state">
       <div class="empty-title">These shelves are empty</div>
       <div class="empty-sub">Try loosening your filters.</div>
     </div>
@@ -307,7 +315,9 @@ function openPaper(p: Paper) {
 }
 .shelf-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  row-gap: 8px;
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -321,6 +331,10 @@ function openPaper(p: Paper) {
   padding: 0;
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 .shelf-title:hover {
   text-decoration: underline;

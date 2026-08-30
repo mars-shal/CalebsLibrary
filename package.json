@@ -17,6 +17,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/vite": "^4.2.1",
+    "@vercel/analytics": "^2.0.1",
     "googleapis": "^171.4.0",
     "gsap": "^3.14.2",
     "pinia": "^3.0.4",

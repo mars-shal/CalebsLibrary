@@ -48,13 +48,44 @@ create table if not exists public.metrics (
   reads bigint not null default 0,
   downloads bigint not null default 0,
   upvotes bigint not null default 0,
+  downvotes bigint not null default 0,
   updated_at timestamptz not null default now()
 );
+
+-- idempotent on fresh runs and existing databases
+alter table public.metrics add column if not exists downvotes bigint not null default 0;
 
 alter table public.metrics enable row level security;
 
 create policy "anon select metrics" on public.metrics
   for select to anon using (true);
+
+-- comments --------------------------------------------------------------
+-- Real-time discussion per paper. Anonymous, no auth: a name is encouraged
+-- but optional, matching the "no account needed" ethos.
+create table if not exists public.comments (
+  id bigint primary key generated always as identity,
+  paper_id text not null,             -- Drive file id, or sub-<id> for uploads
+  author_name text not null default 'Anonymous',
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists comments_paper_idx on public.comments (paper_id, created_at);
+
+alter table public.comments enable row level security;
+
+-- anyone may join the discussion
+create policy "anon insert comments" on public.comments
+  for insert to anon with check (true);
+
+-- comments are public
+create policy "anon select comments" on public.comments
+  for select to anon using (true);
+
+-- realtime (WebSocket) delivery for comments + live vote counts
+alter publication supabase_realtime add table public.comments;
+alter publication supabase_realtime add table public.metrics;
 
 -- admin config ----------------------------------------------------------
 create table if not exists public.admin_config (
@@ -75,28 +106,32 @@ on conflict (key) do nothing;
 
 -- Increment a metric. Base values seed the row on first write so Drive
 -- papers keep their derived baseline and every bump after that is real.
+-- p_delta allows undoing a vote (-1) when someone toggles it off.
 create or replace function public.bump_metric(
   p_paper_id text,
   p_kind text,
   p_base_reads bigint default 0,
   p_base_downloads bigint default 0,
-  p_base_upvotes bigint default 0
+  p_base_upvotes bigint default 0,
+  p_base_downvotes bigint default 0,
+  p_delta bigint default 1
 ) returns void
 language plpgsql
 security definer
 set search_path = ''
 as $$
 begin
-  if p_kind not in ('reads', 'downloads', 'upvotes') then
+  if p_kind not in ('reads', 'downloads', 'upvotes', 'downvotes') then
     raise exception 'invalid metric kind';
   end if;
-  insert into public.metrics (paper_id, reads, downloads, upvotes)
-  values (p_paper_id, p_base_reads, p_base_downloads, p_base_upvotes)
+  insert into public.metrics (paper_id, reads, downloads, upvotes, downvotes)
+  values (p_paper_id, p_base_reads, p_base_downloads, p_base_upvotes, p_base_downvotes)
   on conflict (paper_id) do nothing;
   update public.metrics set
-    reads = reads + case when p_kind = 'reads' then 1 else 0 end,
-    downloads = downloads + case when p_kind = 'downloads' then 1 else 0 end,
-    upvotes = upvotes + case when p_kind = 'upvotes' then 1 else 0 end,
+    reads = reads + case when p_kind = 'reads' then p_delta else 0 end,
+    downloads = downloads + case when p_kind = 'downloads' then p_delta else 0 end,
+    upvotes = upvotes + case when p_kind = 'upvotes' then p_delta else 0 end,
+    downvotes = downvotes + case when p_kind = 'downvotes' then p_delta else 0 end,
     updated_at = now()
   where paper_id = p_paper_id;
 end;
@@ -176,8 +211,10 @@ $$;
 grant usage on schema public to anon;
 grant select, insert on public.submissions to anon;
 grant select on public.metrics to anon;
+grant select, insert on public.comments to anon;
+grant usage on sequence public.comments_id_seq to anon;
 grant usage on sequence public.submissions_id_seq to anon;
-grant execute on function public.bump_metric(text, text, bigint, bigint, bigint) to anon;
+grant execute on function public.bump_metric(text, text, bigint, bigint, bigint, bigint, bigint) to anon;
 grant execute on function public.admin_ok(text) to anon;
 grant execute on function public.get_submissions(text) to anon;
 grant execute on function public.review_submission(bigint, text, text, text, text) to anon;
