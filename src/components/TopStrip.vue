@@ -4,7 +4,6 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 import Icon from './Icon.vue'
-import logoUrl from '@/assets/icon.png'
 
 const router = useRouter()
 const route = useRoute()
