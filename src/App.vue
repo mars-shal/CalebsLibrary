@@ -2,6 +2,7 @@
 // App shell — open banner + top strip + routed screen + footer
 import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { Analytics } from '@vercel/analytics/vue'
 import AppBanner from '@/components/AppBanner.vue'
 import TopStrip from '@/components/TopStrip.vue'
 import AppFooter from '@/components/AppFooter.vue'
@@ -16,6 +17,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <Analytics />
   <AppBanner />
   <TopStrip />
   <main class="screen-wrap" :key="route.fullPath">
