@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Browse — cover-forward shelves. Ported from design_handoff Browse.jsx.
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { PAPER_TYPES } from '@/script/design'
@@ -14,15 +14,27 @@ const router = useRouter()
 
 const subjectFilter = ref('all')
 const typeFilter = ref('all')
-const view = ref<'shelf' | 'grid'>('shelf')
+const courseFilter = ref('all')
+const yearFilter = ref<'all' | number>('all')
+const sortBy = ref<'dept' | 'course' | 'year-new' | 'year-old' | 'reads' | 'upvotes'>('dept')
+
+// Render shelves in chunks and reveal more as the user scrolls (RENDER_CHUNK
+// at a time) instead of painting all 719 papers' DOM at once.
+const RENDER_CHUNK = 3
+const MAX_BOOKS_PER_SHELF = 24
+const revealed = ref(RENDER_CHUNK)
+const sentinelEl = ref<HTMLElement | null>(null)
 
 const TYPES = PAPER_TYPES
 
-const visibleSubjects = computed<Subject[]>(() =>
-  drive.subjects.filter(
+const visibleSubjects = computed<Subject[]>(() => {
+  const list = drive.subjects.filter(
     (s) => subjectFilter.value === 'all' || s.id === subjectFilter.value,
-  ),
-)
+  )
+  return sortBy.value === 'dept'
+    ? [...list].sort((a, b) => a.name.localeCompare(b.name))
+    : list
+})
 
 const visibleTypes = computed<string[]>(() =>
   typeFilter.value === 'all' ? TYPES : [typeFilter.value],
@@ -31,11 +43,50 @@ const visibleTypes = computed<string[]>(() =>
 const bySubject = computed(() => {
   const map: Record<string, Paper[]> = {}
   for (const s of visibleSubjects.value) {
-    map[s.id] = drive.papersBySubject(s.id).filter((p) =>
-      visibleTypes.value.includes(p.type),
+    let list = drive.papersBySubject(s.id).filter(
+      (p) =>
+        visibleTypes.value.includes(p.type) &&
+        (courseFilter.value === 'all' || p.course === courseFilter.value) &&
+        (yearFilter.value === 'all' || p.year === yearFilter.value),
     )
+    list = sortPapers(list)
+    map[s.id] = list
   }
   return map
+})
+
+function sortPapers(list: Paper[]): Paper[] {
+  switch (sortBy.value) {
+    case 'course':
+      return [...list].sort((a, b) => a.courseName.localeCompare(b.courseName))
+    case 'year-new':
+      return [...list].sort((a, b) => b.year - a.year || (a.createdAt < b.createdAt ? 1 : -1))
+    case 'year-old':
+      return [...list].sort((a, b) => a.year - b.year || (a.createdAt < b.createdAt ? 1 : -1))
+    case 'reads':
+      return [...list].sort((a, b) => b.views - a.views)
+    case 'upvotes':
+      return [...list].sort((a, b) => b.upvotes - a.upvotes)
+    default:
+      return [...list]
+  }
+}
+
+// Dropdown options sized to the currently-filtered set.
+const availableCourses = computed(() =>
+  drive.courses.filter(
+    (c) => subjectFilter.value === 'all' || c.subjectId === subjectFilter.value,
+  ),
+)
+
+const availableYears = computed<number[]>(() => {
+  const years = new Set<number>()
+  for (const s of visibleSubjects.value) {
+    for (const p of drive.papersBySubject(s.id)) {
+      if (visibleTypes.value.includes(p.type)) years.add(p.year)
+    }
+  }
+  return [...years].sort((a, b) => b - a)
 })
 
 const totalCount = computed(() => Object.values(bySubject.value).reduce((n, arr) => n + arr.length, 0))
@@ -47,6 +98,39 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
 }
+
+let observer: IntersectionObserver | null = null
+
+function revealMore(): void {
+  if (revealed.value < visibleSubjects.value.length) {
+    revealed.value += RENDER_CHUNK
+  }
+}
+
+onMounted(() => {
+  if (typeof IntersectionObserver === 'undefined') {
+    revealed.value = visibleSubjects.value.length
+    return
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) revealMore()
+      }
+    },
+    { rootMargin: '600px 0px' },
+  )
+  if (sentinelEl.value) observer.observe(sentinelEl.value)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+})
+
+watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
+  revealed.value = RENDER_CHUNK
+})
 </script>
 
 <template>
@@ -70,7 +154,7 @@ function openPaper(p: Paper) {
             :class="{ active: subjectFilter === 'all' }"
             @click="subjectFilter = 'all'"
           >
-            All subjects
+            All departments
           </button>
           <button
             v-for="s in drive.subjects"
@@ -82,6 +166,17 @@ function openPaper(p: Paper) {
             {{ s.name }}
           </button>
         </div>
+        <div class="divider" />
+        <select
+          v-model="courseFilter"
+          class="fselect"
+          title="Filter by course"
+        >
+          <option value="all">All courses</option>
+          <option v-for="c in availableCourses" :key="c.id" :value="c.id">
+            {{ c.displayName || c.name }}
+          </option>
+        </select>
         <div class="divider" />
         <div class="pills">
           <button
@@ -101,23 +196,40 @@ function openPaper(p: Paper) {
             {{ t }}
           </button>
         </div>
+        <div class="divider" />
+        <select
+          v-model="yearFilter"
+          class="fselect"
+          title="Filter by year"
+        >
+          <option :value="'all'">All years</option>
+          <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+        </select>
       </div>
       <div class="filter-right">
         <span class="mono count">{{ totalCount.toLocaleString() }} papers</span>
-        <div class="view-toggle">
-          <button :class="{ active: view === 'shelf' }" @click="view = 'shelf'">
-            <Icon name="list" :size="14" /> Shelves
-          </button>
-          <button :class="{ active: view === 'grid' }" @click="view = 'grid'">
-            <Icon name="grid" :size="14" /> Grid
-          </button>
-        </div>
+        <select v-model="sortBy" class="fselect sort-select" title="Sort shelves">
+          <option value="dept">Sort: Department</option>
+          <option value="course">Sort: Course</option>
+          <option value="year-new">Sort: Year (newest)</option>
+          <option value="year-old">Sort: Year (oldest)</option>
+          <option value="reads">Sort: Most read</option>
+          <option value="upvotes">Sort: Most upvoted</option>
+        </select>
       </div>
     </div>
 
     <!-- Loading state -->
-    <div v-if="isLoading" class="grid-view">
-      <SkeletonCard v-for="i in 12" :key="i" size="sm" />
+    <div v-if="isLoading" class="shelf-view">
+      <section v-for="i in 4" :key="i" class="shelf-section">
+        <div class="shelf-head">
+          <div class="sk-line" style="width: 200px" />
+        </div>
+        <div class="shelf-books">
+          <SkeletonCard v-for="j in 8" :key="j" size="sm" />
+        </div>
+        <div class="shelf-ink" />
+      </section>
     </div>
 
     <!-- Empty state -->
@@ -126,24 +238,13 @@ function openPaper(p: Paper) {
       <div class="empty-sub">Try loosening your filters.</div>
     </div>
 
-    <!-- Grid view -->
-    <div v-else-if="view === 'grid'" class="grid-view">
-      <PaperCard
-        v-for="p in drive.papers.filter(
-          (p) =>
-            (subjectFilter === 'all' || p.subject === subjectFilter) &&
-            (typeFilter === 'all' || p.type === typeFilter),
-        )"
-        :key="p.id"
-        :paper="p"
-        size="sm"
-        @click="openPaper(p)"
-      />
-    </div>
-
     <!-- Shelf view -->
     <div v-else class="shelf-view">
-      <section v-for="s in visibleSubjects" :key="s.id" class="shelf-section">
+      <section
+        v-for="s in visibleSubjects.slice(0, revealed)"
+        :key="s.id"
+        class="shelf-section"
+      >
         <div v-if="bySubject[s.id]?.length" class="shelf-head">
           <button class="shelf-title" @click="router.push({ name: 'subject', params: { id: s.id } })">
             {{ s.name }}
@@ -158,13 +259,17 @@ function openPaper(p: Paper) {
           </button>
         </div>
         <div v-if="bySubject[s.id]?.length" class="shelf-books">
-          <div v-for="p in bySubject[s.id]" :key="p.id" class="shelf-book">
+          <div v-for="p in bySubject[s.id]!.slice(0, MAX_BOOKS_PER_SHELF)" :key="p.id" class="shelf-book">
             <PaperCard :paper="p" size="sm" @click="openPaper(p)" />
           </div>
         </div>
         <div v-if="bySubject[s.id]?.length" class="shelf-ink" />
         <div v-if="bySubject[s.id]?.length" class="shelf-shadow" />
       </section>
+      <div ref="sentinelEl" class="shelf-sentinel" />
+      <div v-if="revealed < visibleSubjects.length" class="shelf-more">
+        Scroll to load more departments…
+      </div>
     </div>
   </div>
 </template>
@@ -203,6 +308,28 @@ function openPaper(p: Paper) {
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 48px;
+}
+.fselect {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-70);
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.fselect:hover {
+  border-color: var(--rule-strong);
+}
+.fselect:focus {
+  outline: none;
+  border-color: var(--ink-40);
+}
+.sort-select {
+  max-width: 180px;
 }
 .filter-left {
   display: flex;
@@ -254,29 +381,6 @@ function openPaper(p: Paper) {
   color: var(--ink-40);
   white-space: nowrap;
 }
-.view-toggle {
-  display: flex;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.view-toggle button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-70);
-  background: transparent;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-.view-toggle button.active {
-  background: var(--ink-0);
-  color: var(--ink-100);
-  box-shadow: var(--shadow-soft);
-}
 
 /* Empty state */
 .empty-state {
@@ -297,13 +401,6 @@ function openPaper(p: Paper) {
   color: var(--ink-40);
 }
 
-/* Grid view */
-.grid-view {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 32px;
-}
-
 /* Shelf view */
 .shelf-view {
   display: flex;
@@ -320,6 +417,33 @@ function openPaper(p: Paper) {
   row-gap: 8px;
   gap: 16px;
   margin-bottom: 24px;
+}
+.sk-line {
+  height: 22px;
+  border-radius: 4px;
+  background: var(--paper-3);
+  position: relative;
+  overflow: hidden;
+}
+.sk-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+}
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 .shelf-title {
   font-size: 20px;
@@ -364,12 +488,27 @@ function openPaper(p: Paper) {
   background: var(--shadow-gradient);
   margin-top: 2px;
 }
-
-@media (max-width: 960px) {
-  .grid-view {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.shelf-sentinel {
+  height: 1px;
 }
+.shelf-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--ink-40);
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 @media (max-width: 640px) {
   .browse {
     padding: 32px 20px;
@@ -392,10 +531,6 @@ function openPaper(p: Paper) {
   .divider {
     display: none;
   }
-  .grid-view {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
   .empty-state {
     padding: 48px 20px;
   }
@@ -403,7 +538,7 @@ function openPaper(p: Paper) {
     gap: 48px;
   }
   .shelf-book {
-    width: 108px;
+    width: 132px;
   }
   .shelf-head {
     gap: 12px;

@@ -1,6 +1,13 @@
 // Caleb's Library — shared design data, types, and helpers.
 // Ported from design_handoff_calebs_library/src/data.jsx + shared.jsx
 import { ref } from 'vue'
+import type { CatalogueItem } from '@/schema/catalogue'
+import {
+  hashString,
+  typeFromName,
+  extFromName,
+  formatBytes,
+} from '@/schema/catalogue'
 
 export interface Contributor {
   id: string
@@ -30,33 +37,12 @@ export interface Subject {
   courses: Course[]
 }
 
-export interface Paper {
-  id: string // Drive file id
-  title: string // file name without extension
-  subtitle: string
-  subject: string // subject id (department code)
-  subjectName: string
-  course: string // course id (Drive folder id)
-  courseName: string // e.g. "CSC 200"
-  type: string
-  year: number
-  pages: number
-  upvotes: number
-  downvotes: number
-  downloads: number
-  views: number
-  contributor: string // contributor id
-  contributorName: string
-  teacher: string
-  cover: number
-  mimeType: string
-  fileExt: string
-  sizeLabel: string
-  previewUrl: string // drive embed url
-  downloadUrl: string
-  createdAt: string // ISO date
-  parents: string[]
-}
+// Paper IS the synced catalogue item — single source of truth is the shared
+// Zod schema, validated on the Convex side.
+export type Paper = CatalogueItem
+
+// Compatibility re-exports (canonical implementations live in @/schema/catalogue).
+export { hashString, typeFromName, extFromName, formatBytes }
 
 export interface SearchFilters {
   query: string
@@ -110,46 +96,12 @@ export const COVERS = [
 
 export const PAPER_TYPES = ['Study Guide', 'Lecture Notes', 'Past Exam', 'Problem Set', 'Essay', 'Cheat Sheet', 'Slides', 'Notes']
 
-// Stable string hash — deterministic pseudo-stats per file id
-export function hashString(str: string): number {
-  let h = 5381
-  for (let i = 0; i < str.length; i++) {
-    h = (h * 33) ^ str.charCodeAt(i)
-  }
-  return Math.abs(h)
-}
-
-// Paper type inferred from the real filename — Drive has no type metadata
-export function typeFromName(name: string): string {
-  const n = name.toLowerCase()
-  if (/(past ?question|past ?exam|exam|test)/.test(n)) return 'Past Exam'
-  if (/(problem ?set|assignment|tutorial)/.test(n)) return 'Problem Set'
-  if (/(cheat ?sheet|formula|summary)/.test(n)) return 'Cheat Sheet'
-  if (/(guide|revision|revised)/.test(n)) return 'Study Guide'
-  if (/(essay|report|project|thesis)/.test(n)) return 'Essay'
-  if (/(slide|lecture|note)/.test(n)) return 'Lecture Notes'
-  if (/(ppt|pptx)$/.test(name.toLowerCase())) return 'Slides'
-  return 'Notes'
-}
-
-export function extFromName(name: string): string {
-  const m = /\.([a-z0-9]+)$/i.exec(name)
-  return m?.[1]?.toLowerCase() ?? ''
-}
-
-export function formatBytes(bytes: number): string {
-  if (!bytes) return '—'
-  const mb = bytes / (1024 * 1024)
-  if (mb >= 1) return `${mb.toFixed(1)} MB`
-  return `${Math.round(bytes / 1024)} KB`
-}
-
 export function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
 
-export function timeAgo(iso: string): string {
+export function timeAgo(iso: string | number): string {
   const then = new Date(iso).getTime()
   const diff = Date.now() - then
   const days = Math.floor(diff / 86400000)

@@ -15,11 +15,11 @@ const props = withDefaults(
 const emit = defineEmits<{ (e: 'click'): void }>()
 
 const sizes: Record<CoverSize, { w: number; fs: number; sub: number; pad: number }> = {
-  xs: { w: 68, fs: 8, sub: 6.5, pad: 6 },
-  sm: { w: 92, fs: 11, sub: 8, pad: 8 },
+  xs: { w: 60, fs: 8, sub: 6.5, pad: 6 },
+  sm: { w: 120, fs: 12, sub: 9, pad: 10 },
   md: { w: 132, fs: 15, sub: 10, pad: 12 },
-  lg: { w: 180, fs: 20, sub: 12, pad: 16 },
-  xl: { w: 240, fs: 26, sub: 14, pad: 20 },
+  lg: { w: 168, fs: 20, sub: 12, pad: 16 },
+  xl: { w: 224, fs: 26, sub: 14, pad: 20 },
 }
 
 const s = computed(() => sizes[props.size])

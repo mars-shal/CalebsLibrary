@@ -5,12 +5,11 @@ import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { formatCount } from '@/script/design'
 import type { Paper } from '@/script/design'
+import { trendingSubjects } from '@/script/trends'
 import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
-import Avatar from '@/components/Avatar.vue'
-import BookCover from '@/components/BookCover.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 
@@ -34,7 +33,11 @@ const stats = computed(() => [
   { value: drive.stats.subjects.toLocaleString(), label: 'Subjects' },
 ])
 
-const caleb = computed(() => drive.founder)
+// Top tags by searches + views + saves — ranked in trends.ts; falls back to
+// the store's paper-count order until real usage accumulates.
+const quickSubjects = computed(() =>
+  trendingSubjects(drive.subjects, drive.papers, drive.searchTrends).slice(0, 8),
+)
 
 function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
@@ -76,12 +79,71 @@ const NIGHT_PHRASES = [
 
 const cycledText = ref('')
 
+type Season = 'exam' | 'test' | 'term' | ''
+
+// Seasonal punch-ins layered on the day/night pools. Windows are approximate
+// academic-calendar ranges: finals late Nov–Dec & mid Mar–Apr, mid-terms
+// Oct–mid Nov & mid Feb–mid Mar, term start in Jan & Aug–Sep.
+const SEASON_PHRASES: Record<Exclude<Season, ''>, string[]> = {
+  exam: [
+    'Exam season — one past paper at a time.',
+    "Finals week. The library's your study room.",
+    'Past papers, mock exams, last-minute notes.',
+    "Final stretch. One more paper and you're done.",
+    "Exams don't wait. Neither does the library.",
+  ],
+  test: [
+    'Mid-terms are coming. Stock up now.',
+    'Test week survival starts here.',
+    'Practice sets for the tests ahead.',
+    "Cram session? The library's got you.",
+  ],
+  term: [
+    'New term, new syllabus. Grab your reading list.',
+    'Welcome back — your courses are waiting.',
+    'New semester, fresh notes ahead.',
+    "First week back. Let's get organized.",
+  ],
+}
+
+// Day-of-week punch-ins on top of the day/night + seasonal pools, keyed by
+// Date.getDay() (0=Sunday..6=Saturday). Keeps the masthead line feeling
+// attuned to the actual rhythm of the week.
+const WEEKDAY_PHRASES: Record<number, string[]> = {
+  0: ['Sunday reset — light read or deep dive?', 'Weekend stay-in-study mode.'],
+  1: ['Monday fresh start. Pick a course.', 'New week, new rabbit hole.'],
+  2: ['Tuesday traction. Keep the streak.', 'Mid-quad day. What needs a second look?'],
+  3: ['Hump day — push through one more.', 'Wednesday. Halfway to the weekend.'],
+  4: ['Thursday grind. Almost there.', 'Weekend preview. One more topic?'],
+  5: ['Friday wind-down. Review or relax?', "Last push before the weekend."],
+  6: ['Saturday study sesh.', 'Weekend deep-dive. No rush.'],
+}
+
+function seasonFor(date: Date): Season {
+  const m = date.getMonth() + 1
+  const d = date.getDate()
+  const inWindow = (fromM: number, fromD: number, toM: number, toD: number): boolean => {
+    const from = fromM * 100 + fromD
+    const to = toM * 100 + toD
+    const today = m * 100 + d
+    return today >= from && today <= to
+  }
+  if (inWindow(11, 15, 12, 31) || inWindow(3, 10, 4, 30)) return 'exam'
+  if (inWindow(10, 1, 11, 14) || inWindow(2, 15, 3, 9)) return 'test'
+  if (inWindow(1, 5, 2, 14) || inWindow(8, 15, 9, 30)) return 'term'
+  return ''
+}
+
 function phraseFor(date: Date): string {
   const h = date.getHours()
   const isNight = h >= 18 || h < 6
-  const list = isNight ? NIGHT_PHRASES : DAY_PHRASES
+  const base = isNight ? NIGHT_PHRASES : DAY_PHRASES
+  const season = seasonFor(date)
+  const seasonal = season ? SEASON_PHRASES[season] : undefined
+  const weekday = WEEKDAY_PHRASES[date.getDay()]
+  const pool = [...base, ...(seasonal ?? []), ...(weekday ?? [])]
   const dayNum = Math.floor(date.getTime() / 86400000)
-  return list[dayNum % list.length]!
+  return pool[dayNum % pool.length]!
 }
 
 function nextBoundary(now: Date): Date {
@@ -156,21 +218,34 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
       <div class="quick-row">
         <span class="quick-label">Or browse:</span>
-        <button
-          v-for="s in drive.subjects.slice(0, 8)"
-          :key="s.id"
-          class="pill"
-          @click="router.push({ name: 'subject', params: { id: s.id } })"
-        >
-          {{ s.name }}
-        </button>
-        <button class="pill pill-dashed" @click="router.push({ name: 'browse' })">
-          All {{ drive.subjects.length }} subjects →
-        </button>
+        <template v-if="isLoading">
+          <span v-for="i in 6" :key="i" class="sk pill-sk" />
+        </template>
+        <template v-else>
+          <button
+            v-for="s in quickSubjects"
+            :key="s.id"
+            class="pill"
+            @click="router.push({ name: 'subject', params: { id: s.id } })"
+          >
+            {{ s.name }}
+          </button>
+          <button class="pill pill-dashed" @click="router.push({ name: 'browse' })">
+            All {{ drive.subjects.length }} subjects →
+          </button>
+        </template>
       </div>
 
       <div class="stats-strip">
-        <Stat v-for="s in stats" :key="s.label" :value="s.value" :label="s.label" />
+        <template v-if="isLoading">
+          <div v-for="i in 4" :key="i" class="sk stat-sk">
+            <div class="sk stat-sk-value" />
+            <div class="sk stat-sk-label" />
+          </div>
+        </template>
+        <template v-else>
+          <Stat v-for="s in stats" :key="s.label" :value="s.value" :label="s.label" />
+        </template>
       </div>
     </section>
 
@@ -181,8 +256,8 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
           <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
         </template>
       </SectionHeader>
-      <SkeletonCard v-if="isLoading" :count="6" size="sm" />
-      <div v-else-if="drive.recentPapers.length" class="grid-6">
+      <SkeletonCard v-if="isLoading" :count="5" size="sm" />
+      <div v-else-if="drive.recentPapers.length" class="grid-5">
         <PaperCard
           v-for="p in drive.recentPapers"
           :key="p.id"
@@ -192,61 +267,6 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
         />
       </div>
       <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
-    </section>
-
-    <!-- Most loved -->
-    <section class="wrap" style="padding-top: 80px">
-      <SectionHeader eyebrow="All-time" title="Most loved by readers" />
-      <div v-if="isLoading" class="loved-box">
-        <div v-for="i in 8" :key="i" class="loved-row">
-          <div class="sk sk-rank" />
-          <div class="sk sk-cover-xs" />
-          <div class="loved-main">
-            <div class="sk sk-line" style="width: 70%" />
-            <div class="sk sk-line" style="width: 45%; margin-top: 8px" />
-          </div>
-        </div>
-      </div>
-      <div v-else class="loved-box">
-        <div v-for="(p, i) in drive.lovedPapers" :key="p.id" class="loved-row" @click="openPaper(p)">
-          <div class="loved-rank">{{ String(i + 1).padStart(2, '0') }}</div>
-          <BookCover :paper="p" size="xs" />
-          <div class="loved-main">
-            <div class="loved-title">{{ p.title }}</div>
-            <div class="mono-meta">{{ p.subjectName }} · {{ p.type }} · {{ p.contributorName }}</div>
-          </div>
-          <div class="loved-side">
-            <span class="mono up">▲ {{ formatCount(p.upvotes) }}</span>
-            <span class="loved-reads">{{ formatCount(p.views) }} reads</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA -->
-    <section class="cta-card wrap-narrow">
-      <div>
-        <div class="smallcaps" style="margin-bottom: 8px">Have notes to share?</div>
-        <div class="cta-title">Pass along the notes that carried you through.</div>
-        <div class="cta-sub">
-          Upload a PDF, add a title, and it goes on the shelves once a moderator confirms it. No account. No signup. Two minutes.
-        </div>
-      </div>
-      <button class="btn btn-primary cta-btn" @click="router.push({ name: 'upload' })">
-        Contribute a paper →
-      </button>
-    </section>
-
-    <!-- Founder note -->
-    <section class="founder wrap-narrow">
-      <Avatar :user="caleb" :size="56" />
-      <div>
-        <blockquote class="founder-quote">
-          “I started this as a shared drive with three friends in 2019. It grew because people kept
-          adding things. That's the whole model — add what you can, take what you need.”
-        </blockquote>
-        <div class="founder-attrib"><strong>{{ caleb?.name }}</strong> — founder, still uploading</div>
-      </div>
     </section>
   </div>
 </template>
@@ -433,35 +453,8 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   gap: 64px;
   flex-wrap: wrap;
 }
-.wrap {
-  max-width: var(--max-content);
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.wrap-narrow {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.grid-6 {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 24px;
-}
-.loading-box {
-  padding: 48px;
-  text-align: center;
-  color: var(--ink-40);
-  border: 1px dashed var(--rule-strong);
-  border-radius: 8px;
-}
-.loved-box {
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  overflow: hidden;
-}
+
+/* Masthead loading placeholders: pills + stats shimmer while the library loads */
 .sk {
   position: relative;
   overflow: hidden;
@@ -480,17 +473,28 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   );
   animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
 }
-.sk-rank {
-  width: 34px;
-  height: 26px;
+.pill-sk {
+  width: 88px;
+  height: 30px;
+  border-radius: 999px;
 }
-.sk-cover-xs {
-  width: 56px;
-  height: 84px;
-  border-radius: 2px 6px 6px 2px;
+.stat-sk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: none;
 }
-.sk-line {
-  height: 12px;
+.stat-sk::after {
+  display: none;
+}
+.stat-sk-value {
+  width: 64px;
+  height: 24px;
+}
+.stat-sk-label {
+  width: 48px;
+  height: 10px;
 }
 @keyframes sk-shimmer {
   from {
@@ -500,120 +504,36 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
     transform: translateX(100%);
   }
 }
-.loved-row {
+.wrap {
+  max-width: var(--max-content);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.wrap-narrow {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.grid-5 {
   display: grid;
-  grid-template-columns: 48px 64px 1fr auto;
-  gap: 16px;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--rule);
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-.loved-row:nth-last-child(-n + 2) {
-  border-bottom: none;
-}
-.loved-row:hover {
-  background: var(--paper-2);
-}
-.loved-rank {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 34px;
-  color: var(--ink-30);
-  text-align: center;
-}
-.loved-main {
-  min-width: 0;
-}
-.loved-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink-100);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.loved-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-.loved-reads {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-30);
-}
-.up {
-  color: var(--ink-100);
-}
-.cta-card {
-  margin-top: 96px;
-  padding: 48px 40px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 32px;
-  align-items: center;
-}
-.cta-title {
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--ink-100);
-  line-height: 1.15;
-  max-width: 560px;
-}
-.cta-sub {
-  font-size: 14px;
-  color: var(--ink-70);
-  margin-top: 12px;
-  max-width: 560px;
-  line-height: 1.6;
-}
-.founder {
-  margin-top: 80px;
-  margin-bottom: 32px;
-  display: flex;
+  grid-template-columns: repeat(5, 1fr);
   gap: 24px;
-  align-items: flex-start;
 }
-.founder-quote {
-  margin: 0 0 12px;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 22px;
-  line-height: 1.5;
-  color: var(--ink-100);
-}
-.founder-attrib {
-  font-size: 13px;
-  color: var(--ink-70);
+.loading-box {
+  padding: 48px;
+  text-align: center;
+  color: var(--ink-40);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 8px;
 }
 
 @media (max-width: 960px) {
-  .grid-6 {
+  .grid-5 {
     grid-template-columns: repeat(3, 1fr);
-  }
-  .loved-box {
-    grid-template-columns: 1fr;
-  }
-  .loved-row:nth-last-child(-n + 2) {
-    border-bottom: 1px solid var(--rule);
-  }
-  .loved-row:last-child {
-    border-bottom: none;
-  }
-  .cta-card {
-    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {
-  .grid-6 {
+  .grid-5 {
     grid-template-columns: repeat(2, 1fr);
   }
   .wrap,
@@ -634,38 +554,6 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   .stats-strip {
     flex-wrap: wrap;
     gap: 20px;
-  }
-  .cta-card {
-    margin-top: 64px;
-    padding: 32px 24px;
-  }
-  .founder {
-    margin-top: 56px;
-    gap: 16px;
-    flex-direction: column;
-  }
-  .loved-row {
-    grid-template-columns: 40px 56px 1fr auto;
-    gap: 12px;
-    padding: 12px;
-  }
-  .loved-rank {
-    font-size: 26px;
-  }
-}
-@media (max-width: 380px) {
-  .loved-row {
-    grid-template-columns: 32px 48px 1fr;
-    gap: 10px;
-  }
-  .loved-rank {
-    font-size: 22px;
-  }
-  .loved-side {
-    grid-column: 3;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
   }
 }
 </style>

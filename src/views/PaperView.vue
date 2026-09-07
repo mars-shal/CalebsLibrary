@@ -1,15 +1,15 @@
 <script setup lang="ts">
 // Paper detail — preview, citation, live discussion. Ported from PaperDetail.jsx.
 // Uses REAL Drive data: iframe preview via paper.previewUrl, real download URL.
-// Discussion = real comments over Supabase Realtime (WebSocket) + real vote
+// Discussion = real comments over Convex (query + subscribe) + real vote
 // counts persisted in the metrics table (upvotes AND downvotes).
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor, formatCount, timeAgo } from '@/script/design'
 import type { Paper } from '@/script/design'
-import { fetchComments, postComment, subscribeComments } from '@/script/supabase'
-import type { DiscussionComment } from '@/script/supabase'
+import { convex, api } from '@/script/convex'
+import type { CommentItem } from '@/script/convex'
 import Icon from '@/components/Icon.vue'
 import BookCover from '@/components/BookCover.vue'
 import Avatar from '@/components/Avatar.vue'
@@ -27,11 +27,14 @@ const isLoading = computed(() => drive.loading && !paper.value)
 onMounted(() => {
   if (paper.value) drive.recordMetric(paper.value.id, 'reads')
   loadComments()
-  unsubComments = subscribeComments(paperId(), onLiveComment)
+  subscribeToComments()
 })
 
 onBeforeUnmount(() => {
-  if (unsubComments) unsubComments()
+  if (commentUnsub) {
+    commentUnsub()
+    commentUnsub = null
+  }
 })
 
 const related = computed<Paper[]>(() =>
@@ -51,9 +54,9 @@ const copied = ref<string | null>(null)
 const commentBody = ref('')
 const commentName = ref('')
 const posting = ref(false)
-const comments = ref<DiscussionComment[]>([])
+const comments = ref<CommentItem[]>([])
 const commentsLoading = ref(false)
-let unsubComments: (() => void) | null = null
+let commentUnsub: (() => void) | null = null
 
 const VOTE_KEY = 'calebsLibraryVotes'
 function readVotes(): Record<string, 1 | 0 | -1> {
@@ -136,9 +139,24 @@ function download() {
   drive.recordMetric(paper.value.id, 'downloads')
 }
 
+const shareShort = ref(false)
+
 async function share() {
+  if (!paper.value) return
+  const original = window.location.href
+  let short = original
   try {
-    await navigator.clipboard.writeText(window.location.href)
+    const res = await convex.mutation(api.shortLink.create, {
+      paper_id: paper.value.id,
+      url: original,
+    })
+    short = `${window.location.origin}/s/${res.code}`
+  } catch {
+    // Shortener unavailable — fall back to the full URL
+  }
+  try {
+    await navigator.clipboard.writeText(short)
+    shareShort.value = short.length < original.length
     copied.value = 'share'
     setTimeout(() => (copied.value = null), 1600)
   } catch {
@@ -172,12 +190,19 @@ function toggleVote(dir: 1 | -1) {
   if (next === -1) drive.recordMetric(paper.value.id, 'downvotes', 1)
 }
 
+function subscribeToComments(): void {
+  commentUnsub = convex.onUpdate(api.comments.list, { paper_id: paperId() }, (rows) => {
+    comments.value = rows
+    commentsLoading.value = false
+  })
+}
+
 async function loadComments(): Promise<void> {
   const pid = paperId()
   if (!pid) return
   commentsLoading.value = true
   try {
-    comments.value = await fetchComments(pid)
+    comments.value = await convex.query(api.comments.list, { paper_id: pid })
   } catch {
     comments.value = []
   } finally {
@@ -185,22 +210,25 @@ async function loadComments(): Promise<void> {
   }
 }
 
-function onLiveComment(c: DiscussionComment): void {
-  if (c.paper_id !== paperId()) return
-  const exists = comments.value.some((x) => x.id === c.id)
-  if (!exists) comments.value = [...comments.value, c]
-}
+const postedNotice = ref('')
 
 async function postDiscussion(): Promise<void> {
   const body = commentBody.value.trim()
   if (!body || posting.value || !paper.value) return
   posting.value = true
+  postedNotice.value = ''
   try {
-    await postComment(paper.value.id, commentName.value.trim() || 'Anonymous', body)
+    await convex.mutation(api.comments.post, {
+      paper_id: paper.value.id,
+      author_name: commentName.value.trim() || 'Anonymous',
+      body,
+    })
     commentBody.value = ''
     commentName.value = ''
+    postedNotice.value = 'Comment posted — thanks for adding to the discussion.'
+    loadComments()
   } catch {
-    // realtime insert failed — keep the text so the user can retry
+    postedNotice.value = 'Could not post — try again.'
   } finally {
     posting.value = false
   }
@@ -266,12 +294,17 @@ async function postDiscussion(): Promise<void> {
         <button class="btn btn-primary action-download" @click="download">
           <Icon name="download" :size="16" /> Download PDF
         </button>
+        <button class="btn btn-ai" disabled title="Coming soon">
+          <Icon name="sparkle" :size="16" /> AI Study Assistant
+          <span class="ai-badge">Coming soon</span>
+        </button>
         <div class="action-pair">
           <button class="btn btn-secondary" :class="{ 'is-saved': saved }" @click="toggleSaved">
             <Icon name="bookmark" :size="15" :stroke-width="1.5" /> {{ saved ? 'Saved' : 'Save' }}
           </button>
           <button class="btn btn-secondary" @click="share">
-            <Icon name="share" :size="15" /> {{ copied === 'share' ? 'Copied' : 'Share' }}
+            <Icon name="share" :size="15" />
+            {{ copied === 'share' ? (shareShort ? 'Copied link' : 'Copied') : 'Share' }}
           </button>
         </div>
         <div class="vote-group">
@@ -355,6 +388,11 @@ async function postDiscussion(): Promise<void> {
             </div>
           </div>
 
+          <div v-if="postedNotice" class="post-notice">
+            <Icon name="info" :size="14" />
+            <span>{{ postedNotice }}</span>
+          </div>
+
           <div v-if="commentsLoading" class="comments-skeleton">
             <div v-for="i in 3" :key="i" class="comment sk-comment">
               <div class="sk sk-avatar" />
@@ -367,7 +405,7 @@ async function postDiscussion(): Promise<void> {
           </div>
 
           <div v-else-if="comments.length">
-            <div v-for="c in comments" :key="c.id" class="comment">
+            <div v-for="c in comments" :key="c._id" class="comment">
               <Avatar :name="c.author_name" :size="32" />
               <div class="comment-main">
                 <div class="comment-head">
@@ -535,6 +573,31 @@ async function postDiscussion(): Promise<void> {
 .action-download {
   padding: 12px 20px;
   justify-content: center;
+}
+.btn-ai {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-70);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.ai-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-40);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 .action-pair {
   display: flex;
@@ -818,6 +881,19 @@ async function postDiscussion(): Promise<void> {
   text-align: center;
   border: 1px dashed var(--rule-strong);
   border-radius: 6px;
+}
+.post-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--ink-70);
+  font-size: 13px;
+  line-height: 1.5;
 }
 @keyframes sk-shimmer {
   from {

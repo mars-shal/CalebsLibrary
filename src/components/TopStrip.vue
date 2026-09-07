@@ -54,7 +54,12 @@ function handleBlur(): void {
 <template>
   <header class="strip">
     <div class="inner">
-      <button class="logo" @click="goHome" aria-label="Caleb's Library — home">
+      <button
+        v-if="route.name !== 'home'"
+        class="logo"
+        @click="goHome"
+        aria-label="Caleb's Library — home"
+      >
 
         <span class="logo-serif">Caleb's</span>
         <span class="logo-caps">Library</span>
@@ -103,10 +108,6 @@ function handleBlur(): void {
           @click="toggleTheme"
         >
           <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="16" />
-        </button>
-        <button class="btn btn-primary contribute" @click="router.push('/upload')">
-          <Icon name="plus" :size="14" />
-          Contribute
         </button>
       </nav>
     </div>
@@ -273,9 +274,6 @@ function handleBlur(): void {
   color: var(--text-primary);
   background: var(--paper-2);
 }
-.contribute {
-  margin-left: 8px;
-}
 .theme-toggle {
   display: grid;
   place-items: center;
@@ -307,11 +305,6 @@ function handleBlur(): void {
   }
   .logo-caps {
     display: none;
-  }
-  .contribute {
-    margin-left: 0;
-    padding: 9px 14px;
-    font-size: 13px;
   }
 }
 </style>

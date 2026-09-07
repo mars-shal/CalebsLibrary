@@ -13,11 +13,14 @@ type SuggestionItem = {
 const MIN_QUERY_LENGTH = 2
 const MAX_SUGGESTIONS = 6
 
+// Module-scoped so the search box keeps its text when the home view
+// remounts on navigation instead of resetting to a fresh "reloaded" state.
+const query = ref('')
+
 export function useSearchAutocomplete() {
   const router = useRouter()
   const drive = useDriveStore()
 
-  const query = ref('')
   const showDropdown = ref(false)
   const highlightedIndex = ref(-1)
   const containerRef = ref<HTMLElement | null>(null)
@@ -69,6 +72,7 @@ export function useSearchAutocomplete() {
   function navigateToSearch(text: string): void {
     const trimmed = text.trim()
     if (!trimmed) return
+    drive.recordSearch(trimmed)
     closeDropdown()
     router.push({ name: 'search', query: { q: trimmed } })
   }

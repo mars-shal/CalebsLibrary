@@ -7,6 +7,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/search', name: 'search', component: () => import('@/views/SearchView.vue') },
   { path: '/subject/:id', name: 'subject', component: () => import('@/views/SubjectView.vue') },
   { path: '/paper/:id', name: 'paper', component: () => import('@/views/PaperView.vue') },
+  { path: '/s/:code', name: 'shortlink', component: () => import('@/views/ShortLinkView.vue') },
   { path: '/upload', name: 'upload', component: () => import('@/views/UploadView.vue') },
   { path: '/profile/:id', name: 'profile', component: () => import('@/views/ProfileView.vue') },
   { path: '/admin', name: 'admin', component: () => import('@/views/AdminView.vue') },

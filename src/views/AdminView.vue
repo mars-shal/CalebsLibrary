@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// Admin — passphrase-gated moderation queue. Ported from Admin.jsx.
+// Admin — passphrase-gated moderation queue for discussion comments.
+// Ported from Admin.jsx (previously moderated upload submissions on Supabase;
+// now moderates Convex comments).
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
-import { adminOk, getSubmissions, reviewSubmission } from '@/script/supabase'
-import type { Submission } from '@/script/supabase'
+import { convex, api } from '@/script/convex'
+import type { CommentItem } from '@/script/convex'
 import Icon from '@/components/Icon.vue'
-import BookCover from '@/components/BookCover.vue'
 import Avatar from '@/components/Avatar.vue'
-import PDFPreview from '@/components/PDFPreview.vue'
 
 const drive = useDriveStore()
 const router = useRouter()
@@ -26,9 +26,8 @@ const selected = ref(0)
 type QueueFilter = 'pending' | 'approved' | 'rejected'
 const filter = ref<QueueFilter>('pending')
 
-const submissions = ref<Submission[]>([])
+const comments = ref<CommentItem[]>([])
 const reviewNote = ref('')
-const driveFileId = ref('')
 
 onMounted(() => {
   if (unlocked.value) loadQueue()
@@ -43,12 +42,13 @@ async function unlock() {
   busy.value = true
   queueErr.value = ''
   try {
-    const ok = await adminOk(passphrase.value)
-    if (ok) {
+    const res = await convex.query(api.comments.queueList, { passphrase: passphrase.value })
+    if (res.verified) {
       localStorage.setItem('calebs_admin', '1')
       sessionStorage.setItem('calebs_pass', passphrase.value)
       unlocked.value = true
-      await loadQueue()
+      comments.value = res.items
+      selected.value = 0
     } else {
       wrongTry.value = true
     }
@@ -63,7 +63,13 @@ async function loadQueue() {
   busy.value = true
   queueErr.value = ''
   try {
-    submissions.value = await getSubmissions(passphrase.value)
+    const res = await convex.query(api.comments.queueList, { passphrase: passphrase.value })
+    if (!res.verified) {
+      wrongTry.value = true
+      signOut()
+      return
+    }
+    comments.value = res.items
     selected.value = 0
   } catch (e) {
     queueErr.value = e instanceof Error ? e.message : 'Could not load the queue.'
@@ -76,12 +82,12 @@ function signOut() {
   localStorage.removeItem('calebs_admin')
   sessionStorage.removeItem('calebs_pass')
   unlocked.value = false
-  submissions.value = []
+  comments.value = []
 }
 
 const counts = computed(() => {
   const c = { pending: 0, approved: 0, rejected: 0 }
-  for (const s of submissions.value) c[s.status] += 1
+  for (const s of comments.value) c[s.status] += 1
   return c
 })
 
@@ -92,29 +98,23 @@ const FILTERS: { id: QueueFilter; label: string }[] = [
 ]
 
 const filteredQueue = computed(() =>
-  submissions.value.filter((s) => s.status === filter.value),
+  comments.value.filter((s) => s.status === filter.value),
 )
 
-const current = computed<Submission | undefined>(() => filteredQueue.value[selected.value])
+const current = computed<CommentItem | undefined>(() => filteredQueue.value[selected.value])
 
-const currentPaper = computed(() => (current.value ? drive.paperFromSubmission(current.value) : undefined))
+const currentPaper = computed(() =>
+  current.value ? drive.getPaper(current.value.paper_id) : undefined,
+)
 
-const subCounts = computed(() => {
-  const m = new Map<string, number>()
-  for (const s of submissions.value) {
-    m.set(s.contributor_email, (m.get(s.contributor_email) || 0) + 1)
-  }
-  return m
-})
-
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
+function timeAgo(ts: number | string): string {
+  const ms = Date.now() - new Date(ts).getTime()
   const mins = Math.max(1, Math.round(ms / 60000))
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.round(mins / 60)
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.round(hrs / 24)
-  return days < 30 ? `${days}d ago` : new Date(iso).toLocaleDateString()
+  return days < 30 ? `${days}d ago` : new Date(ts).toLocaleDateString()
 }
 
 async function decide(status: 'approved' | 'rejected') {
@@ -122,15 +122,13 @@ async function decide(status: 'approved' | 'rejected') {
   busy.value = true
   queueErr.value = ''
   try {
-    await reviewSubmission(
-      current.value.id,
+    await convex.mutation(api.comments.moderate, {
+      passphrase: passphrase.value,
+      id: current.value._id,
       status,
-      passphrase.value,
-      reviewNote.value.trim() || undefined,
-      status === 'approved' && driveFileId.value.trim() ? driveFileId.value.trim() : undefined,
-    )
+      note: reviewNote.value.trim() || undefined,
+    })
     reviewNote.value = ''
-    driveFileId.value = ''
     await loadQueue()
   } catch (e) {
     queueErr.value = e instanceof Error ? e.message : 'Could not save the decision.'
@@ -216,21 +214,22 @@ async function decide(status: 'approved' | 'rejected') {
           </div>
           <template v-else>
             <button
-              v-for="(s, i) in filteredQueue"
-              :key="s.id"
+              v-for="(c, i) in filteredQueue"
+              :key="c._id"
               class="rail-row"
               :class="{ active: selected === i }"
               @click="selected = i"
             >
               <div class="rail-badges">
-                <span class="mono rail-id">#{{ String(s.id).padStart(4, '0') }}</span>
-                <span v-if="s.status === 'rejected'" class="badge badge-rej">REJECTED</span>
+                <span class="mono rail-id">#{{ String(i + 1).padStart(4, '0') }}</span>
+                <span v-if="c.status === 'approved'" class="badge badge-ok">APPROVED</span>
+                <span v-if="c.status === 'rejected'" class="badge badge-rej">REJECTED</span>
               </div>
-              <div class="rail-title">{{ s.title }}</div>
+              <div class="rail-title">{{ c.body }}</div>
               <div class="rail-meta">
-                <Avatar :name="s.contributor_name" :size="16" />
-                <span class="rail-name">{{ s.contributor_name }}</span>
-                <span class="rail-time mono-meta">{{ timeAgo(s.created_at) }}</span>
+                <Avatar :name="c.author_name" :size="16" />
+                <span class="rail-name">{{ c.author_name }}</span>
+                <span class="rail-time mono-meta">{{ timeAgo(c.created_at) }}</span>
               </div>
             </button>
             <div v-if="!filteredQueue.length" class="rail-empty">No items in this view.</div>
@@ -239,52 +238,26 @@ async function decide(status: 'approved' | 'rejected') {
 
         <!-- Review panel -->
         <div class="panel">
-          <div v-if="current && currentPaper">
+          <div v-if="current">
             <div class="panel-header">
-              <BookCover :paper="currentPaper" size="md" />
               <div class="panel-main">
-                <div class="tags">
-                  <span class="tag">{{ currentPaper.subjectName }}</span>
-                  <span class="tag tag-paper">{{ currentPaper.type }}</span>
-                </div>
-                <div class="panel-title">{{ current.title }}</div>
-                <div class="panel-sub">{{ current.subject_name }}<template v-if="current.course_name"> · {{ current.course_name }}</template></div>
+                <div class="smallcaps" style="margin-bottom: 6px">Comment from {{ current.author_name }}</div>
+                <div class="panel-title">on {{ currentPaper?.title || current.paper_id }}</div>
+                <div class="panel-sub">{{ current.paper_id }}</div>
                 <div class="panel-meta">
-                  <Avatar :name="current.contributor_name" :size="22" />
-                  <span>{{ current.contributor_name }}</span>
+                  <Avatar :name="current.author_name" :size="22" />
+                  <span>{{ current.author_name }}</span>
                   <span>·</span>
-                  <span class="mono">{{ subCounts.get(current.contributor_email) || 1 }} upload{{ (subCounts.get(current.contributor_email) || 1) > 1 ? 's' : '' }}</span>
+                  <span class="mono">{{ timeAgo(current.created_at) }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="checks-label smallcaps" style="margin-bottom: 14px">Submission</div>
-            <div class="checks">
-              <div class="check-tile">
-                <div class="smallcaps" style="font-size: 9px; margin-bottom: 6px">File</div>
-                <div class="check-value" style="font-size: 12px">{{ current.file_name }}</div>
-              </div>
-              <div class="check-tile">
-                <div class="smallcaps" style="font-size: 9px; margin-bottom: 6px">Size</div>
-                <div class="check-value">{{ (Number(current.file_size) / 1_000_000).toFixed(2) }} MB</div>
-              </div>
-              <div class="check-tile">
-                <div class="smallcaps" style="font-size: 9px; margin-bottom: 6px">Type</div>
-                <div class="check-value">{{ current.mime_type }}</div>
-              </div>
-              <div class="check-tile">
-                <div class="smallcaps" style="font-size: 9px; margin-bottom: 6px">Status</div>
-                <div class="check-value">{{ current.status }}</div>
-              </div>
-            </div>
+            <div class="checks-label smallcaps" style="margin-bottom: 14px">Comment</div>
+            <div class="desc-block">{{ current.body }}</div>
 
-            <div v-if="current.description" class="checks-label smallcaps" style="margin-bottom: 14px">Description</div>
-            <div v-if="current.description" class="desc-block">{{ current.description }}</div>
-
-            <div class="checks-label smallcaps" style="margin-bottom: 14px">Document preview</div>
-            <div class="doc-preview">
-              <PDFPreview :paper="currentPaper" :height="420" />
-            </div>
+            <div v-if="current.note" class="checks-label smallcaps" style="margin-bottom: 14px">Reviewer note</div>
+            <div v-if="current.note" class="desc-block">{{ current.note }}</div>
 
             <div v-if="queueErr" class="queue-error">
               <Icon name="info" :size="14" />
@@ -293,20 +266,14 @@ async function decide(status: 'approved' | 'rejected') {
 
             <div class="decision">
               <div class="smallcaps" style="margin-bottom: 14px">Decision</div>
-              <div class="drive-id-field">
-                <label class="drive-id-label">
-                  <Icon name="google" :size="14" />
-                  <span>Google Drive file ID <span class="drive-id-optional">(optional — for Drive-hosted papers)</span></span>
-                </label>
-                <input
-                  v-model="driveFileId"
-                  class="input drive-id-input"
-                  placeholder="e.g. 1AbCdEfGhIjKlMnOpQrStUvWxYz"
-                />
+              <div v-if="currentPaper" class="context-block">
+                <div class="smallcaps" style="font-size: 9px; margin-bottom: 4px">On paper</div>
+                <div class="context-title">{{ currentPaper.title }}</div>
+                <div class="context-meta">{{ currentPaper.subjectName }} · {{ currentPaper.type }}</div>
               </div>
               <textarea
                 v-model="reviewNote"
-                placeholder="Add a note to the contributor (optional)…"
+                placeholder="Add a note to the commenter (optional)…"
                 class="decision-input"
               />
               <div class="decision-actions">
@@ -314,7 +281,7 @@ async function decide(status: 'approved' | 'rejected') {
                   <Icon name="x" :size="14" /> Reject
                 </button>
                 <button class="btn btn-primary" style="padding: 10px 18px" :disabled="busy" @click="decide('approved')">
-                  <Icon name="check" :size="14" /> Approve & publish
+                  <Icon name="check" :size="14" /> Approve
                 </button>
               </div>
             </div>
@@ -523,6 +490,11 @@ async function decide(status: 'approved' | 'rejected') {
   color: var(--error);
   border: 1px solid var(--error);
 }
+.badge-ok {
+  background: transparent;
+  color: var(--ink-100);
+  border: 1px solid var(--ink-100);
+}
 .rail-title {
   font-size: 15px;
   color: var(--ink-100);
@@ -623,9 +595,7 @@ async function decide(status: 'approved' | 'rejected') {
   opacity: 0.85;
 }
 .panel-header {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 24px;
+  display: block;
   margin-bottom: 32px;
 }
 .tags {
@@ -731,26 +701,22 @@ async function decide(status: 'approved' | 'rejected') {
 .decision-input:focus {
   border-color: var(--ink-100);
 }
-.drive-id-field {
+.context-block {
+  padding: 14px 16px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
   margin-bottom: 14px;
 }
-.drive-id-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.context-title {
+  font-size: 13px;
   font-weight: 500;
-  color: var(--ink-70);
-  margin-bottom: 6px;
+  color: var(--ink-100);
 }
-.drive-id-optional {
-  font-weight: 400;
-  color: var(--ink-40);
-}
-.drive-id-input {
-  font-family: var(--font-mono);
+.context-meta {
   font-size: 12px;
-  letter-spacing: 0.02em;
+  color: var(--ink-40);
+  margin-top: 2px;
 }
 .decision-actions {
   display: flex;

@@ -43,3 +43,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Agent session state (not part of the app)
+.omo/

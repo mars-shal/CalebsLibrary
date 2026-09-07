@@ -1,90 +1,25 @@
-// Caleb's Library — Drive data store (Pinia)
-// Walks the real Google Drive tree:
-//   Root → Level (100–400) → Semester → Dept section (General/Departmental)
-//   → [Dept folder] → Course folder → (Notes / Past Questions) → files
-// Contributors come from each file's real Drive owner. Votes/views have no
-// Drive equivalent, so those remain derived deterministically per file id.
-// All file content, titles, dates, sizes, preview and download URLs are REAL
-// Drive data.
+// Caleb's Library — catalogue data store (Pinia)
+//
+// The catalogue is synced to Convex by a server-side cron (convex/cron.ts
+// + convex/driveSync.ts), which walks the Google Drive tree and stores the
+// results in the `catalogue` table. The browser therefore just reads the synced
+// catalogue from Convex — no Drive API calls, no API key in the client bundle.
+//
+// Vote/view/download metrics are stored in Convex (`metrics` table) and
+// overlaid client-side on top of the catalogue items.
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Contributor, Course, Paper, Subject } from '@/script/design'
+import { setContributors } from '@/script/design'
+import { convex, api } from '@/script/convex'
 import {
-  setContributors,
-  hashString,
-  typeFromName,
-  extFromName,
-  formatBytes,
-} from '@/script/design'
-import { supabase, fetchApproved, storageUrl, bumpMetric } from '@/script/supabase'
-import type { Submission } from '@/script/supabase'
-
-export const API_KEY = 'AIzaSyBbEt7LD6wUK1svHbZ_Cnqw68I6mW0geic'
-export const ROOT_FOLDER_ID = '1Au60m0ngWUTCOe-AZt8CuJ5LmfvM_DTR'
-
-const API = 'https://www.googleapis.com/drive/v3'
-const FIELDS = 'files(id,name,mimeType,createdTime,size,webViewLink,parents,owners(displayName,emailAddress))'
-const MATERIAL_MIME = /pdf|officedocument|image\/|plain|msword|vnd\.ms-/
-
-// The account that owns the root tree — the library founder.
-const FOUNDER_EMAIL = 'caleb.library.project@gmail.com'
-
-// code (after stripping BUT- prefix) → department subject name
-const CODE_SUBJECTS: Record<string, string> = {
-  CSC: 'Computer Science',
-  CPE: 'Computer Engineering',
-  CEN: 'Computer Engineering',
-  ICT: 'Information & Communication Technology',
-  TEL: 'Telecommunications Engineering',
-  EEE: 'Electrical / Electronics Engineering',
-  ELE: 'Electrical / Electronics Engineering',
-  MCE: 'Mechanical Engineering',
-  MME: 'Mechatronics Engineering',
-  CVE: 'Civil Engineering',
-  CHE: 'Chemical Engineering',
-  CHM: 'Chemistry',
-  AGE: 'Agricultural Engineering',
-  AGB: 'Agricultural Engineering',
-  BME: 'Biomedical Engineering',
-  MTH: 'Mathematics',
-  STA: 'Statistics',
-  PHY: 'Physics',
-  GST: 'General Studies',
-  LAB: 'Laboratory',
-  WSP: 'Workshop',
-}
-
-const LEVEL_DESC: Record<string, string> = {
-  '1': 'Foundation Level',
-  '2': 'Intermediate Level',
-  '3': 'Advanced Level',
-  '4': 'Final Year',
-  '5': 'Postgraduate',
-}
-
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'untitled'
-  )
-}
-
-// "BUT-MTH 103 (Elementary Mathematics III)" → { code: "MTH", number: "103", parenthetical: "Elementary Mathematics III" }
-function parseCourseName(name: string): { code: string; number: string; parenthetical: string } {
-  const cleaned = name.replace(/^BUT-/i, '')
-  const m = /^([A-Za-z]{2,6})\s*(\d{3})\s*(?:\(([^)]*)\))?/.exec(cleaned)
-  if (m) {
-    return {
-      code: m[1]?.toUpperCase() ?? '',
-      number: m[2] ?? '',
-      parenthetical: (m[3] ?? '').trim(),
-    }
-  }
-  return { code: '', number: '', parenthetical: '' }
-}
+  FOUNDER_EMAIL,
+  LEVEL_DESC,
+  CODE_SUBJECTS,
+  slugify,
+  parseCourseName,
+} from '@/schema/catalogue'
 
 interface MetricRow {
   paper_id: string | number
@@ -94,15 +29,11 @@ interface MetricRow {
   downvotes: number | null
 }
 
-interface DriveFile {
+interface OwnerCount {
   id: string
   name: string
-  mimeType: string
-  createdTime?: string
-  size?: string
-  webViewLink?: string
-  parents?: string[]
-  owners?: { displayName?: string; emailAddress?: string }[]
+  email: string
+  count: number
 }
 
 function computeCourses(allPapers: Paper[]): Course[] {
@@ -187,35 +118,33 @@ function applyMetrics(pool: Paper[], rows: MetricRow[]): void {
   }
 }
 
-interface OwnerCount {
-  id: string
-  name: string
-  email: string
-  count: number
-}
-
-async function driveList(parentId: string): Promise<DriveFile[]> {
-  const url = `${API}/files?key=${API_KEY}&q=${encodeURIComponent(`'${parentId}' in parents`)}&fields=${FIELDS}&pageSize=1000`
-  const res = await fetch(url)
-
-  if (!res.ok) throw new Error(`Drive API ${res.status}`)
-  const data = await res.json()
-  console.log(data)
-  return (data.files || []) as DriveFile[]
-}
-
-// Concurrency-limited map over an array
-async function pMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let next = 0
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const i = next++
-      results[i] = await fn(items[i]!)
+// Contributors are derived purely from the papers' real contributor fields
+// (no server-side owner tracking — the founder is ensured via FOUNDER_EMAIL).
+function deriveOwners(pool: Paper[]): OwnerCount[] {
+  const map = new Map<string, OwnerCount>()
+  for (const p of pool) {
+    if (!p.contributor) continue
+    const existing = map.get(p.contributor)
+    if (existing) {
+      existing.count += 1
+    } else {
+      map.set(p.contributor, {
+        id: p.contributor,
+        name: p.contributorName || p.contributor.split('@')[0] || 'Anonymous',
+        email: p.contributor,
+        count: 1,
+      })
     }
-  })
-  await Promise.all(workers)
-  return results
+  }
+  if (!map.has(FOUNDER_EMAIL)) {
+    map.set(FOUNDER_EMAIL, {
+      id: FOUNDER_EMAIL,
+      name: 'Caleb',
+      email: FOUNDER_EMAIL,
+      count: 1,
+    })
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count)
 }
 
 export const useDriveStore = defineStore('drive', () => {
@@ -223,9 +152,12 @@ export const useDriveStore = defineStore('drive', () => {
   const courses = ref<Course[]>([])
   const subjects = ref<Subject[]>([])
   const ownerList = ref<OwnerCount[]>([])
-  const loading = ref(false)
+  // Start "loading" so the first paint renders skeletons, not the empty/missing
+  // states. load() flips it only after the catalogue settles (or cache hydrates).
+  const loading = ref(true)
   const loaded = ref(false)
   const error = ref<string | null>(null)
+  const searchTrends = ref<Record<string, number>>({})
 
   // ---------- derived values ----------
   const papersBySubject = (subjectId: string): Paper[] =>
@@ -244,7 +176,7 @@ export const useDriveStore = defineStore('drive', () => {
     papers.value.find((p) => p.id === id)
 
   const recentPapers = computed<Paper[]>(() =>
-    [...papers.value].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 12),
+    [...papers.value].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5),
   )
 
   const lovedPapers = computed<Paper[]>(() =>
@@ -290,242 +222,123 @@ export const useDriveStore = defineStore('drive', () => {
     })
   }
 
+  // Pull the live metric counters from Convex (parallel-friendly, so load()
+  // can fire this while the catalogue query is in flight).
+  async function fetchMetrics(): Promise<MetricRow[]> {
+    try {
+      const rows = await convex.query(api.metrics.getAll, {})
+      return rows as MetricRow[]
+    } catch (e) {
+      console.error('Metrics overlay failed:', e)
+      return [] as MetricRow[]
+    }
+  }
+
+  // ---------- persistence cache (localStorage) ----------
+  const CACHE_KEY = 'calebsLibraryCatalogueCache'
+  const CACHE_VERSION = '1'
+
+  interface CatalogueCache {
+    version: string
+    at: number
+    papers: Paper[]
+    courses: Course[]
+    subjects: Subject[]
+    owners: OwnerCount[]
+  }
+
+  function readCache(): CatalogueCache | null {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as CatalogueCache
+      if (parsed.version !== CACHE_VERSION) return null
+      return parsed
+    } catch {
+      return null
+    }
+  }
+
+  function writeCache(): void {
+    try {
+      const payload: CatalogueCache = {
+        version: CACHE_VERSION,
+        at: Date.now(),
+        papers: papers.value,
+        courses: courses.value,
+        subjects: subjects.value,
+        owners: ownerList.value,
+      }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
+    } catch {
+      // quota exceeded / storage unavailable — cache is best-effort only
+    }
+  }
+
+  function apply(paperList: Paper[], metricRows: MetricRow[]): void {
+    applyMetrics(paperList, metricRows)
+    ownerList.value = deriveOwners(paperList)
+    setContributors(contributors.value)
+    papers.value = paperList
+    courses.value = computeCourses(paperList)
+    subjects.value = computeSubjects(courses.value)
+  }
+
+  // Hydrate from localStorage so the first paint is instant (no network wait).
+  // The full Convex fetch then replaces it in the background.
+  function hydrateFromCache(): boolean {
+    const cache = readCache()
+    if (!cache?.papers?.length) return false
+    papers.value = cache.papers
+    courses.value = cache.courses
+    subjects.value = cache.subjects
+    ownerList.value = cache.owners
+    setContributors(contributors.value)
+    error.value = null
+    return true
+  }
+
   // ---------- loading ----------
+  // Async + progressive: fire the Convex queries in parallel but resolve
+  // `load()` as soon as paint-ready state exists, never blocking the UI on the
+  // full catalogue round-trip. The heavy work continues in the background.
+  let started = false
+
   async function load(): Promise<void> {
-    if (loaded.value || loading.value) return
+    if (loaded.value || started) return
+    started = true
     loading.value = true
+
+    // Paint immediately from the local cache while the network fetch runs.
+    hydrateFromCache()
     error.value = null
 
     try {
-    // Fire these NOW, in parallel with the Drive walk — no reason to serialize
-    // two independent network calls behind a long tree traversal.
-    const approvedP: Promise<Submission[]> = fetchApproved().catch((e) => {
-      console.error('Supabase merge failed:', e)
-      return []
-    })
-    const metricsP: Promise<MetricRow[]> = (async () => {
-      const { data } = await supabase
-        .from('metrics')
-        .select('paper_id, reads, downloads, upvotes, downvotes')
-      return (data || []) as unknown as MetricRow[]
-    })().catch((e) => {
-      console.error('Metrics overlay failed:', e)
-      return [] as MetricRow[]
-    })
+      const itemsP = convex.query(api.catalogue.get, {})
+      const metricsP = fetchMetrics()
+      const trendsP = convex.query(api.trends.getTop, {})
 
-    const walk = async (
-      folderId: string,
-      path: { level: string; semester: string; deptSection: string; dept: string; course: string },
-      types: string[],
-    ): Promise<Paper[]> => {
-      const files = await driveList(folderId)
-      const subFolders = files.filter((f) => f.mimeType === 'application/vnd.google-apps.folder')
-      const fileItems = files.filter((f) => f.mimeType !== 'application/vnd.google-apps.folder' && MATERIAL_MIME.test(f.mimeType))
+      const items = await itemsP
+      const metricRows = await metricsP
+      const trendRows = await trendsP
 
-      const here: Paper[] = fileItems.map((f) => buildPaper(f, path, types))
-      const childResults = await pMap(subFolders, 6, async (sub) => {
-        if (sub.name === 'Notes' || sub.name === 'Past Questions') {
-          return walk(sub.id, path, [...types, sub.name])
-        }
-        // Deeper course-level folders (e.g. department folder)
-        const next = { ...path }
-        if (path.deptSection === 'Departmental Courses' && !path.dept) {
-          next.dept = sub.name
-          next.course = ''
-        } else if (!path.course) {
-          next.course = sub.name
-        } else {
-          next.course = sub.name // nested course materials
-        }
-        return walk(sub.id, next, types)
-      })
-
-      return [...here, ...childResults.flat()]
-    }
-
-    // Publish each level's papers as soon as they resolve, so the UI fills in
-    // waves instead of all-at-once after the whole tree has walked.
-    const publishLevel = async (lvl: DriveFile): Promise<Paper[]> => {
-      const path = { level: lvl.name, semester: '', deptSection: '', dept: '', course: '' }
-      const semesters = await driveList(lvl.id)
-      const semRes = await pMap(semesters, 4, async (sem) => {
-        const semPath = { ...path, semester: sem.name }
-        const sections = await driveList(sem.id)
-        const secRes = await pMap(sections, 4, async (sec) => {
-          return walk(sec.id, { ...semPath, deptSection: sec.name }, [])
-        })
-        return secRes.flat()
-      })
-      const levelPapers = semRes.flat()
-
-      const next = [...papers.value, ...levelPapers]
-      papers.value = next
-      courses.value = computeCourses(next)
-      subjects.value = computeSubjects(courses.value)
-      return levelPapers
-    }
-
-    const levelFolders = await driveList(ROOT_FOLDER_ID)
-    await Promise.all(levelFolders.map(publishLevel))
-
-    const approved = await approvedP
-    const metricRows = await metricsP
-    const approvedPapers = approved.map(paperFromSubmission)
-    const merged = [...papers.value, ...approvedPapers]
-    applyMetrics(merged, metricRows)
-
-    for (const p of approvedPapers) {
-      if (!ownersById.has(p.contributor)) {
-        ownersById.set(p.contributor, {
-          id: p.contributor,
-          name: p.contributorName,
-          email: p.contributor,
-          count: 1,
-        })
-      }
-    }
-    ownersById.set(FOUNDER_EMAIL, {
-      id: FOUNDER_EMAIL,
-      name: contributors.value.find((c) => c.founder)?.name || 'Caleb',
-      email: FOUNDER_EMAIL,
-      count: papers.value.filter((p) => p.contributor === FOUNDER_EMAIL).length || 1,
-    })
-
-    ownerList.value = [...ownersById.values()].sort((a, b) => b.count - a.count)
-    setContributors(contributors.value)
-    papers.value = merged
-    courses.value = computeCourses(merged)
-    subjects.value = computeSubjects(courses.value)
-    loaded.value = true
-    startAutoRefresh()
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load the library'
-    console.error('Drive load failed:', e)
-  } finally {
-    loading.value = false
-  }
-}
-
-  const ownersById = new Map<string, OwnerCount>()
-
-  function trackOwner(f: DriveFile): void {
-    const owner = f.owners?.[0]
-    if (!owner?.emailAddress) return
-    const existing = ownersById.get(owner.emailAddress)
-    if (existing) {
-      existing.count += 1
-    } else {
-      ownersById.set(owner.emailAddress, {
-        id: owner.emailAddress,
-        name: owner.displayName || owner.emailAddress.split('@')[0] || 'Anonymous',
-        email: owner.emailAddress,
-        count: 1,
-      })
-    }
-  }
-
-  function buildPaper(f: DriveFile, path: { level: string; semester: string; deptSection: string; dept: string; course: string }, types: string[]): Paper {
-    const hash = hashString(f.id)
-    const fileName = f.name
-    const title = fileName.replace(/\.[^.]+$/, '')
-    const courseName = path.course || path.dept || 'General'
-    const courseInfo = parseCourseName(courseName)
-    const subjectName = courseInfo.code
-      ? CODE_SUBJECTS[courseInfo.code] || courseInfo.code
-      : 'General Studies'
-    const subject = courseInfo.code
-      ? slugify(CODE_SUBJECTS[courseInfo.code] || courseInfo.code)
-      : 'general'
-    const sizeBytes = Number(f.size) || 0
-    const type = detectType(fileName, types)
-    trackOwner(f)
-    const owner = f.owners?.[0]
-    const contributorId = owner?.emailAddress || 'anonymous'
-    const contributorName = owner?.displayName || owner?.emailAddress?.split('@')[0] || 'Anonymous'
-    return {
-      id: f.id,
-      title,
-      subtitle: courseInfo.code ? `${courseInfo.code} ${courseInfo.number}` : courseName,
-      subject,
-      subjectName,
-      course: path.course || path.dept || f.id,
-      courseName,
-      type,
-      year: f.createdTime ? new Date(f.createdTime).getFullYear() : new Date().getFullYear(),
-      pages: estimatePages(sizeBytes, hash),
-      upvotes: 40 + (hash % 900),
-      downvotes: hash % 40,
-      downloads: 200 + ((hash >> 4) % 3000),
-      views: 600 + ((hash >> 8) % 12000),
-      contributor: contributorId,
-      contributorName,
-      teacher: '',
-      cover: hash % 16,
-      mimeType: f.mimeType,
-      fileExt: extFromName(fileName),
-      sizeLabel: sizeBytes ? formatBytes(sizeBytes) : '—',
-      previewUrl: `https://drive.google.com/file/d/${f.id}/preview`,
-      downloadUrl: `${API}/files/${f.id}?alt=media&key=${API_KEY}`,
-      createdAt: f.createdTime || new Date().toISOString(),
-      parents: f.parents || [],
-    }
-  }
-
-  function detectType(fileName: string, types: string[]): string {
-    const n = fileName.toLowerCase()
-    if (/(past ?question|exam|test)/.test(n) || types.includes('Past Questions')) return 'Past Exam'
-    if (/(assign|problem|tutorial|worksheet)/.test(n)) return 'Problem Set'
-    if (/(cheat ?sheet|formula|summary)/.test(n)) return 'Cheat Sheet'
-    if (/(guide|revision)/.test(n)) return 'Study Guide'
-    if (/(essay|report|project)/.test(n)) return 'Essay'
-    if (/(slide|lecture|note)/.test(n) || types.includes('Notes') || /\.pptx?$/i.test(fileName)) return 'Lecture Notes'
-    return 'Notes'
-  }
-
-  function paperFromSubmission(s: Submission): Paper {
-    const id = `sub-${s.id}`
-    const hash = hashString(id)
-    const sizeBytes = Number(s.file_size) || 0
-    const hasDrive = !!s.drive_file_id
-    return {
-      id,
-      title: s.title,
-      subtitle: s.course_name || s.subject_name,
-      subject: s.subject,
-      subjectName: s.subject_name,
-      course: s.course || id,
-      courseName: s.course_name || 'Community upload',
-      type: s.type,
-      year: new Date(s.created_at).getFullYear(),
-      pages: estimatePages(sizeBytes, hash),
-      upvotes: 0,
-      downvotes: 0,
-      downloads: 0,
-      views: 0,
-      contributor: s.contributor_email,
-      contributorName: s.contributor_name,
-      teacher: '',
-      cover: hash % 16,
-      mimeType: s.mime_type,
-      fileExt: extFromName(s.file_name),
-      sizeLabel: sizeBytes ? formatBytes(sizeBytes) : '—',
-      previewUrl: hasDrive
-        ? `https://drive.google.com/file/d/${s.drive_file_id}/preview`
-        : storageUrl(s.storage_path),
-      downloadUrl: hasDrive
-        ? `${API}/files/${s.drive_file_id}?alt=media&key=${API_KEY}`
-        : storageUrl(s.storage_path),
-      createdAt: s.created_at,
-      parents: [],
+      apply(items, metricRows)
+      searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
+      writeCache()
+      loaded.value = true
+      loading.value = false
+      startAutoRefresh()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to load the library'
+      console.error('Catalogue load failed:', e)
+      loading.value = false
     }
   }
 
   async function overlayMetrics(pool: Paper[]): Promise<void> {
     try {
-      const { data } = await supabase
-        .from('metrics')
-        .select('paper_id, reads, downloads, upvotes, downvotes')
-      applyMetrics(pool, (data || []) as unknown as MetricRow[])
+      const rows = await convex.query(api.metrics.getAll, {})
+      applyMetrics(pool, rows as MetricRow[])
     } catch (e) {
       console.error('Metrics overlay failed:', e)
     }
@@ -538,24 +351,28 @@ export const useDriveStore = defineStore('drive', () => {
   ): Promise<void> {
     const p = papers.value.find((x) => x.id === id)
     if (!p) return
-    const bases = { reads: p.views, downloads: p.downloads, upvotes: p.upvotes, downvotes: p.downvotes }
     if (kind === 'reads') p.views += delta
     else if (kind === 'downloads') p.downloads += delta
     else if (kind === 'upvotes') p.upvotes += delta
     else p.downvotes += delta
     try {
-      await bumpMetric(id, kind, bases, delta)
+      await convex.mutation(api.metrics.bump, { paper_id: id, kind, delta })
     } catch (e) {
       console.error('Metric bump failed:', e)
     }
   }
 
-  function estimatePages(bytes: number, hash: number): number {
-    if (bytes > 0) {
-      const bySize = Math.round(bytes / 30000)
-      return Math.min(250, Math.max(2, bySize))
+  async function recordSearch(term: string): Promise<void> {
+    const trimmed = term.trim().toLowerCase()
+    if (!trimmed) return
+    // Optimistic local bump so the home row reacts instantly; the server
+    // aggregates it for everyone via api.trends.record.
+    searchTrends.value[trimmed] = (searchTrends.value[trimmed] ?? 0) + 1
+    try {
+      await convex.mutation(api.trends.record, { term: trimmed })
+    } catch (e) {
+      console.error('Search trend record failed:', e)
     }
-    return 6 + (hash % 40)
   }
 
   let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -563,31 +380,20 @@ export const useDriveStore = defineStore('drive', () => {
   async function refresh(): Promise<void> {
     if (!loaded.value || loading.value) return
     try {
-      const existing = new Set(papers.value.map((p) => p.id))
-      const approved = await fetchApproved()
-      const fresh = approved.filter((s) => {
-        const pid = `sub-${s.id}`
-        return !existing.has(pid)
-      })
-      if (fresh.length) {
-        const newPapers = fresh.map(paperFromSubmission)
-        for (const s of fresh) {
-          const pid = `sub-${s.id}`
-          if (!ownersById.has(s.contributor_email)) {
-            ownersById.set(s.contributor_email, {
-              id: s.contributor_email,
-              name: s.contributor_name,
-              email: s.contributor_email,
-              count: 1,
-            })
-          }
-        }
-        papers.value = [...papers.value, ...newPapers]
-        ownerList.value = [...ownersById.values()].sort((a, b) => b.count - a.count)
-        setContributors(contributors.value)
-      }
+      // Re-pull the Convex catalogue so cron updates arrive without a reload.
+      const items = await convex.query(api.catalogue.get, {})
+      const trendRows = await convex.query(api.trends.getTop, {})
+
+      ownerList.value = deriveOwners(items)
+      setContributors(contributors.value)
+      papers.value = items
+      courses.value = computeCourses(items)
+      subjects.value = computeSubjects(courses.value)
+      searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
       await overlayMetrics(papers.value)
+      writeCache()
     } catch {
+      // Non-fatal — keep showing the last known good catalogue.
     }
   }
 
@@ -614,6 +420,7 @@ export const useDriveStore = defineStore('drive', () => {
     loading,
     loaded,
     error,
+    searchTrends,
     papersBySubject,
     papersByCourse,
     getSubject,
@@ -630,7 +437,7 @@ export const useDriveStore = defineStore('drive', () => {
     startAutoRefresh,
     stopAutoRefresh,
     recordMetric,
-    paperFromSubmission,
+    recordSearch,
   }
 })
 
