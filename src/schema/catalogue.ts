@@ -37,6 +37,20 @@ export const CODE_SUBJECTS: Record<string, string> = {
   GST: 'General Studies',
   LAB: 'Laboratory',
   WSP: 'Workshop',
+  COS: 'Computer Studies',
+  ENT: 'Entrepreneurship Studies',
+  IFT: 'Information Technology',
+  SEN: 'Software Engineering',
+  GET: 'General Engineering',
+  ARC: 'Architecture',
+  GES: 'General Studies',
+  FAA: 'Fine & Applied Arts',
+  MCT: 'Mechatronics Engineering',
+  MEE: 'Mechanical Engineering',
+  ENV: 'Environmental Management',
+  BIO: 'Biology',
+  AMS: 'Applied Mathematics & Statistics',
+  ENG: 'Engineering',
 }
 
 export const LEVEL_DESC: Record<string, string> = {

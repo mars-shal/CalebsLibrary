@@ -1,7 +1,8 @@
 // Caleb's Library — server-side Google Drive tree walk.
 //
 // Walks the real Drive tree and produces plain CatalogueItem[] objects:
-//   Root → Level (100–400) → Semester → Dept section (General/Departmental)
+//   Root (all colleges) → College → Level (100–400) → Semester
+//   → Dept section (General/Departmental)
 //   → [Dept folder] → Course folder → (Notes / Past Questions) → files
 //
 // This module runs ONLY inside Convex (action context). The Drive API key is
@@ -23,7 +24,7 @@ import {
 
 // Drive-walking internals are owned by this server module so nothing
 // Drive-related ships in the client bundle (the API key is a Convex env var).
-const ROOT_FOLDER_ID = '1Au60m0ngWUTCOe-AZt8CuJ5LmfvM_DTR'
+const ROOT_FOLDER_ID = '1B1LUmkcAA4yl5j8_jan2vEjGphDS3KWR'
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const DRIVE_FIELDS =
   'files(id,name,mimeType,createdTime,size,webViewLink,parents,owners(displayName,emailAddress))'
@@ -62,10 +63,19 @@ interface Path {
 
 async function driveList(parentId: string, apiKey: string): Promise<DriveFile[]> {
   const url = `${DRIVE_API}/files?key=${apiKey}&q=${encodeURIComponent(`'${parentId}' in parents`)}&fields=${DRIVE_FIELDS}&pageSize=1000`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Drive API ${res.status}`)
-  const data = (await res.json()) as { files?: DriveFile[] }
-  return data.files || []
+  // A full-tree sync issues hundreds of Drive calls; a single transient
+  // network blip must not abort it, so transient failures retry with backoff.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) throw new Error(`Drive API ${res.status}`)
+      const data = (await res.json()) as { files?: DriveFile[] }
+      return data.files || []
+    } catch (err) {
+      if (attempt === 2) throw err
+      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
+    }
+  }
 }
 
 // Concurrency-limited map over an array
@@ -191,7 +201,20 @@ function toValidatedItems(items: CatalogueItem[]): CatalogueItem[] {
  * Called from the sync action with the server-side API key.
  */
 export async function walkCatalogueTree(apiKey: string): Promise<CatalogueItem[]> {
-  const levelFolders = await driveList(ROOT_FOLDER_ID, apiKey)
-  const levelResults = await pMap(levelFolders, 3, async (lvl) => publishLevel(lvl, apiKey))
-  return toValidatedItems(levelResults.flat())
+  const colleges = await driveList(ROOT_FOLDER_ID, apiKey)
+  const collegeResults = await pMap(colleges, 2, async (college) => {
+    const levels = await driveList(college.id, apiKey)
+    const levelResults = await pMap(levels, 3, async (lvl) => publishLevel(lvl, apiKey))
+    return levelResults.flat()
+  })
+  const all = collegeResults.flat()
+  // The same Drive file can be reachable from several colleges — keep the
+  // first occurrence so the catalogue holds each paper exactly once.
+  const seen = new Set<string>()
+  const deduped = all.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+  return toValidatedItems(deduped)
 }
