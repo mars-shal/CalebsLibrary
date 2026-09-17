@@ -61,6 +61,14 @@ export const LEVEL_DESC: Record<string, string> = {
   '5': 'Postgraduate',
 }
 
+// Default license for papers and submissions (CC BY-NC 4.0 per About RULE 02).
+export const DEFAULT_LICENSE = 'CC BY-NC 4.0'
+
+// First digit of a course number ("200" → "2") for level-year routing.
+export function levelYearOf(courseNumber: string): string {
+  return courseNumber.charAt(0) || ''
+}
+
 // ---------------------------------------------------------------------------
 // Zod schema — the single source of truth for a catalogue item (a Paper).
 // ---------------------------------------------------------------------------
@@ -89,7 +97,16 @@ export const catalogueItemSchema = z.object({
   previewUrl: z.string(), // drive embed url
   downloadUrl: z.string(),
   createdAt: z.string(), // ISO date
-  parents: z.array(z.string()),
+  parents: z.array(z.string()), // legacy Drive parents — retained for web compat, mobile projections must exclude (dead weight)
+  college: z.string(), // e.g. "Engineering" (persisted from Drive walk Path — v2)
+  program: z.string(), // department code, e.g. "CSC"
+  level: z.string(), // course number, e.g. "200"
+  levelYear: z.string(), // first digit of level, e.g. "2" ("" = unscoped)
+  semester: z.string(),
+  deptSection: z.string(),
+  license: z.string(), // e.g. "CC BY-NC 4.0"
+  fileId: z.string(), // Drive file id (== id) or `sub_<submission>` for uploads
+  storageId: z.string().optional(), // Convex storage id for community uploads
 })
 export type CatalogueItem = z.infer<typeof catalogueItemSchema>
 

@@ -1,10 +1,11 @@
 // Caleb's Library — in-house short share links (Convex).
 //
-// Replaces the TinyURL api-create.php call with our own shortener so shared
-// links are {origin}/s/{code} and never depend on a third party. Codes are
-// derived deterministically from the paper id (FNV-1a → base62), so the same
-// paper always reuses the same short link instead of minting a new one per
-// share. The client-side /s/:code route resolves them via getByCode.
+// v2: `create` VALIDATES the destination (scheme + host allowlist + length).
+// The old mutation stored any caller-supplied URL and the resolver redirected
+// blindly — an open-redirect/phishing vector on a PUBLIC mutation. Creation
+// is also globally throttled (5 newest links inside 60s → reject).
+// Codes remain deterministic per paper (FNV-1a → base62) so re-sharing the
+// same paper reuses its link instead of minting new ones.
 import { z } from "zod";
 import { zCustomQuery, zCustomMutation } from "convex-helpers/server/zod4";
 import { NoOp } from "convex-helpers/server/customFunctions";
@@ -13,6 +14,43 @@ import { query, mutation } from "./_generated/server";
 const CODE_CHARS =
   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const CODE_LENGTH = 7;
+const MAX_URL_LENGTH = 2048;
+const CREATE_WINDOW_MS = 60_000;
+const CREATE_WINDOW_COUNT = 5;
+
+// Hosts we will ever redirect to. `calebs:` covers app deep links;
+// localhost entries cover dev; update when the web origin is finalized.
+const ALLOWED_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+  "calebslibrary.org",
+]);
+function hostAllowed(host: string): boolean {
+  const h = host.toLowerCase();
+  if (ALLOWED_HOSTS.has(h)) return true;
+  if (h.endsWith(".calebslibrary.org")) return true;
+  if (h.endsWith(".vercel.app")) return true;
+  if (h.endsWith(".convex.site")) return true;
+  if (h.endsWith(".convex.cloud")) return true;
+  return false;
+}
+
+function assertShareableUrl(url: string): void {
+  if (!url || url.length > MAX_URL_LENGTH) throw new Error("Invalid share URL.");
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("Invalid share URL.");
+  }
+  if (!["https:", "http:", "calebs:"].includes(parsed.protocol)) {
+    throw new Error("URL scheme not allowed.");
+  }
+  if (parsed.protocol !== "calebs:" && !hostAllowed(parsed.hostname)) {
+    throw new Error("URL host not allowed.");
+  }
+}
 
 // FNV-1a hash of the seed → fixed-length base62 string. Deterministic per
 // paper id, so re-sharing the same paper yields the same short code.
@@ -49,11 +87,20 @@ export const create = zCustomMutation(mutation, NoOp)({
   args: { paper_id: z.string(), url: z.string() },
   returns: z.object({ code: z.string() }),
   handler: async (ctx, { paper_id, url }) => {
+    assertShareableUrl(url);
     const existing = await ctx.db
       .query("shortLinks")
       .withIndex("by_paper_id", (q) => q.eq("paper_id", paper_id))
       .first();
     if (existing) return { code: existing.code };
+
+    const latest = await ctx.db.query("shortLinks").order("desc").take(CREATE_WINDOW_COUNT);
+    if (
+      latest.length === CREATE_WINDOW_COUNT &&
+      Date.now() - latest[CREATE_WINDOW_COUNT - 1]!.created_at < CREATE_WINDOW_MS
+    ) {
+      throw new Error("Slow down — try again in a minute.");
+    }
 
     let code = codeFromSeed(paper_id);
     let attempt = 0;

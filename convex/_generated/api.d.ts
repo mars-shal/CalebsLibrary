@@ -12,9 +12,14 @@ import type * as catalogue from "../catalogue.js";
 import type * as comments from "../comments.js";
 import type * as crons from "../crons.js";
 import type * as driveSync from "../driveSync.js";
+import type * as files from "../files.js";
 import type * as metrics from "../metrics.js";
+import type * as reports from "../reports.js";
 import type * as shortLink from "../shortLink.js";
+import type * as submissions from "../submissions.js";
 import type * as trends from "../trends.js";
+import type * as users from "../users.js";
+import type * as votes from "../votes.js";
 
 import type {
   ApiFromModules,
@@ -27,9 +32,14 @@ declare const fullApi: ApiFromModules<{
   comments: typeof comments;
   crons: typeof crons;
   driveSync: typeof driveSync;
+  files: typeof files;
   metrics: typeof metrics;
+  reports: typeof reports;
   shortLink: typeof shortLink;
+  submissions: typeof submissions;
   trends: typeof trends;
+  users: typeof users;
+  votes: typeof votes;
 }>;
 
 /**

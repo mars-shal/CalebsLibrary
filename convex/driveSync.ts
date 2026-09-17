@@ -7,8 +7,9 @@
 //
 // This module runs ONLY inside Convex (action context). The Drive API key is
 // received as a parameter from the caller (read from the Convex env), so it
-// never ships to the browser. There is intentionally no owner-tracking here —
-// contributors are derived from each paper's `contributor` field on the client.
+// never ships to the browser. v2: the college/level/semester path is
+// PERSISTED on every item (the old walk dropped it, making level/program
+// filtering impossible) plus license + file identity.
 
 import {
   CODE_SUBJECTS,
@@ -20,6 +21,8 @@ import {
   extFromName,
   formatBytes,
   estimatePages,
+  levelYearOf,
+  DEFAULT_LICENSE,
 } from "../src/schema/catalogue";
 
 // Drive-walking internals are owned by this server module so nothing
@@ -54,6 +57,7 @@ function detectType(fileName: string, types: string[]): string {
 }
 
 interface Path {
+  college: string
   level: string
   semester: string
   deptSection: string
@@ -132,9 +136,20 @@ function buildPaper(f: DriveFile, path: Path, types: string[], apiKey: string): 
     fileExt: extFromName(fileName),
     sizeLabel: sizeBytes ? formatBytes(sizeBytes) : '—',
     previewUrl: `https://drive.google.com/file/d/${f.id}/preview`,
+    // INTERIM: baked key URL kept for web compat only. Mobile must use the
+    // `files.downloadUrl` action (request-time minting); a future pass
+    // should proxy bytes so the key never reaches any client.
     downloadUrl: `${DRIVE_API}/files/${f.id}?alt=media&key=${apiKey}`,
     createdAt: f.createdTime || new Date().toISOString(),
     parents: f.parents || [],
+    college: path.college,
+    program: courseInfo.code,
+    level: courseInfo.number,
+    levelYear: levelYearOf(courseInfo.number),
+    semester: path.semester,
+    deptSection: path.deptSection,
+    license: DEFAULT_LICENSE,
+    fileId: f.id,
   } satisfies CatalogueItem
 }
 
@@ -173,8 +188,8 @@ async function walk(
 }
 
 // Publish each level (100/200/300/400…) as its own subtree.
-async function publishLevel(lvl: DriveFile, apiKey: string): Promise<CatalogueItem[]> {
-  const path: Path = { level: lvl.name, semester: '', deptSection: '', dept: '', course: '' }
+async function publishLevel(lvl: DriveFile, apiKey: string, college: string): Promise<CatalogueItem[]> {
+  const path: Path = { college, level: lvl.name, semester: '', deptSection: '', dept: '', course: '' }
   const semesters = await driveList(lvl.id, apiKey)
   const semRes = await pMap(semesters, 4, async (sem) => {
     const semPath = { ...path, semester: sem.name }
@@ -204,7 +219,7 @@ export async function walkCatalogueTree(apiKey: string): Promise<CatalogueItem[]
   const colleges = await driveList(ROOT_FOLDER_ID, apiKey)
   const collegeResults = await pMap(colleges, 2, async (college) => {
     const levels = await driveList(college.id, apiKey)
-    const levelResults = await pMap(levels, 3, async (lvl) => publishLevel(lvl, apiKey))
+    const levelResults = await pMap(levels, 3, async (lvl) => publishLevel(lvl, apiKey, college.name))
     return levelResults.flat()
   })
   const all = collegeResults.flat()
