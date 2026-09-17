@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "org.calebslibrary.app",
       "adaptiveIcon": {
         "backgroundColor": "#f7f4ec",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

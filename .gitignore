@@ -58,5 +58,4 @@ mobile/node_modules/
 GoogleService-Info.plist
 google-services.json
 mobile/.env
-eas.json
 !mobile/.env.example
