@@ -46,3 +46,17 @@ __screenshots__/
 
 # Agent session state (not part of the app)
 .omo/
+
+# Playwright MCP snapshots (local test artifacts)
+.playwright-mcp/
+
+# Mobile (Expo) — local/build secrets, never commit
+mobile/.expo/
+mobile/node_modules/
+*.jks
+*.keystore
+GoogleService-Info.plist
+google-services.json
+mobile/.env
+eas.json
+!mobile/.env.example

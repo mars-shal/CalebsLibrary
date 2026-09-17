@@ -1,0 +1,6 @@
+{
+  "name": "@calebs/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-free shared core (types + pure logic) for Convex backend and Expo app. No Vue, no React Native, no zod imports — must stay importable from both."
+}
