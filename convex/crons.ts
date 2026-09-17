@@ -12,7 +12,7 @@ const crons = cronJobs();
 
 crons.interval(
   "sync-catalogue-from-drive",
-  { minutes: 10 },
+  { hours: 12 },
   internal.catalogue.syncFromDrive,
 );
 
