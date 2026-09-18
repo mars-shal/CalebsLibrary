@@ -97,6 +97,28 @@ function isNetworkError(e: unknown): boolean {
 }
 
 let flushing = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+// While the app is ONLINE and idle, queued ops still need a flush attempt:
+// reconnect/foreground events cover transitions, but a long-lived online
+// session (app never leaves foreground, network already up) previously left
+// ops stuck until the next state change. A modest interval fixes that.
+export function scheduleOutboxFlush(delayMs = 60_000): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void flushOutbox().then((remaining) => {
+      if (remaining > 0) scheduleOutboxFlush();
+    });
+  }, delayMs);
+}
+
+export function cancelScheduledFlush(): void {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
 
 // Returns remaining queue length. Stops at first network failure.
 export async function flushOutbox(): Promise<number> {
@@ -157,4 +179,10 @@ export async function flushOutbox(): Promise<number> {
   } finally {
     flushing = false;
   }
+}
+
+// One-shot: enqueue happens on failure; every successful flush attempt
+// schedules the next one. Started from the root layout.
+export function startOutboxLoop(): void {
+  scheduleOutboxFlush();
 }

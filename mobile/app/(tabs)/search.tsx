@@ -2,7 +2,7 @@
 // Server pages accumulate per scope; ranking/sorts apply client-side over
 // loaded pages (documented v1 contract). Facets in ONE sheet; sorts inline;
 // infinite scroll pages the scope. Commits record trends exactly once.
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -40,7 +40,6 @@ export default function Search() {
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; focus?: string }>();
   const facets = useFacets();
-  const { results, status, loadMore } = useSearchPages();
   const bumpLocal = useTrends((s) => s.bumpLocal);
   const recordTrend = useMutation(api.trends.record);
 
@@ -59,6 +58,16 @@ export default function Search() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
 
+  // Server-side prefilter: debounce typing so the live query re-subscribes
+  // at most every 300ms; commit/search-history still own instant states.
+  const [serverQ, setServerQ] = useState(query);
+  useEffect(() => {
+    if (query === serverQ) return;
+    const t = setTimeout(() => setServerQ(query), 300);
+    return () => clearTimeout(t);
+  }, [query, serverQ]);
+  const { results, status, loadMore } = useSearchPages(serverQ);
+
   const yearBounds = useMemo(
     () => ({ min: facets?.yearMin ?? 2020, max: facets?.yearMax ?? new Date().getFullYear() }),
     [facets],
@@ -67,6 +76,8 @@ export default function Search() {
   const [yearMax, setYearMax] = useState(yearBounds.max);
 
   const ranked = useMemo(() => {
+    // The server already substring-matched serverQ; local filterPapers still
+    // applies for the freshly-typed window (pre-debounce) + facet filters.
     let out = filterPapers(results as Paper[], query, {
       subjects: selSubjects.length ? selSubjects : undefined,
       types: selTypes.length ? selTypes : undefined,

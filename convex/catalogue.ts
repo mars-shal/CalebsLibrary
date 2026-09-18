@@ -4,7 +4,8 @@
 //  - listByLevelProgram → scoped pages for the onboarding-filtered UI
 //  - getByIds           → hydrate visible cards (metrics overlay batches here)
 //  - getPaper           → single paper detail
-//  - searchPage         → scoped pages; mobile ranks locally (v1, documented)
+//  - searchPage         → scoped pages + server-side contains prefilter (q)
+//                         (client still ranks for relevance)
 // Legacy surface (web compat — mobile must NOT call):
 //  - get                → full collect (kept for the Vue web app only)
 // Internal surface (cron / dashboard only):
@@ -122,18 +123,32 @@ export const getPaper = zCustomQuery(query, NoOp)({
   },
 });
 
-// Scoped pages for client-side ranked search (v1): mobile accumulates pages
-// within the user's scope and applies the documented substring ranking
-// locally (title^3 + course^2 + subject + contributor). Server-side FTS is
-// a future pass, not v1.
+// Scoped pages for search. v2: optional `q` applies a server-side contains
+// prefilter (case-insensitive over title/courseName/subjectName/contributor
+// — the same haystack the client ranks) so deep scopes stop shipping the
+// whole catalogue to the device. Client-side ranking (shared/search.ts)
+// still runs as the relevance pass over the prefiltered pages.
+// Search terms are normalized to lowercase here, not indexed: scopes are
+// single-thousands of papers, and a filter over an index page stays O(page).
 export const searchPage = query({
   args: {
     levelYear: v.string(),
     program: v.string(),
+    q: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, a) => {
-    return await paginateScope(ctx, a.levelYear, a.program, undefined, a.paginationOpts);
+    const page = await paginateScope(ctx, a.levelYear, a.program, undefined, a.paginationOpts);
+    const q = a.q?.trim().toLowerCase();
+    if (!q) return page;
+    return {
+      ...page,
+      page: page.page.filter((p) =>
+        `${p.title} ${p.courseName} ${p.subjectName} ${p.type} ${p.contributor}`
+          .toLowerCase()
+          .includes(q),
+      ),
+    };
   },
 });
 

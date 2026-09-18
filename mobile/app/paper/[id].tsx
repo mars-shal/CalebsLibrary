@@ -11,6 +11,7 @@ import Animated from 'react-native-reanimated';
 import { useMutation, useQuery } from 'convex/react';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Clipboard from 'expo-clipboard';
 import { WebView } from 'react-native-webview';
 import { FlashList } from '@shopify/flash-list';
@@ -240,11 +241,21 @@ export default function PaperDetail() {
     setDl({ status: 'working', written: 0, total: 0 });
     try {
       const url = await resolveUrl(paper);
+      // HEAD the file once so the 300MB cap + free-space pre-flight actually
+      // run (they were skipped with sizeBytes=0).
+      let sizeHint = 0;
+      try {
+        const head = await fetch(url, { method: 'HEAD' });
+        const len = head.headers.get('content-length');
+        if (len) sizeHint = Number(len) || 0;
+      } catch {
+        // unknown size — mid-download probe in downloads.ts covers it
+      }
       const uri = await downloadPaper({
         id: paper.id,
         ext: paper.fileExt,
         url,
-        sizeBytes: 0,
+        sizeBytes: sizeHint,
         onProgress: (written, total) => setDl({ status: 'working', written, total }),
       });
       setCachedUri(uri);
@@ -282,6 +293,16 @@ export default function PaperDetail() {
     touchRecent(paper.id);
     try {
       if (!(await isOnlineNow())) track('offline_open', { paperId: paper.id });
+      // Android: open-with intent (PDF viewers get a readable file URI via
+      // FileProvider) — a share sheet offered Gmail a raw attachment.
+      if (Platform.OS === 'android') {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: uri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: paper.fileExt === 'pdf' ? 'application/pdf' : '*/*',
+        });
+        return;
+      }
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { dialogTitle: paper.title });
       } else {
@@ -477,7 +498,18 @@ export default function PaperDetail() {
           />
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-              {[paper.subjectName, paper.type, String(paper.year)].map((t) => (
+              <Pressable
+                onPress={() => router.push(`/course/${paper.course}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open course ${paper.courseName}`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.paper2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3 }}
+              >
+                <Text style={{ fontSize: 11, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
+                  {paper.courseName || paper.course}
+                </Text>
+                <Icon name="chevron" size={10} color={c.textTertiary} />
+              </Pressable>
+              {[paper.type, String(paper.year)].map((t) => (
                 <Text key={t} style={{ fontSize: 11, color: c.textSecondary, backgroundColor: c.paper2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, fontFamily: fonts.sansMedium }}>
                   {t}
                 </Text>

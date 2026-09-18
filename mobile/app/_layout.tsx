@@ -10,7 +10,7 @@ import 'react-native-reanimated';
 import { ThemeProvider, useThemeScheme } from '@/components/ThemeProvider';
 import { ConvexAppProvider } from '@/lib/convex';
 import { NetProvider, useNet } from '@/lib/net';
-import { flushOutbox } from '@/lib/outbox';
+import { flushOutbox, scheduleOutboxFlush } from '@/lib/outbox';
 import { initCrashReporting } from '@/lib/crash';
 import { track } from '@/lib/analytics';
 import { isStoragePersistent } from '@/lib/storage';
@@ -18,6 +18,9 @@ import { useAppFonts } from '@/theme/fonts';
 import { ToastHost, toast } from '@/components/Toast';
 import { CelebrateHost } from '@/components/Celebrate';
 import { useOnboarding } from '@/lib/store';
+import { useDeepLinks } from '@/lib/deeplinks';
+import { useAutoUpdates } from '@/lib/updates';
+import { migrateToDocumentDir } from '@/lib/downloads';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -55,8 +58,20 @@ function FlushOnOnline() {
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') void flushOutbox();
     });
+    // Long-lived online sessions: queued ops used to wait for the next
+    // state change forever. Keep a slow retry loop alive while queued.
+    scheduleOutboxFlush();
     return () => sub.remove();
   }, []);
+  return null;
+}
+
+function LinkAndUpdates() {
+  useDeepLinks();
+  const updateReady = useAutoUpdates();
+  useEffect(() => {
+    if (updateReady) toast('Update ready — restart to apply');
+  }, [updateReady]);
   return null;
 }
 
@@ -71,6 +86,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     initCrashReporting();
+    void migrateToDocumentDir();
     track('app_open');
     if (!isStoragePersistent()) {
       setTimeout(
@@ -89,6 +105,7 @@ export default function RootLayout() {
         <ConvexAppProvider>
           <OnboardingGate />
           <FlushOnOnline />
+          <LinkAndUpdates />
           <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />

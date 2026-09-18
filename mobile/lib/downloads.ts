@@ -2,6 +2,9 @@
 // New expo-file-system API (File/Directory/Paths/DownloadTask) + legacy
 // pre-flight free-space check. Registry is source of truth; file existence
 // re-verified lazily (kill-safe: incomplete entries restart on relaunch).
+// v2: files live under Paths.document (NOT Paths.cache) so the OS never
+// wipes "saved offline" papers under storage pressure; a one-time migration
+// moves any pre-v2 cache-dir files over.
 import { File, Directory, Paths } from 'expo-file-system';
 import { getFreeDiskStorageAsync } from 'expo-file-system/legacy';
 import { create } from 'zustand';
@@ -41,9 +44,11 @@ function writeRegistry(reg: Record<string, DownloadEntry>): void {
 }
 
 const PAPERS_DIR_NAME = 'papers';
+const MIGRATED_KEY = 'migrated.document.v1';
 
+// Papers live in the document directory (user-visible, never auto-wiped).
 async function papersDir(): Promise<Directory> {
-  const dir = new Directory(Paths.cache, PAPERS_DIR_NAME);
+  const dir = new Directory(Paths.document, PAPERS_DIR_NAME);
   try {
     if (!dir.exists) {
       const { makeDirectoryAsync } = await import('expo-file-system/legacy');
@@ -56,7 +61,33 @@ async function papersDir(): Promise<Directory> {
 }
 
 export function fileFor(id: string, ext: string): File {
-  return new File(Paths.cache, PAPERS_DIR_NAME, `${id}.${ext || 'pdf'}`);
+  return new File(Paths.document, PAPERS_DIR_NAME, `${id}.${ext || 'pdf'}`);
+}
+
+// One-time migration: pre-v2 builds stored papers in Paths.cache, which the
+// OS clears under pressure. Move complete files into the document dir and
+// rewrite the registry; entries whose files vanished are dropped.
+export async function migrateToDocumentDir(): Promise<void> {
+  if (storage.getString(MIGRATED_KEY) === '1') return;
+  try {
+    const reg = readRegistry();
+    const legacyDir = new Directory(Paths.cache, PAPERS_DIR_NAME);
+    for (const [id, e] of Object.entries(reg)) {
+      if (!e.complete) continue;
+      const dest = fileFor(id, e.ext);
+      if (dest.exists) continue;
+      try {
+        const src = new File(legacyDir, `${id}.${e.ext}`);
+        if (src.exists) src.move(dest);
+        else throw new Error('gone');
+      } catch {
+        useDownloads.getState().remove(id); // file lost — re-download later
+      }
+    }
+    storage.set(MIGRATED_KEY, '1');
+  } catch {
+    // best-effort — retry next launch
+  }
 }
 
 interface RegistryState {
@@ -135,10 +166,14 @@ export interface DownloadArgs {
 
 // Download with progress. Pre-flights free space (when size known),
 // restarts stale partials (kill-safe), enforces the 300MB cap via LRU.
+// sizeBytes=0 (unknown) is corrected from the first progress tick, so the
+// cap + space checks engage mid-download instead of never.
 export async function downloadPaper(args: DownloadArgs): Promise<string> {
   const { id, ext, url, sizeBytes = 0, onProgress } = args;
   const dir = await papersDir();
   const dest = new File(dir, `${id}.${ext || 'pdf'}`);
+  let declared = sizeBytes;
+  let capChecked = declared <= 0; // skip the cap pre-check when size unknown
 
   if (sizeBytes > 0) {
     try {
@@ -167,7 +202,27 @@ export async function downloadPaper(args: DownloadArgs): Promise<string> {
   }
 
   const task = File.createDownloadTask(url, dest, {
-    onProgress: (p) => onProgress?.(p.bytesWritten, p.totalBytes),
+    onProgress: (p) => {
+      // First tick reveals the true size: run the LRU cap check that was
+      // skipped pre-flight, and fail fast when the file can never fit.
+      if (!capChecked && p.totalBytes > 0) {
+        capChecked = true;
+        declared = p.totalBytes;
+        void (async () => {
+          if (storageUsed() + declared > DOWNLOADS_CAP) {
+            await evictLRU(declared);
+            if (storageUsed() + declared > DOWNLOADS_CAP) {
+              try {
+                task.cancel();
+              } catch {
+                // already finished/failed
+              }
+            }
+          }
+        })();
+      }
+      onProgress?.(p.bytesWritten, p.totalBytes);
+    },
   });
   try {
     await task.downloadAsync();
@@ -180,7 +235,7 @@ export async function downloadPaper(args: DownloadArgs): Promise<string> {
     throw e instanceof Error ? e : new Error('Download failed.');
   }
 
-  let size = sizeBytes;
+  let size = declared;
   try {
     const info = dest.info();
     size = typeof info.size === 'number' ? info.size : sizeBytes;
@@ -198,6 +253,11 @@ export async function downloadPaper(args: DownloadArgs): Promise<string> {
   };
   syncEntry(entry);
   return dest.uri;
+}
+
+// True content URI for viewers/intents (expo-file-system v2 API).
+export function contentUriFor(id: string, ext: string): string {
+  return fileFor(id, ext).uri;
 }
 
 export function touchOpened(id: string): void {

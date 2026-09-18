@@ -55,11 +55,16 @@ export function useScopedPages(type?: string) {
   return { ...res, results: res.results as Paper[] };
 }
 
-export function useSearchPages() {
+export function useSearchPages(q?: string) {
   const { levelYear, program } = useScope();
+  // Server-side contains-prefilter (convex/catalogue.ts searchPage): scopes
+  // stay small but deep ones previously paged the whole catalogue to the
+  // device before client filtering. Debounce is owned by the caller (typing
+  // states change this arg at most every ~300ms).
+  const trimmed = q?.trim() ?? '';
   const res = usePaginatedQuery(
     api.catalogue.searchPage,
-    { levelYear, program },
+    { levelYear, program, q: trimmed.length >= 2 ? trimmed : undefined },
     { initialNumItems: 50 },
   );
   return { ...res, results: res.results as Paper[] };

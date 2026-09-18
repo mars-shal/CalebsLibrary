@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useMutation } from 'convex/react';
+import * as Updates from 'expo-updates';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { FlashList } from '@shopify/flash-list';
 import { api } from '@/lib/convex';
@@ -15,7 +16,9 @@ import { useOnboarding, useScope, useTrends, isLowData, useSession, firstNameOf 
 import { phraseFor, nextBoundaryMs, examCountdown } from '@shared/phrases';
 import { filterPapers, rankPapers } from '@shared/search';
 import { timeAgo, type Paper, type Subject } from '@shared/design';
-import { getMyCourses, toggleMyCourse } from '@/lib/timetable';
+import { getMyCourses, toggleMyCourse, clearMyCourses } from '@/lib/timetable';
+import { getStreak, markReadingDay, type StreakInfo } from '@/lib/streaks';
+import { upcomingExams, daysUntil, removeExam, type ExamEntry } from '@/lib/exams';
 import { SearchBar } from '@/components/SearchBar';
 import { ScopePill } from '@/components/ScopePill';
 import { PaperCard } from '@/components/PaperCard';
@@ -40,7 +43,7 @@ export default function Home() {
   const c = useThemeColors();
   const router = useRouter();
   const facets = useFacets();
-  const { results, status, loadMore } = useScopedPages();
+  const { results, status } = useScopedPages();
   const bumpLocal = useTrends((s) => s.bumpLocal);
   const reopen = useOnboarding((s) => s.reopen);
   const profile = useSession((s) => s.profile);
@@ -48,6 +51,8 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [phrase, setPhrase] = useState(() => phraseFor(new Date()));
   const [refreshing, setRefreshing] = useState(false);
+  const [streak, setStreak] = useState<StreakInfo>(() => getStreak());
+  const [exams, setExams] = useState<ExamEntry[]>(() => upcomingExams(3));
   const { online, wifi } = useNet();
   const { program, levelYear } = useScope();
   const scrollRef = useRef<ScrollView>(null);
@@ -106,6 +111,14 @@ export default function Home() {
     [results],
   );
   const recent = useOverlaidPapers(recentBase);
+
+  // Streak ticks whenever the user comes back from reading something.
+  useFocusEffect(
+    useCallback(() => {
+      setStreak(markReadingDay());
+      setExams(upcomingExams(3));
+    }, []),
+  );
 
   const commitSearch = (q: string) => {
     bumpLocal(q.toLowerCase());
@@ -214,10 +227,18 @@ export default function Home() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => {
+          onRefresh={async () => {
             setRefreshing(true);
-            loadMore(20);
-            setTimeout(() => setRefreshing(false), 800);
+            try {
+              // Convex live queries self-update; what needs a manual kick is
+              // the OTA bundle check. Loader keeps spinning until it settles.
+              if (!__DEV__ && Updates.isEnabled) {
+                await Updates.checkForUpdateAsync().catch(() => null);
+              }
+              await new Promise((r) => setTimeout(r, 400));
+            } finally {
+              setRefreshing(false);
+            }
           }}
         />
       }
@@ -314,28 +335,113 @@ export default function Home() {
             </Text>
           </Pressable>
         </View>
-        {countdown ? (
-          <View style={{ marginTop: 14, alignItems: 'center' }}>
-            <View
-              accessibilityRole="text"
-              accessibilityLabel={countdown.live ? `Finals season, ${countdown.days} days left` : `Finals season in ${countdown.days} days`}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                paddingVertical: 7,
-                paddingHorizontal: 14,
-                borderRadius: 999,
-                backgroundColor: c.ink100,
-              }}
-            >
-              <Icon name="clock" size={13} color={c.paper} />
-              <Text style={{ fontSize: 11, color: c.paper, fontFamily: fonts.mono }}>
-                {countdown.live
-                  ? `FINALS SZN · ${countdown.days}d LEFT`
-                  : `FINALS SZN IN ${countdown.days}d — STOCK UP`}
-              </Text>
-            </View>
+        {countdown || streak.current > 0 ? (
+          <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {countdown ? (
+              <View
+                accessibilityRole="text"
+                accessibilityLabel={countdown.live ? `Finals season, ${countdown.days} days left` : `Finals season in ${countdown.days} days`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingVertical: 7,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  backgroundColor: c.ink100,
+                }}
+              >
+                <Icon name="clock" size={13} color={c.paper} />
+                <Text style={{ fontSize: 11, color: c.paper, fontFamily: fonts.mono }}>
+                  {countdown.live
+                    ? `FINALS SZN · ${countdown.days}d LEFT`
+                    : `FINALS SZN IN ${countdown.days}d — STOCK UP`}
+                </Text>
+              </View>
+            ) : null}
+            {streak.current > 0 ? (
+              <View
+                accessibilityRole="text"
+                accessibilityLabel={`Reading streak: ${streak.current} days`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: c.ruleStrong,
+                }}
+              >
+                <Text style={{ fontSize: 12 }}>
+                  {streak.atRisk ? '⏳' : '🔥'}
+                </Text>
+                <Text style={{ fontSize: 11, color: c.textSecondary, fontFamily: fonts.mono }}>
+                  {streak.current}d streak{streak.atRisk ? ' — read today!' : ''}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {exams.length > 0 ? (
+          <View style={{ marginTop: 16, gap: 8 }}>
+            {exams.map((e) => {
+              const d = daysUntil(e.at);
+              const urgent = d <= 7;
+              return (
+                <View
+                  key={e.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderWidth: 1,
+                    borderColor: urgent ? c.ink100 : c.rule,
+                    borderRadius: 10,
+                    backgroundColor: c.elevated,
+                  }}
+                >
+                  <View style={{ width: 44, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: urgent ? c.textPrimary : c.textSecondary, fontFamily: fonts.sansSemi }}>
+                      {d}
+                    </Text>
+                    <Text style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: c.textTertiary, fontFamily: fonts.sans }}>days</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
+                      {e.course}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 2 }}>
+                      {new Date(e.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      {d === 0 ? ' · TODAY' : d === 1 ? ' · TOMORROW' : ''}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => router.push('/(tabs)/search?focus=1')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Find ${e.course} past questions`}
+                    style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.ruleStrong, minHeight: 40, justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: 12, color: c.textPrimary, fontFamily: fonts.sansMedium }}>Past Qs</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      removeExam(e.id);
+                      setExams(upcomingExams(3));
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${e.course} exam`}
+                    style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Icon name="x" size={14} color={c.textQuiet} />
+                  </Pressable>
+                </View>
+              );
+            })}
           </View>
         ) : null}
       </View>
@@ -378,16 +484,31 @@ export default function Home() {
               This semester
             </Text>
           </View>
-          <Pressable
-            onPress={() => setEditingCourses(!editingCourses)}
-            accessibilityRole="button"
-            accessibilityLabel={editingCourses ? 'Done editing courses' : 'Choose my courses'}
-            style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
-          >
-            <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>
-              {editingCourses ? 'Done' : myCourses.length ? 'Edit courses' : 'Pick courses'}
-            </Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {editingCourses && myCourses.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  clearMyCourses();
+                  setMyCourses([]);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear all my courses"
+                style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans }}>Clear all</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setEditingCourses(!editingCourses)}
+              accessibilityRole="button"
+              accessibilityLabel={editingCourses ? 'Done editing courses' : 'Choose my courses'}
+              style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>
+                {editingCourses ? 'Done' : myCourses.length ? 'Edit courses' : 'Pick courses'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
         {editingCourses || myCourses.length === 0 ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 4 }}>

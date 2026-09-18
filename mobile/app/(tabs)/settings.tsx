@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import { checkForUpdateManually, updateStatus } from '@/lib/updates';
 import { useMutation } from 'convex/react';
 import { api } from '@/lib/convex';
 import { getDeviceHash } from '@/lib/device';
@@ -181,6 +182,11 @@ export default function Settings() {
       <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginTop: 24, marginBottom: 4 }}>
         About
       </Text>
+      <Row
+        label="Check for updates"
+        sub={updateStatus().isOTA ? 'Over-the-air build' : 'Store build'}
+        onPress={async () => toast(await checkForUpdateManually())}
+      />
       <Row label="How it works + legal" sub="Rules, privacy, terms · legal.v1" onPress={() => router.push('/about')} />
       <Row label="Moderation" sub="Passphrase-gated queue" onPress={() => router.push('/admin')} />
       <Row
