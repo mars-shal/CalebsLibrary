@@ -55,7 +55,7 @@ const moderators = computed(() => {
         then to departments they'd never taken.
       </p>
       <p>
-        Today it holds three thousand documents.
+        Today it holds {{ drive.stats.papers.toLocaleString() }} documents.
         Every one of them was left behind by a student who wanted the next
         person to have a slightly easier time than they did.
       </p>

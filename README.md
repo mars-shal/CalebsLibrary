@@ -93,34 +93,35 @@ npm run lint
 The project is built with modern, beginner-friendly technologies:
 
 - **Frontend:** Vue 3 + Vite for a fast development experience
-- **Styling:** CSS (design tokens system for consistency)
-- **Scripting:** JavaScript & TypeScript for type safety
-- **Database:** PostgreSQL (backend, not included in this repo)
-- **State:** Lightweight local state management (localStorage for UI state)
-
-**Language breakdown:**
-- 54.9% JavaScript
-- 31.9% Vue
-- 7.3% TypeScript
-- 3.9% CSS
-- 1.6% PL/pgSQL
-- 0.4% HTML
+- **Styling:** CSS (design tokens system for consistency) + Tailwind
+- **Scripting:** TypeScript (+ Zod-shared schemas with the backend)
+- **Backend:** Convex (database, server functions, crons) synced from Google Drive
+- **State:** Pinia stores + localStorage persistence (bookmarks, votes, theme)
+- **Mobile:** Expo + React Native app in `mobile/` sharing the same Convex backend
 
 ## 📖 Project Structure
 
 ```
 CalebsLibrary/
-├── src/
-│   ├── components/       # Reusable Vue components
-│   ├── screens/          # Page components (Home, Browse, Search, etc.)
-│   ├── assets/           # Icons, styles, fonts
-│   ├── App.vue           # Root component
-│   └── main.js           # Entry point
-├── design_handoff/       # Design reference and specifications
-├── public/               # Static files
-├── vite.config.js        # Build configuration
+├── src/                # Web app (Vue 3 + Vite)
+│   ├── components/     # Reusable Vue components
+│   ├── views/          # Page components (Home, Browse, Search, etc.)
+│   ├── stores/         # Pinia stores (catalogue, metrics overlay)
+│   ├── schema/         # Shared Zod catalogue schema
+│   ├── composables/    # Shared logic (search autocomplete)
+│   ├── script/         # Design data, Convex client, trends
+│   ├── assets/         # Tokens, styles, icons
+│   ├── App.vue         # Root component
+│   ├── main.ts         # Entry point
+│   └── router/         # 11 routes
+├── convex/             # Backend (tables, sync, moderation, trends, links)
+├── mobile/             # Expo + React Native app (same backend)
+├── shared/             # Framework-free shared core
+├── design_handoff_calebs_library/  # Design reference and specifications
+├── public/             # Static files
+├── vite.config.ts      # Build configuration
 ├── package.json
-└── README.md            # This file
+└── README.md           # This file
 ```
 
 ## 🎨 Design & UX

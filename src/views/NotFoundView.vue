@@ -10,13 +10,12 @@ const drive = useDriveStore()
 const router = useRouter()
 
 const stack = computed(() => {
-  const papers = drive.papers
-  if (papers.length < 3) return []
-  return [
-    { paper: papers[3]!, cls: 'book-1', opacity: 1 },
-    { paper: papers[7] ?? papers[0]!, cls: 'book-2', opacity: 0.7 },
-    { paper: papers[11] ?? papers[1]!, cls: 'book-3', opacity: 0.7 },
-  ]
+  // First three papers become the fallen stack; fewer (or none) degrade to
+  // a shorter stack or the placeholder — never an undefined paper.
+  const papers = drive.papers.slice(0, 3)
+  const cls = ['book-1', 'book-2', 'book-3']
+  const op = [1, 0.7, 0.7]
+  return papers.map((paper, i) => ({ paper, cls: cls[i]!, opacity: op[i]! }))
 })
 </script>
 
@@ -24,9 +23,11 @@ const stack = computed(() => {
   <div class="screen-wrap notfound">
     <!-- Fallen books -->
     <div class="stack">
-      <div v-if="stack.length" v-for="b in stack" :key="b.paper.id" class="stack-book" :class="b.cls" :style="{ opacity: b.opacity }">
-        <BookCover :paper="b.paper" :size="stack.length >= 2 && b.cls !== 'book-1' ? 'sm' : 'md'" />
-      </div>
+      <template v-if="stack.length">
+        <div v-for="b in stack" :key="b.paper.id" class="stack-book" :class="b.cls" :style="{ opacity: b.opacity }">
+          <BookCover :paper="b.paper" :size="stack.length >= 2 && b.cls !== 'book-1' ? 'sm' : 'md'" />
+        </div>
+      </template>
       <div v-else style="height: 240px" />
     </div>
 

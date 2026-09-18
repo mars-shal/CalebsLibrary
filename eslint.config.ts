@@ -15,7 +15,7 @@ export default defineConfigWithVueTs(
     files: ['**/*.{vue,ts,mts,tsx}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'design_handoff_calebs_library/**', 'mobile/**']),
 
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
@@ -23,4 +23,11 @@ export default defineConfigWithVueTs(
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   skipFormatting,
+
+  {
+    name: 'app/design-system-atoms',
+    // Single-word atoms (Avatar, Icon, Stat, Ornament) are an established
+    // project convention — renaming would churn every consumer. Last wins.
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
 )

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Footer — 4-column link grid + bottom mono row
 import { useRouter } from 'vue-router'
+import { FOUNDER_EMAIL } from '@/schema/catalogue'
 
 const router = useRouter()
 
@@ -20,7 +21,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
       { label: 'About', to: '/about' },
       { label: 'How it works', to: '/about' },
       { label: 'Contributors', to: '/browse' },
-      { label: 'Founder’s note', to: '/profile/caleb' },
+      { label: 'Founder’s note', to: `/profile/${FOUNDER_EMAIL}` },
     ],
   },
   {

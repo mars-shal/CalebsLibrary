@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Browse — cover-forward shelves. Ported from design_handoff Browse.jsx.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { PAPER_TYPES } from '@/script/design'
 import type { Paper, Subject } from '@/script/design'
@@ -11,10 +11,17 @@ import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const drive = useDriveStore()
 const router = useRouter()
+const route = useRoute()
+
+function queryCourse(): string {
+  const q = route.query.course
+  return typeof q === 'string' && q ? q : 'all'
+}
 
 const subjectFilter = ref('all')
 const typeFilter = ref('all')
-const courseFilter = ref('all')
+// Deep-linkable: subject pages link here with ?course=<id>.
+const courseFilter = ref<string>(queryCourse())
 const yearFilter = ref<'all' | number>('all')
 const sortBy = ref<'dept' | 'course' | 'year-new' | 'year-old' | 'reads' | 'upvotes'>('dept')
 
@@ -131,6 +138,14 @@ onBeforeUnmount(() => {
 watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
   revealed.value = RENDER_CHUNK
 })
+
+// Follow ?course= deep links (e.g. from a subject page) without a reload.
+watch(
+  () => route.query.course,
+  (q) => {
+    courseFilter.value = typeof q === 'string' && q ? q : 'all'
+  },
+)
 </script>
 
 <template>

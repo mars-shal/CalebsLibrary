@@ -167,11 +167,12 @@ async function share() {
 const details = computed<[string, string][]>(() => {
   if (!paper.value) return []
   const p = paper.value
+  // Only rows with real data: teacher is empty for Drive-synced papers,
+  // license falls back to the community default.
   return [
     ['Course', p.courseName],
-    ['Professor', p.teacher || '—'],
-    ['Language', 'English'],
-    ['License', 'CC BY-NC 4.0'],
+    ...(p.teacher ? [['Professor', p.teacher] as [string, string]] : []),
+    ['License', p.license || 'CC BY-NC 4.0'],
     ['Size', p.sizeLabel],
     ['Uploaded', timeAgo(p.createdAt)],
   ]
@@ -294,10 +295,6 @@ async function postDiscussion(): Promise<void> {
         <button class="btn btn-primary action-download" @click="download">
           <Icon name="download" :size="16" /> Download PDF
         </button>
-        <button class="btn btn-ai" disabled title="Coming soon">
-          <Icon name="sparkle" :size="16" /> AI Study Assistant
-          <span class="ai-badge">Coming soon</span>
-        </button>
         <div class="action-pair">
           <button class="btn btn-secondary" :class="{ 'is-saved': saved }" @click="toggleSaved">
             <Icon name="bookmark" :size="15" :stroke-width="1.5" /> {{ saved ? 'Saved' : 'Save' }}
@@ -316,9 +313,6 @@ async function postDiscussion(): Promise<void> {
             <Icon name="arrow-down" :size="14" /> {{ downCount }}
           </button>
         </div>
-        <button class="btn-ghost report">
-          <Icon name="flag" :size="12" /> Report an issue
-        </button>
       </div>
     </div>
 
@@ -574,31 +568,6 @@ async function postDiscussion(): Promise<void> {
   padding: 12px 20px;
   justify-content: center;
 }
-.btn-ai {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: var(--bg-elevated);
-  border: 1px dashed var(--rule-strong);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-70);
-  cursor: not-allowed;
-  opacity: 0.85;
-}
-.ai-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-40);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
 .action-pair {
   display: flex;
   gap: 6px;
@@ -659,14 +628,6 @@ async function postDiscussion(): Promise<void> {
   width: 1px;
   height: 20px;
   background: var(--rule);
-}
-.report {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 6px;
-  justify-content: center;
 }
 
 .body {

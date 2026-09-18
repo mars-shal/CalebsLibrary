@@ -101,7 +101,7 @@ function openPaper(p: Paper) {
             v-for="c in subject.courses"
             :key="c.id"
             class="course-row"
-            @click="router.push({ name: 'subject', params: { id: subject.id } })"
+            @click="router.push({ name: 'browse', query: { course: c.id } })"
           >
             <span class="course-accent" />
             <span class="course-name">{{ c.displayName }}</span>

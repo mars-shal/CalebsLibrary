@@ -4,6 +4,7 @@
 // (-1 | 0 | 1) per paper, stored server-side, with the metrics counters
 // moved by the exact delta. localStorage remains as an optimistic mirror.
 import { query, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
 function clampDelta(delta: number): number {
@@ -12,7 +13,7 @@ function clampDelta(delta: number): number {
 }
 
 async function applyMetric(
-  ctx: any,
+  ctx: MutationCtx,
   paperId: string,
   kind: "upvotes" | "downvotes",
   delta: number,
@@ -21,7 +22,7 @@ async function applyMetric(
   if (d === 0) return;
   const existing = await ctx.db
     .query("metrics")
-    .withIndex("by_paper_id", (q: any) => q.eq("paper_id", paperId))
+    .withIndex("by_paper_id", (q) => q.eq("paper_id", paperId))
     .first();
   if (existing) {
     await ctx.db.patch(existing._id, {

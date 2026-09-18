@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor } from '@/script/design'
 import type { Paper } from '@/script/design'
-import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
@@ -24,20 +23,21 @@ const papers = computed<Paper[]>(() =>
 
 const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
-const tab = ref<'papers' | 'shelves' | 'about'>('papers')
+const tab = ref<'papers' | 'about'>('papers')
 const tabs = computed(() => [
   { id: 'papers' as const, label: `Papers (${papers.value.length})` },
-  { id: 'shelves' as const, label: 'Curated shelves' },
   { id: 'about' as const, label: 'About' },
 ])
 
-const shelves = [
-  { name: 'Beowulf & Old English', count: 8 },
-  { name: 'Modernist essays', count: 12 },
-  { name: 'First-year survival', count: 6 },
-]
-
-const reads = computed(() => (user.value.uploads * 187).toLocaleString())
+// Reads are summed from real per-paper counters (live metrics overlaid by
+// the store; Drive-seeded baselines included). No multipliers, no mocks.
+const reads = computed(() =>
+  papers.value.reduce((n, p) => n + p.views, 0).toLocaleString(),
+)
+const sinceYear = computed(() => {
+  const years = papers.value.map((p) => p.year).filter((y) => Number.isFinite(y))
+  return years.length ? Math.min(...years) : null
+})
 const firstName = computed(() => user.value.name.split(' ')[0] ?? user.value.name)
 
 function openPaper(p: Paper) {
@@ -103,31 +103,20 @@ function openPaper(p: Paper) {
         </div>
       </div>
 
-      <!-- Shelves -->
-      <div v-else-if="tab === 'shelves'">
-        <SectionHeader eyebrow="Personal collections" title="Curated shelves" />
-        <div class="grid-3">
-          <button
-            v-for="s in shelves"
-            :key="s.name"
-            class="shelf-card"
-            @click="router.push({ name: 'browse' })"
-          >
-            <Icon name="books" :size="20" style="color: var(--ink-100); margin-bottom: 16px" />
-            <div class="shelf-name">{{ s.name }}</div>
-            <div class="mono-meta" style="margin-top: 6px">{{ s.count }} papers</div>
-          </button>
-        </div>
-      </div>
-
       <!-- About -->
       <div v-else class="about-col">
         <SectionHeader eyebrow="Notes on a contributor" :title="`About ${firstName}`" />
         <div class="about-card">
           {{ user.bio }}
           <br /><br />
-          Contributor since 2023. Uploads mostly at the end of each semester, when whatever carried
-          them through gets passed forward.
+          <template v-if="sinceYear">
+            Contributor since {{ sinceYear }}. Uploads mostly at the end of each semester, when whatever carried
+            them through gets passed forward.
+          </template>
+          <template v-else>
+            Uploads mostly at the end of each semester, when whatever carried
+            them through gets passed forward.
+          </template>
         </div>
       </div>
     </div>
@@ -231,34 +220,6 @@ function openPaper(p: Paper) {
   font-size: 12px;
 }
 
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-.shelf-card {
-  padding: 24px;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  background: var(--bg-elevated);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color var(--dur-fast);
-}
-.shelf-card:hover {
-  border-color: var(--ink-100);
-}
-.shelf-name {
-  font-size: 20px;
-  color: var(--ink-100);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
 .about-col {
   max-width: 640px;
 }
@@ -275,9 +236,6 @@ function openPaper(p: Paper) {
 @media (max-width: 960px) {
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .grid-3 {
-    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {

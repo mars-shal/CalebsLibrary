@@ -46,6 +46,11 @@ __screenshots__/
 
 # Agent session state (not part of the app)
 .omo/
+.freebuff/
+
+# Build artifacts — never commit binaries
+*.apk
+*.aab
 
 # Playwright MCP snapshots (local test artifacts)
 .playwright-mcp/

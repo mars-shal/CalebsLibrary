@@ -268,6 +268,26 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
       </div>
       <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
     </section>
+
+    <!-- Most loved — was computed in the store but never rendered -->
+    <section class="wrap" style="padding-top: 80px">
+      <SectionHeader eyebrow="All-time" title="Most loved by readers">
+        <template #action>
+          <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
+        </template>
+      </SectionHeader>
+      <SkeletonCard v-if="isLoading" :count="5" size="sm" />
+      <div v-else-if="drive.lovedPapers.length" class="grid-5">
+        <PaperCard
+          v-for="p in drive.lovedPapers"
+          :key="p.id"
+          :paper="p"
+          size="sm"
+          @click="openPaper(p)"
+        />
+      </div>
+      <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
+    </section>
   </div>
 </template>
 

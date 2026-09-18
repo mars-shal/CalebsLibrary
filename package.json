@@ -20,8 +20,6 @@
     "convex": "^1.45.0",
     "convex-helpers": "^0.1.124",
     "convex-vue": "^0.1.5",
-    "googleapis": "^171.4.0",
-    "gsap": "^3.14.2",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.1",
     "vue": "^3.5.29",
