@@ -3,13 +3,14 @@
 // catalogue links or the system browser for external URLs. Missing codes
 // get the missing card (never a silent redirect).
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useConvex, useMutation } from 'convex/react';
 import * as WebBrowser from 'expo-web-browser';
 import { api } from '@/lib/convex';
 import { EmptyState } from '@/components/states';
-import { SpotArt } from '@/components/SpotArt';
+import { Icon } from '@/icons/icons';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
 
@@ -50,7 +51,7 @@ export default function ShortLink() {
 
   if (missing) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 120 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 120 }}>
         <EmptyState
           title="That link doesn't look right."
           sub="The short link may be mistyped or no longer exists."
@@ -64,23 +65,26 @@ export default function ShortLink() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 120, alignItems: 'center' }}>
-      <SpotArt name="link" size={110} />
-      <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.serifItalic, marginTop: 16 }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 120, alignItems: 'center' }}>
+      <HapticPressable onPress={() => router.replace('/(tabs)')} accessibilityRole="button" accessibilityLabel="Go back" style={{ position: 'absolute', top: 64, left: spacing.gutter, minHeight: 44, justifyContent: 'center' }}>
+        <Icon name="arrow-left" size={18} color={c.textSecondary} />
+      </HapticPressable>
+      <ActivityIndicator size="large" color={c.textTertiary} style={{ marginTop: 32 }} />
+      <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginTop: 24 }}>
         {external ? 'Opened externally.' : 'Opening the library…'}
       </Text>
       <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans, marginTop: 12 }}>
         Taking you to your document.
       </Text>
       {external ? (
-        <Pressable
+        <HapticPressable
           onPress={() => router.replace('/(tabs)')}
           accessibilityRole="button"
           accessibilityLabel="Back to the library"
-          style={{ marginTop: 28, backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
+          style={{ marginTop: 28, backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
         >
-          <Text style={{ color: c.paper, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
-        </Pressable>
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
+        </HapticPressable>
       ) : null}
     </View>
   );

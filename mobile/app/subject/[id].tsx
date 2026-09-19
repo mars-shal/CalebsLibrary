@@ -2,13 +2,19 @@
 // Hero stats, essentials-4, course rows → course/[id] (web re-pushed the
 // same subject), infinite all-papers, top contributors from loaded scope.
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
-import { useFacets, useOverlaidPapers, useSearchPages } from '@/lib/queries';
+import {
+  useFacets,
+  useOverlaidPapers,
+  useScopedContributors,
+  useScopedCount,
+  useSubjectPapers,
+} from '@/lib/queries';
 import { type Paper } from '@shared/design';
 import { PaperCard } from '@/components/PaperCard';
-import { SpotArt } from '@/components/SpotArt';
 import { Avatar } from '@/components/Avatar';
 import { SkeletonCard } from '@/components/Skeleton';
 import { EmptyState } from '@/components/states';
@@ -21,38 +27,32 @@ export default function Subject() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const facets = useFacets();
-  const { results, status, loadMore } = useSearchPages();
+  // Server-side scope+subject filtering — header stats, lists, and
+  // contributors now all describe the same set (client-side page filtering
+  // rendered facet counts next to empty lists for out-of-page subjects).
+  const {
+    results,
+    status,
+    loadMore,
+  } = useSubjectPapers(id);
+  const totalCount = useScopedCount({ subject: id });
+  const contributorRows = useScopedContributors({ subject: id });
 
   const subject = facets?.subjects.find((s) => s.id === id);
   const courses = useMemo(
     () => facets?.courses.filter((x) => x.subjectId === id) ?? [],
     [facets, id],
   );
-  const papersBase = useMemo(
-    () => (results as Paper[]).filter((p) => p.subject === id),
-    [results, id],
-  );
-  const papers = useOverlaidPapers(papersBase);
+  const papers = useOverlaidPapers(results as Paper[]);
   const essentials = papers.slice(0, 4);
 
-  const contributors = useMemo(() => {
-    const counts = new Map<string, { name: string; n: number }>();
-    for (const p of papers) {
-      const e = counts.get(p.contributor);
-      if (e) e.n += 1;
-      else counts.set(p.contributor, { name: p.contributorName, n: 1 });
-    }
-    return [...counts.entries()]
-      .map(([cid, v]) => ({ id: cid, ...v }))
-      .sort((a, b) => b.n - a.n)
-      .slice(0, 8);
-  }, [papers]);
+  const contributors = contributorRows ?? [];
 
   const loading = !facets && status === 'LoadingFirstPage';
 
   if (!loading && !subject) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 96 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 96 }}>
         <EmptyState
           title="Department not found."
           icon="books"
@@ -66,7 +66,7 @@ export default function Subject() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: c.paper }}
+      style={{ flex: 1, backgroundColor: c.bgDefault }}
       contentContainerStyle={{ paddingBottom: 120 }}
       onScroll={({ nativeEvent }) => {
         const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
@@ -74,10 +74,7 @@ export default function Subject() {
       }}
       scrollEventThrottle={400}
     >
-      <View style={{ backgroundColor: c.paper2, borderBottomWidth: 1, borderBottomColor: c.rule, paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 32 }}>
-        <View style={{ alignItems: 'center', marginBottom: 8 }}>
-          <SpotArt name="scroll" size={104} />
-        </View>
+      <View style={{ backgroundColor: c.bgDefault, borderBottomWidth: 1, borderBottomColor: c.borderDefault, paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 32 }}>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 10 }}>
           Department
         </Text>
@@ -85,7 +82,7 @@ export default function Subject() {
           {subject?.name ?? '…'}
         </Text>
         <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 12 }}>
-          {(subject?.count ?? 0).toLocaleString()} Papers · {contributors.length} Contributors · {courses.length} Courses
+          {(totalCount ?? subject?.count ?? 0).toLocaleString()} Papers · {contributors.length} Contributors · {courses.length} Courses
         </Text>
       </View>
 
@@ -126,7 +123,7 @@ export default function Subject() {
           Every course, every paper
         </Text>
         {courses.map((x) => (
-          <Pressable
+          <HapticPressable
             key={x.id}
             onPress={() => router.push(`/course/${x.id}`)}
             accessibilityRole="button"
@@ -137,20 +134,20 @@ export default function Subject() {
               gap: 12,
               padding: 14,
               borderWidth: 1,
-              borderColor: c.rule,
+              borderColor: c.borderDefault,
               borderRadius: 8,
-              backgroundColor: c.elevated,
+              backgroundColor: c.bgElevated,
               marginBottom: 10,
               minHeight: 56,
             }}
           >
-            <View style={{ width: 3, height: 28, backgroundColor: c.ink100, borderRadius: 2 }} />
+            <View style={{ width: 3, height: 28, backgroundColor: c.textPrimary, borderRadius: 2 }} />
             <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
               {x.displayName}
             </Text>
             <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono }}>{x.paperCount}</Text>
             <Icon name="chevron" size={14} color={c.textQuiet} />
-          </Pressable>
+          </HapticPressable>
         ))}
       </View>
 
@@ -180,7 +177,7 @@ export default function Subject() {
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             {contributors.map((u) => (
-              <Pressable
+              <HapticPressable
                 key={u.id}
                 onPress={() => router.push(`/profile/${u.id}`)}
                 accessibilityRole="button"
@@ -190,9 +187,9 @@ export default function Subject() {
                   minWidth: 140,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: c.rule,
+                  borderColor: c.borderDefault,
                   borderRadius: 8,
-                  backgroundColor: c.elevated,
+                  backgroundColor: c.bgElevated,
                   gap: 8,
                 }}
               >
@@ -203,7 +200,7 @@ export default function Subject() {
                 <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono }}>
                   {u.n} contribution{u.n === 1 ? '' : 's'}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             ))}
           </View>
         </View>

@@ -125,8 +125,8 @@ function openPaper(p: Paper) {
 
 <style scoped>
 .hero {
-  background: var(--paper-2);
-  border-bottom: 1px solid var(--rule);
+  background: var(--bg-default);
+  border-bottom: 1px solid var(--border-default);
   padding: 56px 0 40px;
 }
 .wrap {
@@ -148,13 +148,13 @@ function openPaper(p: Paper) {
   font-size: clamp(36px, 5vw, 52px);
   line-height: 1;
   margin: 0;
-  color: var(--ink-100);
+  color: var(--text-primary);
   letter-spacing: -0.035em;
   font-weight: 500;
 }
 .bio {
   margin-top: 12px;
-  color: var(--ink-70);
+  color: var(--text-secondary);
   font-size: 15px;
   max-width: 520px;
   line-height: 1.55;
@@ -165,9 +165,9 @@ function openPaper(p: Paper) {
   gap: 6px;
 }
 .tag-found {
-  background: var(--ink-100);
-  color: var(--paper);
-  border-color: var(--ink-100);
+  background: var(--text-primary);
+  color: var(--bg-default);
+  border-color: var(--text-primary);
 }
 .stats {
   display: flex;
@@ -182,14 +182,14 @@ function openPaper(p: Paper) {
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--border-default);
   margin-bottom: 32px;
 }
 .tab {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--ink-40);
+  color: var(--text-quiet);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -198,11 +198,11 @@ function openPaper(p: Paper) {
   transition: color var(--dur-fast);
 }
 .tab:hover {
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .tab.active {
-  color: var(--ink-100);
-  border-bottom-color: var(--ink-100);
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
 .grid-4 {
@@ -212,11 +212,11 @@ function openPaper(p: Paper) {
 }
 .empty-slot {
   aspect-ratio: 2 / 3;
-  border: 1px dashed var(--rule-strong);
+  border: 1px dashed var(--border-strong);
   border-radius: 4px;
   display: grid;
   place-items: center;
-  color: var(--ink-30);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
@@ -226,11 +226,11 @@ function openPaper(p: Paper) {
 .about-card {
   padding: 32px;
   background: var(--bg-elevated);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   font-size: 15px;
   line-height: 1.65;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 
 @media (max-width: 960px) {

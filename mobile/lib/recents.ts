@@ -3,7 +3,7 @@
 // Session-safe through the safe storage layer (memory fallback in previews).
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-recents');
+const storage: KV = getKV('bellsnotes-recents');
 const KEY = 'recents.v1';
 const MAX = 12;
 

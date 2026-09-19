@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--ink-30);
+  color: var(--text-tertiary);
 }
 .ornament::before,
 .ornament::after {

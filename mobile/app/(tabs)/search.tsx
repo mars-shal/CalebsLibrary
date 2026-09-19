@@ -3,7 +3,8 @@
 // loaded pages (documented v1 contract). Facets in ONE sheet; sorts inline;
 // infinite scroll pages the scope. Commits record trends exactly once.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useMutation } from 'convex/react';
@@ -15,9 +16,10 @@ import { formatCount, type Paper } from '@shared/design';
 import { SearchBar } from '@/components/SearchBar';
 import { FacetSheet } from '@/components/FacetSheet';
 import { HighlightText } from '@/components/HighlightText';
-import { BookCover } from '@/components/BookCover';
+import { IndexStack } from '@/components/IndexStack';
 import { SkeletonRow } from '@/components/Skeleton';
 import { EmptyState, OfflineBadge } from '@/components/states';
+import { useDockScrollWiring } from '@/motion/dockScroll';
 import { Icon } from '@/icons/icons';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
@@ -25,6 +27,8 @@ import { useNet } from '@/lib/net';
 import { enqueue } from '@/lib/outbox';
 import { track } from '@/lib/analytics';
 import { addRecentSearch, clearRecentSearches, getRecentSearches } from '@/lib/searchHistory';
+
+const DockFlatList = Animated.FlatList;
 
 type Sort = 'relevance' | 'newest' | 'votes' | 'downloads';
 
@@ -55,8 +59,12 @@ export default function Search() {
   const [selSubjects, setSelSubjects] = useState<string[]>([]);
   const [selTypes, setSelTypes] = useState<string[]>([]);
   const [sort, setSort] = useState<Sort>('relevance');
+  // True once the user (not the bounds fix above) edits year state, so the
+  // late-arriving real bounds never overwrite their choice.
+  const [yearTouched, setYearTouched] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const dockWire = useDockScrollWiring('search');
 
   // Server-side prefilter: debounce typing so the live query re-subscribes
   // at most every 300ms; commit/search-history still own instant states.
@@ -74,6 +82,22 @@ export default function Search() {
   );
   const [yearMin, setYearMin] = useState(yearBounds.min);
   const [yearMax, setYearMax] = useState(yearBounds.max);
+  // Facets resolve AFTER first paint (async query); year state initialized
+  // from the 2020/this-year fallback used to stay there forever, silently
+  // excluding every paper older than 2020 once real bounds landed. Adopt the
+  // real bounds once — but never clobber a range the user has customized.
+  // Render-phase state adjustment (the sanctioned React pattern; refs would
+  // violate the rules of render purity here).
+  const [prevBounds, setPrevBounds] = useState(yearBounds);
+  const boundsChanged =
+    prevBounds.min !== yearBounds.min || prevBounds.max !== yearBounds.max;
+  if (boundsChanged) {
+    setPrevBounds(yearBounds);
+    if (!yearTouched) {
+      setYearMin(yearBounds.min);
+      setYearMax(yearBounds.max);
+    }
+  }
 
   const ranked = useMemo(() => {
     // The server already substring-matched serverQ; local filterPapers still
@@ -123,7 +147,7 @@ export default function Search() {
   const { online } = useNet();
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -144,13 +168,18 @@ export default function Search() {
         />
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 8, gap: 12 }}>
           <Text style={{ flex: 1, fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans }}>
+            {/* While typing, the count reflects the stale serverQ — never
+            claim it matches the visible query. */}
             {list.length.toLocaleString()} result{list.length === 1 ? '' : 's'}
             {query ? (
               <Text style={{ fontWeight: '600', color: c.textPrimary }}> “{query}”</Text>
             ) : null}
+            {query.trim() !== serverQ.trim() ? (
+              <Text style={{ color: c.textTertiary }}> …</Text>
+            ) : null}
           </Text>
           {!online ? <OfflineBadge /> : null}
-          <Pressable
+          <HapticPressable
             onPress={() => setSheetOpen(true)}
             accessibilityRole="button"
             accessibilityLabel="Show filters"
@@ -162,7 +191,7 @@ export default function Search() {
               paddingHorizontal: 14,
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: c.ruleStrong,
+              borderColor: c.borderStrong,
               minHeight: 44,
             }}
           >
@@ -170,13 +199,13 @@ export default function Search() {
             <Text style={{ fontSize: 13, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
               Filters{(selSubjects.length + selTypes.length) > 0 ? ` (${selSubjects.length + selTypes.length})` : ''}
             </Text>
-          </Pressable>
+          </HapticPressable>
         </View>
         <View style={{ flexDirection: 'row', gap: 4, marginBottom: 4 }}>
           {SORTS.map((s) => {
             const active = sort === s.id;
             return (
-              <Pressable
+              <HapticPressable
                 key={s.id}
                 onPress={() => setSort(s.id)}
                 accessibilityRole="tab"
@@ -186,7 +215,7 @@ export default function Search() {
                   paddingVertical: 10,
                   paddingHorizontal: 10,
                   borderBottomWidth: active ? 2 : 0,
-                  borderBottomColor: c.ink100,
+                  borderBottomColor: c.textPrimary,
                   minHeight: 44,
                   justifyContent: 'center',
                 }}
@@ -201,7 +230,7 @@ export default function Search() {
                 >
                   {s.label}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             );
           })}
         </View>
@@ -214,7 +243,7 @@ export default function Search() {
             <Text style={{ flex: 1, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi }}>
               Recent
             </Text>
-            <Pressable
+            <HapticPressable
               onPress={() => {
                 clearRecentSearches();
                 setRecents([]);
@@ -224,11 +253,11 @@ export default function Search() {
               style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
             >
               <Text style={{ fontSize: 12, color: c.textSecondary, fontFamily: fonts.sans }}>Clear</Text>
-            </Pressable>
+            </HapticPressable>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {recents.map((t) => (
-              <Pressable
+              <HapticPressable
                 key={t}
                 onPress={() => applySuggestion(t)}
                 accessibilityRole="button"
@@ -241,7 +270,7 @@ export default function Search() {
                   paddingHorizontal: 14,
                   borderRadius: 999,
                   borderWidth: 1,
-                  borderColor: c.ruleStrong,
+                  borderColor: c.borderStrong,
                   minHeight: 44,
                 }}
               >
@@ -249,7 +278,7 @@ export default function Search() {
                 <Text numberOfLines={1} style={{ fontSize: 13, color: c.textPrimary, fontFamily: fonts.sansMedium, maxWidth: 200 }}>
                   {t}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             ))}
           </View>
         </View>
@@ -260,16 +289,18 @@ export default function Search() {
           <SkeletonRow count={5} />
         </View>
       ) : list.length ? (
-        <FlatList
+        <DockFlatList
           ref={listRef}
           data={list}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
+          onScroll={dockWire.onScroll}
+          scrollEventThrottle={dockWire.scrollEventThrottle}
           onEndReached={() => loadMore(50)}
           onEndReachedThreshold={0.5}
           renderItem={({ item: p }) => (
-            <Pressable
+            <HapticPressable
               onPress={() => router.push(`/paper/${p.id}`)}
               accessibilityRole="button"
               accessibilityLabel={`${p.title}, ${p.type}`}
@@ -279,14 +310,14 @@ export default function Search() {
                 paddingVertical: 18,
                 paddingHorizontal: spacing.gutter,
                 borderBottomWidth: 1,
-                borderBottomColor: c.rule,
+                borderBottomColor: c.borderDefault,
                 alignItems: 'flex-start',
               }}
             >
-              <BookCover paper={p} size="xs" />
+              <IndexStack paper={p} size="xs" />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, color: c.textSecondary, backgroundColor: c.paper2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, fontFamily: fonts.sansMedium }}>
+                  <Text style={{ fontSize: 11, color: c.textSecondary, backgroundColor: c.bgDefault, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, fontFamily: fonts.sansMedium }}>
                     {p.subjectName}
                   </Text>
                   <Text style={{ fontSize: 11, color: c.textTertiary, paddingVertical: 3, fontFamily: fonts.sans }}>
@@ -309,7 +340,7 @@ export default function Search() {
                   {formatCount(p.downloads)}
                 </Text>
               </View>
-            </Pressable>
+            </HapticPressable>
           )}
         />
       ) : (
@@ -321,6 +352,7 @@ export default function Search() {
             art="search"
             ctaLabel="Reset filters"
             onCta={() => {
+              setYearTouched(false);
               setSelSubjects([]);
               setSelTypes([]);
               setYearMin(yearBounds.min);
@@ -334,7 +366,7 @@ export default function Search() {
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {facets.subjects.slice(0, 6).map((s) => (
-                  <Pressable
+                  <HapticPressable
                     key={s.id}
                     onPress={() => applySuggestion(s.name)}
                     accessibilityRole="button"
@@ -344,7 +376,7 @@ export default function Search() {
                       paddingHorizontal: 14,
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: c.ruleStrong,
+                      borderColor: c.borderStrong,
                       minHeight: 44,
                       justifyContent: 'center',
                     }}
@@ -352,7 +384,7 @@ export default function Search() {
                     <Text style={{ fontSize: 13, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                       {s.name}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 ))}
               </View>
             </View>
@@ -366,12 +398,14 @@ export default function Search() {
           onClose={() => setSheetOpen(false)}
           facets={{ subjects: selSubjects, types: selTypes, yearMin, yearMax }}
           onChange={(f) => {
+            setYearTouched(true);
             setSelSubjects(f.subjects);
             setSelTypes(f.types);
             setYearMin(f.yearMin);
             setYearMax(f.yearMax);
           }}
           onReset={() => {
+            setYearTouched(false);
             setSelSubjects([]);
             setSelTypes([]);
             setYearMin(yearBounds.min);

@@ -5,11 +5,11 @@ import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 
 const router = useRouter()
-const dismissed = ref(localStorage.getItem('calebs_banner_dismissed') === '1')
+const dismissed = ref(localStorage.getItem('bellsnotes_banner_dismissed') === '1')
 
 function close() {
   dismissed.value = true
-  localStorage.setItem('calebs_banner_dismissed', '1')
+  localStorage.setItem('bellsnotes_banner_dismissed', '1')
 }
 </script>
 
@@ -17,8 +17,8 @@ function close() {
   <div v-if="!dismissed" class="banner" role="banner">
     <span class="dot" aria-hidden="true" />
     <span class="copy">
-      <strong>Free. Open. No account needed.</strong>
-      <span class="muted">Anyone can read. Anyone can contribute.</span>
+      <strong>Built for Bells. Free forever.</strong>
+      <span class="muted">Notes and past questions from real students.</span>
       <a class="how" @click="router.push('/about')">How it works &rarr;</a>
     </span>
     <button class="close" aria-label="Dismiss banner" @click="close">
@@ -30,8 +30,8 @@ function close() {
 <style scoped>
 .banner {
   height: 32px;
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -43,7 +43,7 @@ function close() {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ink-20);
+  background: var(--text-quiet);
   flex-shrink: 0;
 }
 .copy {
@@ -70,7 +70,7 @@ function close() {
 }
 .close {
   margin-left: auto;
-  color: var(--paper);
+  color: var(--bg-default);
   opacity: 0.5;
   display: grid;
   place-items: center;

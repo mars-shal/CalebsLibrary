@@ -26,7 +26,7 @@ import { enqueue } from '@/lib/outbox';
 import { buildCitations, type CitationStyle } from '@shared/citations';
 import { timeAgo } from '@shared/design';
 import type { Paper } from '@shared/design';
-import { BookCover } from '@/components/BookCover';
+import { IndexStack } from '@/components/IndexStack';
 import { PaperCard } from '@/components/PaperCard';
 import { Avatar } from '@/components/Avatar';
 import { Segmented } from '@/components/Segmented';
@@ -40,6 +40,7 @@ import { useThemeColors } from '@/components/ThemeProvider';
 import { toast } from '@/components/Toast';
 import { track } from '@/lib/analytics';
 import { isOnlineNow } from '@/lib/net';
+import { markReadingDay } from '@/lib/streaks';
 import { hapticLight, usePressScale } from '@/motion/motion';
 
 type Tab = 'preview' | 'citation' | 'discussion';
@@ -149,6 +150,7 @@ export default function PaperDetail() {
     readRecorded.current = true;
     track('paper_open', { paperId: id });
     touchRecent(id);
+    markReadingDay(); // any paper open counts as a reading day
     void bump({ paper_id: id, kind: 'reads', delta: 1 }).catch(() =>
       enqueue({ kind: 'bump', paperId: id, metric: 'reads', delta: 1 }),
     );
@@ -293,11 +295,14 @@ export default function PaperDetail() {
     touchRecent(paper.id);
     try {
       if (!(await isOnlineNow())) track('offline_open', { paperId: paper.id });
-      // Android: open-with intent (PDF viewers get a readable file URI via
-      // FileProvider) — a share sheet offered Gmail a raw attachment.
+      // Android: open-with intent. A bare file:// URI crashes startActivity
+      // (FileUriExposedException) on API 24+; getContentUriAsync converts it
+      // to a FileProvider content:// URI the OS will actually accept.
       if (Platform.OS === 'android') {
+        const { getContentUriAsync } = await import('expo-file-system/legacy');
+        const contentUri = await getContentUriAsync(uri);
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: uri,
+          data: contentUri,
           flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
           type: paper.fileExt === 'pdf' ? 'application/pdf' : '*/*',
         });
@@ -452,14 +457,14 @@ export default function PaperDetail() {
 
   if (paper === undefined) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 96 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 96 }}>
         <SkeletonRow count={4} />
       </View>
     );
   }
   if (paper === null) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 96 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 96 }}>
         <EmptyState
           title="Paper not found."
           icon="books"
@@ -476,7 +481,7 @@ export default function PaperDetail() {
   const pct = dl.total > 0 ? Math.round((dl.written / dl.total) * 100) : 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -488,7 +493,7 @@ export default function PaperDetail() {
         </Pressable>
 
         <View style={{ flexDirection: 'row', gap: 20, marginTop: 8 }}>
-          <BookCover
+          <IndexStack
             paper={paper}
             size="lg"
             progress={
@@ -502,7 +507,7 @@ export default function PaperDetail() {
                 onPress={() => router.push(`/course/${paper.course}`)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open course ${paper.courseName}`}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.paper2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3 }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.bgDefault, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3 }}
               >
                 <Text style={{ fontSize: 11, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
                   {paper.courseName || paper.course}
@@ -510,7 +515,7 @@ export default function PaperDetail() {
                 <Icon name="chevron" size={10} color={c.textTertiary} />
               </Pressable>
               {[paper.type, String(paper.year)].map((t) => (
-                <Text key={t} style={{ fontSize: 11, color: c.textSecondary, backgroundColor: c.paper2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, fontFamily: fonts.sansMedium }}>
+                <Text key={t} style={{ fontSize: 11, color: c.textSecondary, backgroundColor: c.bgDefault, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, fontFamily: fonts.sansMedium }}>
                   {t}
                 </Text>
               ))}
@@ -544,21 +549,21 @@ export default function PaperDetail() {
             accessibilityLabel={cachedUri ? 'Open downloaded copy' : dl.status === 'working' ? `Downloading ${pct} percent` : 'Download PDF'}
             disabled={dl.status === 'working'}
             style={{
-              backgroundColor: c.ink100,
+              backgroundColor: c.textPrimary,
               borderRadius: 8,
               paddingVertical: 13,
               minHeight: 52,
               opacity: dl.status === 'working' ? 0.7 : 1,
             }}
           >
-            <Icon name="download" size={16} color={c.paper} />
-            <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
+            <Icon name="download" size={16} color={c.bgDefault} />
+            <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
               {cachedUri ? 'Open downloaded copy' : dl.status === 'working' ? `Downloading… ${pct}%` : 'Download PDF'}
             </Text>
           </ScaleButton>
           {dl.status === 'working' ? (
-            <View style={{ height: 4, borderRadius: 2, backgroundColor: c.rule, overflow: 'hidden' }}>
-              <View style={{ width: `${pct}%`, height: 4, backgroundColor: c.ink100 }} />
+            <View style={{ height: 4, borderRadius: 2, backgroundColor: c.borderDefault, overflow: 'hidden' }}>
+              <View style={{ width: `${pct}%`, height: 4, backgroundColor: c.textPrimary }} />
             </View>
           ) : null}
 
@@ -580,8 +585,8 @@ export default function PaperDetail() {
               style={{
                 flex: 1,
                 borderWidth: 1,
-                borderColor: saved ? c.ink100 : c.ruleStrong,
-                backgroundColor: saved ? c.paper2 : 'transparent',
+                borderColor: saved ? c.textPrimary : c.borderStrong,
+                backgroundColor: saved ? c.bgDefault : 'transparent',
                 borderRadius: 8,
                 paddingVertical: 11,
                 minHeight: 48,
@@ -598,7 +603,7 @@ export default function PaperDetail() {
               style={{
                 flex: 1,
                 borderWidth: 1,
-                borderColor: c.ruleStrong,
+                borderColor: c.borderStrong,
                 borderRadius: 8,
                 paddingVertical: 11,
                 minHeight: 48,
@@ -616,7 +621,7 @@ export default function PaperDetail() {
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
-              borderColor: c.ruleStrong,
+              borderColor: c.borderStrong,
               borderRadius: 8,
               padding: 4,
             }}
@@ -634,16 +639,16 @@ export default function PaperDetail() {
                 gap: 6,
                 paddingVertical: 10,
                 borderRadius: 6,
-                backgroundColor: localVote === 1 ? c.ink100 : 'transparent',
+                backgroundColor: localVote === 1 ? c.textPrimary : 'transparent',
                 minHeight: 44,
               }}
             >
-              <Icon name="arrow-up" size={14} color={localVote === 1 ? c.paper : c.textSecondary} />
-              <Text style={{ fontSize: 13, color: localVote === 1 ? c.paper : c.textSecondary, fontFamily: fonts.mono }}>
+              <Icon name="arrow-up" size={14} color={localVote === 1 ? c.bgDefault : c.textSecondary} />
+              <Text style={{ fontSize: 13, color: localVote === 1 ? c.bgDefault : c.textSecondary, fontFamily: fonts.mono }}>
                 {upvotes}
               </Text>
             </Pressable>
-            <View style={{ width: 1, height: 20, backgroundColor: c.rule }} />
+            <View style={{ width: 1, height: 20, backgroundColor: c.borderDefault }} />
             <Pressable
               onPress={() => vote(-1)}
               accessibilityRole="button"
@@ -655,12 +660,12 @@ export default function PaperDetail() {
                 justifyContent: 'center',
                 paddingVertical: 10,
                 borderRadius: 6,
-                backgroundColor: localVote === -1 ? c.ink100 : 'transparent',
+                backgroundColor: localVote === -1 ? c.textPrimary : 'transparent',
                 minHeight: 44,
               }}
             >
-              <Icon name="arrow-down" size={14} color={localVote === -1 ? c.paper : c.textSecondary} />
-              <Text style={{ fontSize: 11, color: localVote === -1 ? c.paper : c.textTertiary, fontFamily: fonts.mono }}>
+              <Icon name="arrow-down" size={14} color={localVote === -1 ? c.bgDefault : c.textSecondary} />
+              <Text style={{ fontSize: 11, color: localVote === -1 ? c.bgDefault : c.textTertiary, fontFamily: fonts.mono }}>
                 {downvotes}
               </Text>
             </Pressable>
@@ -697,7 +702,7 @@ export default function PaperDetail() {
         {tab === 'preview' ? (
           <View style={{ marginTop: 16 }}>
             {paper.previewUrl ? (
-              <View style={{ height: 480, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: c.rule }}>
+              <View style={{ height: 480, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: c.borderDefault }}>
                 <WebView
                   source={{ uri: paper.previewUrl }}
                   style={{ flex: 1 }}
@@ -716,7 +721,7 @@ export default function PaperDetail() {
         {tab === 'citation' && citations ? (
           <View style={{ marginTop: 16, gap: 12 }}>
             {(Object.entries(citations) as [CitationStyle, string][]).map(([style, text]) => (
-              <View key={style} style={{ borderWidth: 1, borderColor: c.rule, borderRadius: 8, padding: 16, backgroundColor: c.elevated }}>
+              <View key={style} style={{ borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, padding: 16, backgroundColor: c.bgElevated }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi }}>
                     {style}
@@ -756,9 +761,9 @@ export default function PaperDetail() {
                   paddingVertical: 6,
                   paddingHorizontal: 12,
                   borderRadius: 999,
-                  backgroundColor: c.paper2,
+                  backgroundColor: c.bgDefault,
                   borderWidth: 1,
-                  borderColor: c.rule,
+                  borderColor: c.borderDefault,
                   minHeight: 36,
                 }}
               >
@@ -767,7 +772,7 @@ export default function PaperDetail() {
                 </Text>
               </Pressable>
             ) : null}
-            <View style={{ borderWidth: 1, borderColor: c.rule, borderRadius: 8, backgroundColor: c.elevated, padding: 14, marginBottom: 16 }}>
+            <View style={{ borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, backgroundColor: c.bgElevated, padding: 14, marginBottom: 16 }}>
               <TextInput
                 value={commentBody}
                 onChangeText={setCommentBody}
@@ -792,7 +797,7 @@ export default function PaperDetail() {
                   accessibilityRole="button"
                   accessibilityLabel="Post comment"
                   style={{
-                    backgroundColor: c.ink100,
+                    backgroundColor: c.textPrimary,
                     borderRadius: 6,
                     paddingVertical: 10,
                     paddingHorizontal: 16,
@@ -801,7 +806,7 @@ export default function PaperDetail() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ color: c.paper, fontSize: 13, fontWeight: '600', fontFamily: fonts.sansSemi }}>
+                  <Text style={{ color: c.bgDefault, fontSize: 13, fontWeight: '600', fontFamily: fonts.sansSemi }}>
                     {posting ? 'Posting…' : 'Post'}
                   </Text>
                 </Pressable>
@@ -816,9 +821,9 @@ export default function PaperDetail() {
                   <View
                     style={{
                       borderWidth: 1,
-                      borderColor: c.ink100,
+                      borderColor: c.textPrimary,
                       borderRadius: 8,
-                      backgroundColor: c.elevated,
+                      backgroundColor: c.bgElevated,
                       padding: 14,
                       marginBottom: 12,
                     }}
@@ -844,7 +849,7 @@ export default function PaperDetail() {
                 ) : null}
                 {topComments.map((cm) => (
                   <View key={cm._id}>
-                    <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.rule }}>
+                    <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.borderDefault }}>
                       <View style={{ flex: 1 }}>
                         <CommentRow
                           comment={cm}
@@ -861,7 +866,7 @@ export default function PaperDetail() {
                           paddingVertical: 12,
                           paddingLeft: 32,
                           borderBottomWidth: 1,
-                          borderBottomColor: c.rule,
+                          borderBottomColor: c.borderDefault,
                         }}
                       >
                         <View style={{ flex: 1 }}>
@@ -885,10 +890,10 @@ export default function PaperDetail() {
           style={{
             marginTop: 24,
             borderWidth: 1,
-            borderColor: c.rule,
+            borderColor: c.borderDefault,
             borderRadius: 8,
             padding: 16,
-            backgroundColor: c.elevated,
+            backgroundColor: c.bgElevated,
             flexDirection: 'row',
             alignItems: 'center',
             minHeight: 56,
@@ -932,7 +937,7 @@ export default function PaperDetail() {
           ['License', paper.license || 'CC BY-NC 4.0'],
           ['Uploaded', timeAgo(paper.createdAt)],
         ].map(([k, v]) => (
-          <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.rule }}>
+          <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.borderDefault }}>
             <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>{k}</Text>
             <Text style={{ fontSize: 12, color: c.textPrimary, fontFamily: fonts.mono, textAlign: 'right', flex: 1, marginLeft: 16 }}>{v}</Text>
           </View>
@@ -956,7 +961,7 @@ export default function PaperDetail() {
           style={{
             marginTop: 16,
             borderWidth: 1,
-            borderColor: c.ruleStrong,
+            borderColor: c.borderStrong,
             borderRadius: 8,
             padding: 12,
             fontSize: 14,
@@ -972,7 +977,7 @@ export default function PaperDetail() {
           accessibilityLabel="Submit report"
           style={{
             marginTop: 16,
-            backgroundColor: c.ink100,
+            backgroundColor: c.textPrimary,
             borderRadius: 8,
             paddingVertical: 14,
             alignItems: 'center',
@@ -981,7 +986,7 @@ export default function PaperDetail() {
             opacity: reporting ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
             {reporting ? 'Submitting…' : 'Submit report'}
           </Text>
         </Pressable>

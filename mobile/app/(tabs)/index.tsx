@@ -1,10 +1,9 @@
-// Home — search-first landing (port of HomeView.vue).
-// Serif masthead (day/night/season/weekday pools), glass SearchBar, scope
-// pill, REAL stats (papers/subjects/courses/contributors from facets —
-// no fake reads divisor), recently-added rail.
+// Home — feed-first landing. NOT masthead→pills→stats.
+// Quick actions grid, stats row, exam cards, timetable, recently added.
 // Convex queries are live: new papers arrive without pull-to-refresh.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useMutation } from 'convex/react';
 import * as Updates from 'expo-updates';
@@ -25,22 +24,24 @@ import { PaperCard } from '@/components/PaperCard';
 import { SkeletonCard } from '@/components/Skeleton';
 import { EmptyState, OfflineBadge } from '@/components/states';
 import { AmbientGrain } from '@/components/Grain';
-import { HeroMark } from '@/components/HeroMark';
-import { BrandMark } from '@/components/BrandMark';
-import { Ornament } from '@/components/Ornament';
+import { SpotArt } from '@/components/SpotArt';
 import { useNet } from '@/lib/net';
 import { downloadPaper, getPrefetchEnabled, isDownloaded, resolvePaperUrl } from '@/lib/downloads';
 import { getCachedPaper } from '@/lib/cache';
 import { getRecents, type RecentEntry } from '@/lib/recents';
 import { enqueue } from '@/lib/outbox';
+import { useDockScrollWiring } from '@/motion/dockScroll';
 import { track } from '@/lib/analytics';
 import { toast } from '@/components/Toast';
 import { fonts, spacing } from '@/theme/tokens';
-import { useThemeColors } from '@/components/ThemeProvider';
+import { useThemeColors, useThemeScheme } from '@/components/ThemeProvider';
 import { Icon } from '@/icons/icons';
+
+const DockScrollView = Animated.ScrollView;
 
 export default function Home() {
   const c = useThemeColors();
+  const night = useThemeScheme() === 'dark';
   const router = useRouter();
   const facets = useFacets();
   const { results, status } = useScopedPages();
@@ -56,12 +57,8 @@ export default function Home() {
   const { online, wifi } = useNet();
   const { program, levelYear } = useScope();
   const scrollRef = useRef<ScrollView>(null);
+  const dockWire = useDockScrollWiring('home');
   const searchingRef = useRef(false);
-  // Day/night accent follows the masthead's own rhythm (night owls included).
-  const isNight = (() => {
-    const h = new Date().getHours();
-    return h >= 18 || h < 6;
-  })();
 
   // Clip results into view the moment typing starts: nudge the list up so
   // the live matches clear the keyboard zone.
@@ -142,8 +139,6 @@ export default function Home() {
       .slice(0, 10);
   }, [results, myCourses]);
 
-  const gstSubject = facets?.subjects.find((s) => s.id === 'general-studies');
-
   const openPaper = (p: Paper) => router.push(`/paper/${p.id}`);
 
   // Live top matches for the Home dropdown (tappable straight to details).
@@ -153,8 +148,11 @@ export default function Home() {
   }, [results, query]);
 
   const openTopResult = (p: Paper) => {
-    void recordTrend({ term: query }).catch(() =>
-      enqueue({ kind: 'trend', term: query.toLowerCase(), count: 1 }),
+    // The trend signal is what the user ACTUALLY acted on: the suggestion
+    // text they tapped, not the half-typed query in the field.
+    const term = p.title.trim();
+    void recordTrend({ term }).catch(() =>
+      enqueue({ kind: 'trend', term: term.toLowerCase(), count: 1 }),
     );
     router.push(`/paper/${p.id}`);
   };
@@ -214,16 +212,18 @@ export default function Home() {
   }, [wifi, recent, levelYear, program]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-    <ScrollView
+    <DockScrollView
       ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingBottom: 120 }}
       keyboardShouldPersistTaps="handled"
+      onScroll={dockWire.onScroll}
+      scrollEventThrottle={dockWire.scrollEventThrottle}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -245,8 +245,13 @@ export default function Home() {
     >
       <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, paddingTop: 84, position: 'relative' }}>
         <AmbientGrain />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <BrandMark />
+        {/* Corner illustration — fills the header's white space (decor, hidden from a11y). */}
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ position: 'absolute', top: 30, right: 0, opacity: 0.85, pointerEvents: 'none' }}
+        >
+          <SpotArt name={night ? 'study-night' : 'study-day'} size={92} />
         </View>
         {profile ? (
           <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans, marginBottom: 12 }}>
@@ -260,7 +265,7 @@ export default function Home() {
             <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans }}>
               Welcome — browsing as guest.
             </Text>
-            <Pressable
+            <HapticPressable
               onPress={() => {
                 reopen();
                 router.push('/onboarding');
@@ -272,7 +277,7 @@ export default function Home() {
               <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, textDecorationLine: 'underline' }}>
                 Sign in
               </Text>
-            </Pressable>
+            </HapticPressable>
           </View>
         )}
         {!online ? (
@@ -280,16 +285,16 @@ export default function Home() {
             <OfflineBadge />
           </View>
         ) : null}
-        <HeroMark night={isNight} />
         <Animated.View key={phrase} entering={FadeIn.duration(260)}>
           <Text
             accessibilityRole="header"
             style={{
-              fontSize: 40,
-              lineHeight: 44,
+              fontSize: 28,
+              lineHeight: 34,
               color: c.textPrimary,
-              fontFamily: fonts.serifItalic,
-              textAlign: 'center',
+              fontFamily: fonts.sansSemi,
+              textAlign: 'left',
+              letterSpacing: -0.5,
             }}
           >
             {phrase}
@@ -312,7 +317,7 @@ export default function Home() {
 
         <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
           <ScopePill onPress={reopen} />
-          <Pressable
+          <HapticPressable
             onPress={surprise}
             accessibilityRole="button"
             accessibilityLabel="Open a random paper from your scope"
@@ -325,7 +330,7 @@ export default function Home() {
               borderRadius: 999,
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: c.ruleStrong,
+              borderColor: c.borderStrong,
               minHeight: 44,
             }}
           >
@@ -333,7 +338,7 @@ export default function Home() {
             <Text style={{ fontSize: 13, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
               Surprise me
             </Text>
-          </Pressable>
+          </HapticPressable>
         </View>
         {countdown || streak.current > 0 ? (
           <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -348,11 +353,11 @@ export default function Home() {
                   paddingVertical: 7,
                   paddingHorizontal: 14,
                   borderRadius: 999,
-                  backgroundColor: c.ink100,
+                  backgroundColor: c.textPrimary,
                 }}
               >
-                <Icon name="clock" size={13} color={c.paper} />
-                <Text style={{ fontSize: 11, color: c.paper, fontFamily: fonts.mono }}>
+                <Icon name="clock" size={13} color={c.bgDefault} />
+                <Text style={{ fontSize: 11, color: c.bgDefault, fontFamily: fonts.mono }}>
                   {countdown.live
                     ? `FINALS SZN · ${countdown.days}d LEFT`
                     : `FINALS SZN IN ${countdown.days}d — STOCK UP`}
@@ -371,12 +376,14 @@ export default function Home() {
                   paddingHorizontal: 12,
                   borderRadius: 999,
                   borderWidth: 1,
-                  borderColor: c.ruleStrong,
+                  borderColor: c.borderStrong,
                 }}
               >
-                <Text style={{ fontSize: 12 }}>
-                  {streak.atRisk ? '⏳' : '🔥'}
-                </Text>
+                <Icon
+                  name={streak.atRisk ? 'hourglass' : 'flame'}
+                  size={13}
+                  color={c.textSecondary}
+                />
                 <Text style={{ fontSize: 11, color: c.textSecondary, fontFamily: fonts.mono }}>
                   {streak.current}d streak{streak.atRisk ? ' — read today!' : ''}
                 </Text>
@@ -400,9 +407,9 @@ export default function Home() {
                     paddingVertical: 10,
                     paddingHorizontal: 14,
                     borderWidth: 1,
-                    borderColor: urgent ? c.ink100 : c.rule,
+                    borderColor: urgent ? c.textPrimary : c.borderDefault,
                     borderRadius: 10,
-                    backgroundColor: c.elevated,
+                    backgroundColor: c.bgElevated,
                   }}
                 >
                   <View style={{ width: 44, alignItems: 'center' }}>
@@ -420,15 +427,15 @@ export default function Home() {
                       {d === 0 ? ' · TODAY' : d === 1 ? ' · TOMORROW' : ''}
                     </Text>
                   </View>
-                  <Pressable
+                  <HapticPressable
                     onPress={() => router.push('/(tabs)/search?focus=1')}
                     accessibilityRole="button"
                     accessibilityLabel={`Find ${e.course} past questions`}
-                    style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.ruleStrong, minHeight: 40, justifyContent: 'center' }}
+                    style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.borderStrong, minHeight: 40, justifyContent: 'center' }}
                   >
                     <Text style={{ fontSize: 12, color: c.textPrimary, fontFamily: fonts.sansMedium }}>Past Qs</Text>
-                  </Pressable>
-                  <Pressable
+                  </HapticPressable>
+                  <HapticPressable
                     onPress={() => {
                       removeExam(e.id);
                       setExams(upcomingExams(3));
@@ -438,7 +445,7 @@ export default function Home() {
                     style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
                   >
                     <Icon name="x" size={14} color={c.textQuiet} />
-                  </Pressable>
+                  </HapticPressable>
                 </View>
               );
             })}
@@ -448,10 +455,7 @@ export default function Home() {
 
       {continueList.length > 0 ? (
         <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, marginTop: 44 }}>
-          <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6 }}>
-            Recently viewed
-          </Text>
-          <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginBottom: 16 }}>
+          <Text style={{ fontSize: 22, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, marginBottom: 16 }}>
             Pick up where you left off
           </Text>
           <FlashList
@@ -477,16 +481,13 @@ export default function Home() {
       <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, marginTop: 44 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 6 }}>
           <View>
-            <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6 }}>
+            <Text style={{ fontSize: 22, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>
               Timetable
-            </Text>
-            <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
-              This semester
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {editingCourses && myCourses.length > 0 ? (
-              <Pressable
+              <HapticPressable
                 onPress={() => {
                   clearMyCourses();
                   setMyCourses([]);
@@ -496,9 +497,9 @@ export default function Home() {
                 style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
               >
                 <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans }}>Clear all</Text>
-              </Pressable>
+              </HapticPressable>
             ) : null}
-            <Pressable
+            <HapticPressable
               onPress={() => setEditingCourses(!editingCourses)}
               accessibilityRole="button"
               accessibilityLabel={editingCourses ? 'Done editing courses' : 'Choose my courses'}
@@ -507,7 +508,7 @@ export default function Home() {
               <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>
                 {editingCourses ? 'Done' : myCourses.length ? 'Edit courses' : 'Pick courses'}
               </Text>
-            </Pressable>
+            </HapticPressable>
           </View>
         </View>
         {editingCourses || myCourses.length === 0 ? (
@@ -515,7 +516,7 @@ export default function Home() {
             {(facets?.courses ?? []).slice(0, 18).map((x) => {
               const active = myCourses.includes(x.id);
               return (
-                <Pressable
+                <HapticPressable
                   key={x.id}
                   onPress={() => {
                     const selected = toggleMyCourse(x.id);
@@ -534,17 +535,17 @@ export default function Home() {
                     paddingVertical: 8,
                     paddingHorizontal: 14,
                     borderRadius: active ? 999 : 4,
-                    backgroundColor: active ? c.ink100 : 'transparent',
+                    backgroundColor: active ? c.textPrimary : 'transparent',
                     borderWidth: 1,
-                    borderColor: active ? c.ink100 : c.ruleStrong,
+                    borderColor: active ? c.textPrimary : c.borderStrong,
                     minHeight: 44,
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: active ? c.paper : c.textSecondary, fontFamily: fonts.sansMedium }}>
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: active ? c.bgDefault : c.textSecondary, fontFamily: fonts.sansMedium }}>
                     {x.displayName}
                   </Text>
-                </Pressable>
+                </HapticPressable>
               );
             })}
           </View>
@@ -571,59 +572,21 @@ export default function Home() {
         )}
       </View>
 
-      {gstSubject && gstSubject.count > 0 ? (
-        <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, marginTop: 32 }}>
-          <Pressable
-            onPress={() => router.push(`/subject/${gstSubject.id}`)}
-            accessibilityRole="button"
-            accessibilityLabel="Open the GST survival kit"
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 14,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: c.rule,
-              borderRadius: 12,
-              backgroundColor: c.elevated,
-              minHeight: 76,
-            }}
-          >
-            <Icon name="star" size={22} color={c.textPrimary} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>
-                GST survival kit
-              </Text>
-              <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.sans, marginTop: 2 }}>
-                {gstSubject.count} papers everyone takes →
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      ) : null}
-
       <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, marginTop: 40 }}>
-        <Ornament />
-      </View>
-
-      <View style={{ maxWidth: 900, alignSelf: 'center', width: '100%', paddingHorizontal: spacing.gutter, marginTop: 32 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 }}>
           <View>
-            <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6 }}>
-              This week
-            </Text>
-            <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
+            <Text style={{ fontSize: 22, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>
               Recently added
             </Text>
           </View>
-          <Pressable
+          <HapticPressable
             onPress={() => router.navigate('/(tabs)/browse')}
             accessibilityRole="button"
             accessibilityLabel="View all papers"
             style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
           >
             <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>View all →</Text>
-          </Pressable>
+          </HapticPressable>
         </View>
 
         {status === 'LoadingFirstPage' && recent.length === 0 ? (
@@ -649,7 +612,7 @@ export default function Home() {
           <EmptyState title="No papers yet." sub="Try a different scope in Settings." icon="books" />
         )}
       </View>
-    </ScrollView>
+    </DockScrollView>
     </KeyboardAvoidingView>
     </View>
   );

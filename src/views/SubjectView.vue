@@ -152,8 +152,8 @@ function openPaper(p: Paper) {
 
 <style scoped>
 .hero {
-  background: var(--paper-2);
-  border-bottom: 1px solid var(--rule);
+  background: var(--bg-default);
+  border-bottom: 1px solid var(--border-default);
   padding: 64px 0 48px;
 }
 .wrap {
@@ -166,7 +166,7 @@ function openPaper(p: Paper) {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--ink-40);
+  color: var(--text-quiet);
   margin-bottom: 32px;
 }
 .crumb {
@@ -174,22 +174,22 @@ function openPaper(p: Paper) {
   border: none;
   padding: 0;
   font-size: 12px;
-  color: var(--ink-40);
+  color: var(--text-quiet);
   cursor: pointer;
 }
 .crumb:hover {
-  color: var(--ink-100);
+  color: var(--text-primary);
   text-decoration: underline;
 }
 .crumb-current {
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .hero-title {
   font-size: clamp(40px, 6vw, 68px);
   font-weight: 500;
   letter-spacing: -0.035em;
   line-height: 1;
-  color: var(--ink-100);
+  color: var(--text-primary);
   margin: 0;
 }
 .hero-stats {
@@ -224,7 +224,7 @@ function openPaper(p: Paper) {
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   background: var(--bg-elevated);
   cursor: pointer;
@@ -232,12 +232,12 @@ function openPaper(p: Paper) {
   transition: border-color var(--dur-fast);
 }
 .course-row:hover {
-  border-color: var(--ink-100);
+  border-color: var(--text-primary);
 }
 .course-accent {
   width: 3px;
   height: 28px;
-  background: var(--ink-100);
+  background: var(--text-primary);
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -245,7 +245,7 @@ function openPaper(p: Paper) {
   flex: 1;
   font-size: 15px;
   font-weight: 500;
-  color: var(--ink-100);
+  color: var(--text-primary);
   letter-spacing: -0.005em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -253,10 +253,10 @@ function openPaper(p: Paper) {
 }
 .course-count {
   font-size: 11px;
-  color: var(--ink-40);
+  color: var(--text-quiet);
 }
 .course-chevron {
-  color: var(--ink-30);
+  color: var(--text-tertiary);
 }
 .grid-6 {
   display: grid;
@@ -274,7 +274,7 @@ function openPaper(p: Paper) {
   align-items: flex-start;
   gap: 8px;
   padding: 20px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   background: var(--bg-elevated);
   cursor: pointer;
@@ -282,12 +282,12 @@ function openPaper(p: Paper) {
   transition: border-color var(--dur-fast);
 }
 .contrib-card:hover {
-  border-color: var(--ink-100);
+  border-color: var(--text-primary);
 }
 .contrib-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--ink-100);
+  color: var(--text-primary);
   margin-top: 4px;
   max-width: 100%;
   overflow: hidden;
@@ -305,35 +305,26 @@ function openPaper(p: Paper) {
 .no-title {
   font-size: 20px;
   font-weight: 500;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 
 /* Shimmer placeholders while loading */
 .sk {
   position: relative;
   overflow: hidden;
-  background: var(--paper-3);
+  background: var(--bg-elevated);
   border-radius: 4px;
 }
 .sk::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 80%
-  );
-  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+  background: var(--bg-skeleton);
+  animation: pulse 2s ease-in-out infinite;
 }
-@keyframes sk-shimmer {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 @media (max-width: 960px) {

@@ -4,7 +4,8 @@
 // Draft persists offline (MMKV) and resumes. Bytes POST to a minted storage
 // URL; metadata creates a `pending` submission for moderators.
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { useMutation, usePaginatedQuery } from 'convex/react';
@@ -25,16 +26,15 @@ import {
   slugify,
 } from '@shared/catalogue';
 import { PAPER_TYPES } from '@shared/design';
-import { BookCover } from '@/components/BookCover';
+import { IndexStack } from '@/components/IndexStack';
 import { Icon } from '@/icons/icons';
-import { SpotArt } from '@/components/SpotArt';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
 import { toast } from '@/components/Toast';
 import { track } from '@/lib/analytics';
 import { celebrate, checkMilestone } from '@/lib/milestones';
 
-const storage: KV = getKV('calebs-upload');
+const storage: KV = getKV('bellsnotes-upload');
 const DRAFT_KEY = 'upload.draft.v1';
 const MAX_BYTES = 50 * 1024 * 1024;
 const ALLOWED_EXTS = ['pdf', 'docx', 'pptx', 'png', 'jpg', 'jpeg', 'webp', 'txt'];
@@ -256,49 +256,46 @@ export default function Upload() {
 
   const inputStyle = {
     borderWidth: 1,
-    borderColor: c.ruleStrong,
+    borderColor: c.borderStrong,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
     color: c.textPrimary,
     fontFamily: fonts.sans,
-    backgroundColor: c.elevated,
+    backgroundColor: c.bgElevated,
     minHeight: 48,
   } as const;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+      <HapticPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Close upload" style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginBottom: 8 }}>
+        <Icon name="arrow-left" size={18} color={c.textSecondary} />
+      </HapticPressable>
       <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
         Contribute · Step {Math.min(step + 1, 4)} of 4
       </Text>
       <Text style={{ fontSize: 32, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginBottom: 8 }}>
         {step === 0 ? 'Pick your file' : step === 1 ? 'Add details' : step === 2 ? 'Review' : 'Submitted'}
       </Text>
-      {step < 3 ? (
-        <View style={{ alignItems: 'center', marginVertical: 8 }}>
-          <SpotArt name={step === 0 ? 'upload' : step === 1 ? 'scroll' : 'shelf'} size={112} />
-        </View>
-      ) : null}
-
       {step === 0 ? (
         <View style={{ marginTop: 16 }}>
-          <Pressable
+          <HapticPressable
             onPress={() => void pick()}
             accessibilityRole="button"
             accessibilityLabel="Pick a file to upload"
             style={{
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: c.ruleStrong,
+              borderColor: c.borderStrong,
               borderRadius: 12,
               padding: 32,
               alignItems: 'center',
-              backgroundColor: c.elevated,
+              backgroundColor: c.bgElevated,
               minHeight: 160,
               justifyContent: 'center',
             }}
@@ -315,9 +312,12 @@ export default function Upload() {
                 {formatBytes(file.size)}
               </Text>
             ) : null}
-          </Pressable>
+          </HapticPressable>
           {fileError ? (
-            <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans, marginTop: 12 }}>{fileError}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
+              <Icon name="info" size={14} color={c.error} />
+              <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans }}>{fileError}</Text>
+            </View>
           ) : null}
           <WizardNav
             nextLabel="Continue →"
@@ -335,9 +335,12 @@ export default function Upload() {
           <Field label="Course code + number (e.g. MTH 103)">
             <TextInput value={draft.course} onChangeText={(v) => set({ course: v })} placeholder="CSC 200" placeholderTextColor={c.textQuiet} autoCapitalize="characters" accessibilityLabel="Course" style={[inputStyle, !courseValid && draft.course ? { borderColor: c.error } : null]} />
             {!courseValid && draft.course ? (
-              <Text style={{ fontSize: 12, color: c.error, fontFamily: fonts.sans, marginTop: 4 }}>
-                Use a code + number like CSC 200 — it routes your paper to the right level.
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <Icon name="info" size={12} color={c.error} />
+                <Text style={{ fontSize: 12, color: c.error, fontFamily: fonts.sans }}>
+                  Use a code + number like CSC 200 — it routes your paper to the right level.
+                </Text>
+              </View>
             ) : null}
           </Field>
           <Field label="Program">
@@ -346,7 +349,7 @@ export default function Upload() {
                 {Object.entries(CODE_SUBJECTS).slice(0, 20).map(([code, name]) => {
                   const active = draft.program === code;
                   return (
-                    <Pressable
+                    <HapticPressable
                       key={code}
                       onPress={() => set({ program: code })}
                       accessibilityRole="radio"
@@ -356,17 +359,17 @@ export default function Upload() {
                         paddingVertical: 9,
                         paddingHorizontal: 12,
                         borderRadius: active ? 999 : 4,
-                        backgroundColor: active ? c.ink100 : 'transparent',
+                        backgroundColor: active ? c.textPrimary : 'transparent',
                         borderWidth: 1,
-                        borderColor: active ? c.ink100 : c.ruleStrong,
+                        borderColor: active ? c.textPrimary : c.borderStrong,
                         minHeight: 44,
                         justifyContent: 'center',
                       }}
                     >
-                      <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.paper : c.textSecondary, fontFamily: fonts.sansMedium }}>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.bgDefault : c.textSecondary, fontFamily: fonts.sansMedium }}>
                         {code}
                       </Text>
-                    </Pressable>
+                    </HapticPressable>
                   );
                 })}
               </View>
@@ -377,7 +380,7 @@ export default function Upload() {
               {PAPER_TYPES.map((t) => {
                 const active = draft.type === t;
                 return (
-                  <Pressable
+                  <HapticPressable
                     key={t}
                     onPress={() => set({ type: t })}
                     accessibilityRole="radio"
@@ -387,17 +390,17 @@ export default function Upload() {
                       paddingVertical: 9,
                       paddingHorizontal: 12,
                       borderRadius: active ? 999 : 4,
-                      backgroundColor: active ? c.ink100 : 'transparent',
+                      backgroundColor: active ? c.textPrimary : 'transparent',
                       borderWidth: 1,
-                      borderColor: active ? c.ink100 : c.ruleStrong,
+                      borderColor: active ? c.textPrimary : c.borderStrong,
                       minHeight: 44,
                       justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.paper : c.textSecondary, fontFamily: fonts.sansMedium }}>
+                    <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.bgDefault : c.textSecondary, fontFamily: fonts.sansMedium }}>
                       {t}
                     </Text>
-                  </Pressable>
+                  </HapticPressable>
                 );
               })}
             </View>
@@ -422,7 +425,7 @@ export default function Upload() {
               {LICENSES.map((l) => {
                 const active = draft.license === l;
                 return (
-                  <Pressable
+                  <HapticPressable
                     key={l}
                     onPress={() => set({ license: l })}
                     accessibilityRole="radio"
@@ -430,9 +433,9 @@ export default function Upload() {
                     accessibilityLabel={l}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, minHeight: 44 }}
                   >
-                    <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: active ? c.ink100 : c.ruleStrong, backgroundColor: active ? c.ink100 : 'transparent' }} />
+                    <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: active ? c.textPrimary : c.borderStrong, backgroundColor: active ? c.textPrimary : 'transparent' }} />
                     <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans }}>{l}</Text>
-                  </Pressable>
+                  </HapticPressable>
                 );
               })}
             </View>
@@ -449,8 +452,8 @@ export default function Upload() {
 
       {step === 2 ? (
         <View style={{ marginTop: 16, alignItems: 'center' }}>
-          {previewPaper ? <BookCover paper={previewPaper} size="lg" /> : null}
-          <View style={{ alignSelf: 'stretch', marginTop: 20, borderWidth: 1, borderColor: c.rule, borderRadius: 8, backgroundColor: c.elevated, padding: 16 }}>
+          {previewPaper ? <IndexStack paper={previewPaper} size="lg" /> : null}
+          <View style={{ alignSelf: 'stretch', marginTop: 20, borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, backgroundColor: c.bgElevated, padding: 16 }}>
             {[
               ['Title', draft.title.trim()],
               ['Course', `${draft.course.trim()} · ${subjectName}`],
@@ -458,7 +461,7 @@ export default function Upload() {
               ['Size', file ? formatBytes(file.size) : '—'],
               ['License', draft.license],
             ].map(([k, v]) => (
-              <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.rule }}>
+              <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.borderDefault }}>
                 <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>{k}</Text>
                 <Text style={{ fontSize: 13, color: c.textPrimary, fontFamily: fonts.sansMedium, textAlign: 'right', flex: 1, marginLeft: 16 }}>{v}</Text>
               </View>
@@ -485,7 +488,7 @@ export default function Upload() {
           <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans, marginTop: 8, textAlign: 'center' }}>
             Moderators review within 24–48 hours.{submittedId ? ` Ref ${submittedId.slice(-6)}.` : ''}
           </Text>
-          <Pressable
+          <HapticPressable
             onPress={() => {
               setStep(0);
               setFile(null);
@@ -494,10 +497,10 @@ export default function Upload() {
             }}
             accessibilityRole="button"
             accessibilityLabel="Back to the library"
-            style={{ marginTop: 24, backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 24, minHeight: 52, justifyContent: 'center' }}
+            style={{ marginTop: 24, backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 24, minHeight: 52, justifyContent: 'center' }}
           >
-            <Text style={{ color: c.paper, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
-          </Pressable>
+            <Text style={{ color: c.bgDefault, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
+          </HapticPressable>
 
           <View style={{ alignSelf: 'stretch', marginTop: 32 }}>
             <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 12 }}>
@@ -509,7 +512,7 @@ export default function Upload() {
               </Text>
             ) : (
               mySubs.results.map((s) => (
-                <View key={s._id} style={{ borderWidth: 1, borderColor: c.rule, borderRadius: 8, padding: 14, backgroundColor: c.elevated, marginBottom: 10 }}>
+                <View key={s._id} style={{ borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, padding: 14, backgroundColor: c.bgElevated, marginBottom: 10 }}>
                   <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                     {s.title}
                   </Text>
@@ -562,23 +565,23 @@ function WizardNav({
   return (
     <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
       {backLabel && onBack ? (
-        <Pressable
+        <HapticPressable
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel={backLabel}
-          style={{ paddingVertical: 14, paddingHorizontal: 18, borderRadius: 8, borderWidth: 1, borderColor: c.ruleStrong, minHeight: 52, justifyContent: 'center' }}
+          style={{ paddingVertical: 14, paddingHorizontal: 18, borderRadius: 8, borderWidth: 1, borderColor: c.borderStrong, minHeight: 52, justifyContent: 'center' }}
         >
           <Text style={{ color: c.textPrimary, fontWeight: '500', fontFamily: fonts.sansMedium }}>{backLabel}</Text>
-        </Pressable>
+        </HapticPressable>
       ) : null}
-      <Pressable
+      <HapticPressable
         onPress={onNext}
         disabled={nextDisabled}
         accessibilityRole="button"
         accessibilityLabel={nextLabel}
         style={{
           flex: 1,
-          backgroundColor: c.ink100,
+          backgroundColor: c.textPrimary,
           borderRadius: 8,
           paddingVertical: 14,
           alignItems: 'center',
@@ -587,8 +590,8 @@ function WizardNav({
           opacity: nextDisabled ? 0.4 : 1,
         }}
       >
-        <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>{nextLabel}</Text>
-      </Pressable>
+        <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>{nextLabel}</Text>
+      </HapticPressable>
     </View>
   );
 }

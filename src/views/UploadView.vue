@@ -48,13 +48,13 @@ const router = useRouter()
 .title {
   font-size: 44px;
   margin: 0;
-  color: var(--ink-100);
+  color: var(--text-primary);
   letter-spacing: -0.03em;
   line-height: 1.05;
   font-weight: 500;
 }
 .sub {
-  color: var(--ink-70);
+  color: var(--text-secondary);
   font-size: 15px;
   margin-top: 12px;
   max-width: 560px;
@@ -63,7 +63,7 @@ const router = useRouter()
 .paused-card {
   margin-top: 40px;
   padding: 32px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   background: var(--bg-elevated);
 }
@@ -73,19 +73,19 @@ const router = useRouter()
   margin-bottom: 20px;
   display: grid;
   place-items: center;
-  background: var(--paper-2);
+  background: var(--bg-default);
   border-radius: 50%;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .paused-title {
   font-size: 24px;
-  color: var(--ink-100);
+  color: var(--text-primary);
   font-weight: 500;
   letter-spacing: -0.02em;
   margin-bottom: 10px;
 }
 .paused-sub {
-  color: var(--ink-70);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.55;
   max-width: 460px;

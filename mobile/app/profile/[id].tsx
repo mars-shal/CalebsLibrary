@@ -49,7 +49,7 @@ export default function Profile() {
 
   if (!loading && !known) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 96 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 96 }}>
         <EmptyState
           title="Community contributor"
           sub="No papers from this contributor in your scope yet."
@@ -62,10 +62,10 @@ export default function Profile() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={{ paddingBottom: 120 }}>
-      <View style={{ backgroundColor: c.paper2, borderBottomWidth: 1, borderBottomColor: c.rule, paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 32 }}>
-        <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: c.ink100, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-          <Text style={{ color: c.paper, fontSize: 40, fontWeight: '500', fontFamily: fonts.sansMedium }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bgDefault }} contentContainerStyle={{ paddingBottom: 120 }}>
+      <View style={{ backgroundColor: c.bgDefault, borderBottomWidth: 1, borderBottomColor: c.borderDefault, paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 32 }}>
+        <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: c.textPrimary, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <Text style={{ color: c.bgDefault, fontSize: 40, fontWeight: '500', fontFamily: fonts.sansMedium }}>
             {initialsOf(name)}
           </Text>
         </View>
@@ -76,11 +76,11 @@ export default function Profile() {
           {name}
         </Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <Text style={{ fontSize: 11, backgroundColor: c.paper3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
+          <Text style={{ fontSize: 11, backgroundColor: c.bgSkeleton, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
             {handle}
           </Text>
           {seals.map((s) => (
-            <Text key={s} style={{ fontSize: 11, backgroundColor: c.ink100, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, color: c.paper, fontFamily: fonts.sansMedium }}>
+            <Text key={s} style={{ fontSize: 11, backgroundColor: c.textPrimary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, color: c.bgDefault, fontFamily: fonts.sansMedium }}>
               {s}
             </Text>
           ))}
@@ -140,7 +140,7 @@ export default function Profile() {
         </View>
       ) : (
         <View style={{ paddingHorizontal: spacing.gutter, marginTop: 24 }}>
-          <View style={{ padding: 24, backgroundColor: c.elevated, borderWidth: 1, borderColor: c.rule, borderRadius: 8 }}>
+          <View style={{ padding: 24, backgroundColor: c.bgElevated, borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8 }}>
             <Text style={{ fontSize: 15, lineHeight: 26, color: c.textPrimary, fontFamily: fonts.sans }}>
               {isFounder
                 ? 'Started this library in a shared folder, 2019.'

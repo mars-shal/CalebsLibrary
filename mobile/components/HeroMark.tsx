@@ -1,8 +1,7 @@
-// HeroMark — the Home hero as a living icon instead of illustration.
-// No outside animated-icon pack exists without native deps (out for Expo Go),
-// so this composes our own set: a books mark floating gently, a twinkling
-// sparkle, and a day/night accent that follows the masthead's rhythm.
-// Everything freezes under Reduce Motion.
+// HeroMark — the Home hero as a living icon for Bells Notes.
+// A stack of index cards (the app's signature visual) floating gently,
+// a twinkling sparkle, and a day/night accent. Everything freezes
+// under Reduce Motion.
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {

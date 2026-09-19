@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { ReactNode } from 'react';
 import { useThemeColors } from './ThemeProvider';
-import { useReducedMotion } from '../motion/motion';
+import { useAmbientOn } from '../motion/motion';
 
 export type SpotName =
   | 'library'
@@ -41,10 +41,10 @@ interface Accent {
 // One transparent overlay layer carrying a single ambient loop. Layers share
 // the base viewBox so artwork stays registered pixel-perfect.
 function AccentLayer({ kind, duration = 2000, children }: { kind: LoopKind; duration?: number; children: ReactNode }) {
-  const reduceMotion = useReducedMotion();
+  const ambient = useAmbientOn();
   const v = useSharedValue(kind === 'twinkle' ? 1 : kind === 'sway' ? 0.5 : 0);
   useEffect(() => {
-    if (reduceMotion) return;
+    if (!ambient) return;
     if (kind === 'bob') {
       v.value = withRepeat(
         withTiming(-6, { duration, easing: Easing.inOut(Easing.ease) }),
@@ -64,7 +64,7 @@ function AccentLayer({ kind, duration = 2000, children }: { kind: LoopKind; dura
         true,
       );
     }
-  }, [v, kind, duration, reduceMotion]);
+  }, [v, kind, duration, ambient]);
   const style = useAnimatedStyle(() => {
     if (kind === 'bob') return { transform: [{ translateY: v.value }] };
     if (kind === 'twinkle') return { opacity: v.value };
@@ -72,8 +72,7 @@ function AccentLayer({ kind, duration = 2000, children }: { kind: LoopKind; dura
   });
   return (
     <Animated.View
-      pointerEvents="none"
-      style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }, style]}
+      style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, pointerEvents: 'none' }, style]}
     >
       {children}
     </Animated.View>
@@ -92,7 +91,7 @@ export function SpotArt({
   const c = useThemeColors();
   const ink = c.textPrimary;
   const soft = c.textTertiary;
-  const fill = c.paper2;
+  const fill = c.bgDefault;
 
   const scenes: Record<SpotName, { base: ReactNode; layers: Accent[] }> = {
     'study-day': {

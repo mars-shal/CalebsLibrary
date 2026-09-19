@@ -3,7 +3,7 @@
 // nothing leaves the device.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-timetable');
+const storage: KV = getKV('bellsnotes-timetable');
 const KEY = 'courses.v1';
 const MAX = 12;
 

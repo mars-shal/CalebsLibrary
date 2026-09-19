@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Home — search-first landing. Ported from design_handoff Home.jsx.
+// Home — feed-first landing. NOT masthead→pills→stats.
+// Two-column: hero left + search, right column: quick actions + recent.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
@@ -7,7 +8,7 @@ import { formatCount } from '@/script/design'
 import type { Paper } from '@/script/design'
 import { trendingSubjects } from '@/script/trends'
 import Icon from '@/components/Icon.vue'
-import PaperCard from '@/components/PaperCard.vue'
+import IndexStack from '@/components/IndexStack.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
@@ -33,10 +34,8 @@ const stats = computed(() => [
   { value: drive.stats.subjects.toLocaleString(), label: 'Subjects' },
 ])
 
-// Top tags by searches + views + saves — ranked in trends.ts; falls back to
-// the store's paper-count order until real usage accumulates.
 const quickSubjects = computed(() =>
-  trendingSubjects(drive.subjects, drive.papers, drive.searchTrends).slice(0, 8),
+  trendingSubjects(drive.subjects, drive.papers, drive.searchTrends).slice(0, 6),
 )
 
 function openPaper(p: Paper) {
@@ -49,6 +48,7 @@ function handleBlur(): void {
     highlightedIndex.value = -1
   }, 120)
 }
+
 const DAY_PHRASES = [
   'What do you wanna learn today?',
   'Good morning — what are we studying?',
@@ -81,9 +81,6 @@ const cycledText = ref('')
 
 type Season = 'exam' | 'test' | 'term' | ''
 
-// Seasonal punch-ins layered on the day/night pools. Windows are approximate
-// academic-calendar ranges: finals late Nov–Dec & mid Mar–Apr, mid-terms
-// Oct–mid Nov & mid Feb–mid Mar, term start in Jan & Aug–Sep.
 const SEASON_PHRASES: Record<Exclude<Season, ''>, string[]> = {
   exam: [
     'Exam season — one past paper at a time.',
@@ -106,9 +103,6 @@ const SEASON_PHRASES: Record<Exclude<Season, ''>, string[]> = {
   ],
 }
 
-// Day-of-week punch-ins on top of the day/night + seasonal pools, keyed by
-// Date.getDay() (0=Sunday..6=Saturday). Keeps the masthead line feeling
-// attuned to the actual rhythm of the week.
 const WEEKDAY_PHRASES: Record<number, string[]> = {
   0: ['Sunday reset — light read or deep dive?', 'Weekend stay-in-study mode.'],
   1: ['Monday fresh start. Pick a course.', 'New week, new rabbit hole.'],
@@ -176,207 +170,244 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 </script>
 
 <template>
-  <div class="screen-wrap">
-    <!-- Masthead -->
-    <section class="masthead">
+  <div class="home">
+    <!-- Hero: full-width statement -->
+    <section class="hero">
+      <div class="hero-inner">
+        <h1 class="hero-title">
+          <Transition name="cycle" mode="out-in">
+            <span :key="cycledText">{{ cycledText }}</span>
+          </Transition>
+        </h1>
 
-      <h1 class="masthead-title">
-        <Transition name="cycle" mode="out-in">
-          <span :key="cycledText" class="serif-italic">{{ cycledText }}</span>
-        </Transition>
-      </h1>
+        <div ref="containerRef" class="search-container">
+          <Icon name="search" :size="18" class="search-icon" />
+          <input
+            v-model="query"
+            class="search-input"
+            type="text"
+            autocomplete="off"
+            placeholder="Search by course, topic, or title..."
+            @input="onInput"
+            @keydown="handleKeydown"
+            @focus="onInput"
+            @blur="handleBlur"
+          />
+          <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
+            <button
+              v-for="(s, i) in suggestions"
+              :key="s.text + s.type"
+              class="ac-item"
+              :class="{ highlighted: highlightedIndex === i }"
+              @mousedown.prevent="selectSuggestion(s.text)"
+              @mouseenter="highlightedIndex = i"
+            >
+              <Icon :name="s.icon" :size="14" class="ac-icon" />
+              <span class="ac-text">{{ s.text }}</span>
+              <span class="ac-badge">{{ s.type }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-      <div ref="containerRef" class="big-search">
-        <Icon name="search" :size="20" class="big-search-icon" />
-        <input
-          v-model="query"
-          class="big-search-input"
-          type="text"
-          autocomplete="off"
-          placeholder="Search the library…"
-          @input="onInput"
-          @keydown="handleKeydown"
-          @focus="onInput"
-          @blur="handleBlur"
-        />
-        <span class="enter-chip">Enter ↵</span>
-        <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
-          <button
-            v-for="(s, i) in suggestions"
-            :key="s.text + s.type"
-            class="ac-item"
-            :class="{ highlighted: highlightedIndex === i }"
-            @mousedown.prevent="selectSuggestion(s.text)"
-            @mouseenter="highlightedIndex = i"
-          >
-            <Icon :name="s.icon" :size="14" class="ac-icon" />
-            <span class="ac-text">{{ s.text }}</span>
-            <span class="ac-badge">{{ s.type }}</span>
+    <!-- Quick actions: 2x2 grid -->
+    <section class="section">
+      <div class="section-inner">
+        <div class="quick-grid">
+          <button class="quick-card" @click="router.push('/browse')">
+            <Icon name="books" :size="22" />
+            <div class="quick-card-text">
+              <div class="quick-card-title">Browse</div>
+              <div class="quick-card-sub">All courses & papers</div>
+            </div>
+          </button>
+          <button class="quick-card" @click="router.push({ name: 'search' })">
+            <Icon name="search" :size="22" />
+            <div class="quick-card-text">
+              <div class="quick-card-title">Search</div>
+              <div class="quick-card-sub">Find specific notes</div>
+            </div>
+          </button>
+          <button class="quick-card" @click="router.push({ name: 'upload' })">
+            <Icon name="upload" :size="22" />
+            <div class="quick-card-text">
+              <div class="quick-card-title">Contribute</div>
+              <div class="quick-card-sub">Share your notes</div>
+            </div>
+          </button>
+          <button class="quick-card" @click="router.push({ name: 'browse' })">
+            <Icon name="bookmark" :size="22" />
+            <div class="quick-card-text">
+              <div class="quick-card-title">Saved</div>
+              <div class="quick-card-sub">Your bookmarks</div>
+            </div>
           </button>
         </div>
       </div>
+    </section>
 
-      <div class="quick-row">
-        <span class="quick-label">Or browse:</span>
-        <template v-if="isLoading">
-          <span v-for="i in 6" :key="i" class="sk pill-sk" />
-        </template>
-        <template v-else>
+    <!-- Stats row -->
+    <section class="section">
+      <div class="section-inner">
+        <div class="stats-row">
+          <template v-if="isLoading">
+            <div v-for="i in 4" :key="i" class="stat-item">
+              <div class="sk stat-val" />
+              <div class="sk stat-lbl" />
+            </div>
+          </template>
+          <template v-else>
+            <div v-for="s in stats" :key="s.label" class="stat-item">
+              <div class="stat-val">{{ s.value }}</div>
+              <div class="stat-lbl">{{ s.label }}</div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trending subjects -->
+    <section class="section" v-if="!isLoading && quickSubjects.length">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">Trending</h2>
+          <button class="section-link" @click="router.push('/browse')">View all →</button>
+        </div>
+        <div class="trending-grid">
           <button
             v-for="s in quickSubjects"
             :key="s.id"
-            class="pill"
+            class="trending-chip"
             @click="router.push({ name: 'subject', params: { id: s.id } })"
           >
-            {{ s.name }}
+            <span class="trending-name">{{ s.name }}</span>
+            <span class="trending-count">{{ s.count }}</span>
           </button>
-          <button class="pill pill-dashed" @click="router.push({ name: 'browse' })">
-            All {{ drive.subjects.length }} subjects →
-          </button>
-        </template>
-      </div>
-
-      <div class="stats-strip">
-        <template v-if="isLoading">
-          <div v-for="i in 4" :key="i" class="sk stat-sk">
-            <div class="sk stat-sk-value" />
-            <div class="sk stat-sk-label" />
-          </div>
-        </template>
-        <template v-else>
-          <Stat v-for="s in stats" :key="s.label" :value="s.value" :label="s.label" />
-        </template>
+        </div>
       </div>
     </section>
 
     <!-- Recently added -->
-    <section class="wrap" style="padding-top: 80px">
-      <SectionHeader eyebrow="This week" title="Recently added">
-        <template #action>
-          <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
-        </template>
-      </SectionHeader>
-      <SkeletonCard v-if="isLoading" :count="5" size="sm" />
-      <div v-else-if="drive.recentPapers.length" class="grid-5">
-        <PaperCard
-          v-for="p in drive.recentPapers"
-          :key="p.id"
-          :paper="p"
-          size="sm"
-          @click="openPaper(p)"
-        />
+    <section class="section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">Recently added</h2>
+          <button class="section-link" @click="router.push('/browse')">View all →</button>
+        </div>
+        <SkeletonCard v-if="isLoading" :count="3" size="sm" />
+        <div v-else-if="drive.recentPapers.length" class="recent-scroll">
+          <div
+            v-for="p in drive.recentPapers.slice(0, 8)"
+            :key="p.id"
+            class="recent-card"
+            @click="openPaper(p)"
+          >
+            <IndexStack :paper="p" size="sm" />
+            <div class="recent-meta">
+              <div class="recent-title">{{ p.title }}</div>
+              <div class="recent-info">{{ p.type }} · {{ p.year }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-box">{{ drive.error || 'No papers yet.' }}</div>
       </div>
-      <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
     </section>
 
-    <!-- Most loved — was computed in the store but never rendered -->
-    <section class="wrap" style="padding-top: 80px">
-      <SectionHeader eyebrow="All-time" title="Most loved by readers">
-        <template #action>
-          <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
-        </template>
-      </SectionHeader>
-      <SkeletonCard v-if="isLoading" :count="5" size="sm" />
-      <div v-else-if="drive.lovedPapers.length" class="grid-5">
-        <PaperCard
-          v-for="p in drive.lovedPapers"
-          :key="p.id"
-          :paper="p"
-          size="sm"
-          @click="openPaper(p)"
-        />
+    <!-- Most loved -->
+    <section class="section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">Most loved</h2>
+          <button class="section-link" @click="router.push('/browse')">View all →</button>
+        </div>
+        <SkeletonCard v-if="isLoading" :count="3" size="sm" />
+        <div v-else-if="drive.lovedPapers.length" class="recent-scroll">
+          <div
+            v-for="p in drive.lovedPapers.slice(0, 8)"
+            :key="p.id"
+            class="recent-card"
+            @click="openPaper(p)"
+          >
+            <IndexStack :paper="p" size="sm" />
+            <div class="recent-meta">
+              <div class="recent-title">{{ p.title }}</div>
+              <div class="recent-info">{{ p.type }} · {{ p.year }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-box">{{ drive.error || 'No papers yet.' }}</div>
       </div>
-      <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.masthead {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 80px 32px 0;
-  text-align: center;
+.home {
+  animation: fade-in var(--dur-med) var(--ease-out);
 }
-.masthead-title {
-  font-family: var(--font-serif);
-  font-size: clamp(40px, 8vw, 80px);
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-  font-weight: 500;
-  color: var(--ink-100);
-  margin: 0;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.serif-plain {
-  font-style: normal;
+/* Hero — full-width statement, no background box */
+.hero {
+  padding: 80px 32px 48px;
+  max-width: 720px;
+  margin: 0 auto;
 }
-.serif-italic {
-  font-style: normal;
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  min-height: 1.2em;
 }
-.tagline {
-  font-size: 18px;
-  line-height: 1.55;
-  color: var(--ink-70);
-  max-width: 620px;
-  margin: 24px auto 0;
-  text-wrap: balance;
-}
-.big-search {
+
+/* Search — pill shape, no box */
+.search-container {
   position: relative;
-  max-width: 640px;
-  margin: 40px auto 0;
-  display: flex;
-  align-items: center;
+  margin-top: 28px;
 }
-.big-search-icon {
+.search-icon {
   position: absolute;
-  left: 22px;
-  color: var(--ink-40);
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
   pointer-events: none;
 }
-.big-search-input {
+.search-input {
   width: 100%;
-  background: var(--ink-0);
-  border: 1px solid var(--rule-strong);
-  border-radius: 8px;
-  padding: 18px 22px 18px 56px;
-  font-size: 16px;
-  letter-spacing: -0.005em;
-  color: var(--ink-100);
+  background: var(--bg-default);
+  border: none;
+  border-radius: 999px;
+  padding: 16px 20px 16px 48px;
+  font-size: 15px;
+  color: var(--text-primary);
   font-family: var(--font-sans);
-  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  transition: background var(--dur-fast);
 }
-.big-search-input::placeholder {
-  color: var(--ink-30);
+.search-input::placeholder {
+  color: var(--text-tertiary);
 }
-.big-search-input:focus {
+.search-input:focus {
   outline: none;
-  border-color: var(--ink-100);
-  box-shadow: var(--shadow-focus);
-}
-.enter-chip {
-  position: absolute;
-  right: 14px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-40);
-  background: var(--paper-2);
-  border: 1px solid var(--rule);
-  padding: 3px 8px;
-  border-radius: 4px;
-  pointer-events: none;
+  background: var(--bg-elevated);
 }
 .autocomplete-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
-  margin-top: 4px;
   background: var(--bg-elevated);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-book);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
   overflow: hidden;
   z-index: 100;
   max-height: 320px;
@@ -387,10 +418,10 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 16px;
   text-align: left;
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text-primary);
   background: transparent;
   cursor: pointer;
@@ -398,7 +429,7 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 }
 .ac-item:hover,
 .ac-item.highlighted {
-  background: var(--paper-2);
+  background: var(--bg-default);
 }
 .ac-icon {
   color: var(--text-tertiary);
@@ -417,163 +448,238 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-quiet);
-  background: var(--paper-3);
+  background: var(--bg-elevated);
   padding: 2px 6px;
   border-radius: 3px;
   flex-shrink: 0;
 }
-.cycle-enter-active,
-.cycle-leave-active {
-  transition: opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
+
+/* Section layout */
+.section {
+  padding: 0 32px;
 }
-.cycle-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
+.section + .section {
+  margin-top: 56px;
 }
-.cycle-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
+.section-inner {
+  max-width: 960px;
+  margin: 0 auto;
 }
-.quick-row {
-  margin-top: 32px;
+.section-header {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
-.quick-label {
-  color: var(--ink-40);
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0;
+}
+.section-link {
   font-size: 13px;
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast);
 }
-.pill {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--rule-strong);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-100);
-  background: transparent;
-  transition: all var(--dur-fast) var(--ease-out);
-  cursor: pointer;
-}
-.pill:hover {
-  background: var(--ink-100);
-  color: var(--paper);
-}
-.pill-dashed {
-  border-style: dashed;
-}
-.stats-strip {
-  margin-top: 64px;
-  padding-top: 48px;
-  border-top: 1px solid var(--rule);
-  display: flex;
-  justify-content: center;
-  gap: 64px;
-  flex-wrap: wrap;
+.section-link:hover {
+  color: var(--text-primary);
 }
 
-/* Masthead loading placeholders: pills + stats shimmer while the library loads */
+/* Quick actions grid */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.quick-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  background: var(--bg-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+  text-align: left;
+}
+.quick-card:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+}
+.quick-card svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.quick-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.quick-card-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  gap: 48px;
+  padding: 24px 0;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-val {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.stat-lbl {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Trending chips */
+.trending-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.trending-chip:hover {
+  background: var(--text-primary);
+  color: var(--bg-default);
+  border-color: var(--text-primary);
+}
+.trending-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.trending-chip:hover .trending-count {
+  color: var(--bg-default);
+  opacity: 0.6;
+}
+
+/* Recent papers — horizontal scroll row */
+.recent-scroll {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+.recent-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.recent-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+.recent-card {
+  flex-shrink: 0;
+  width: 140px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.recent-card:hover {
+  transform: translateY(-4px);
+}
+.recent-meta {
+  margin-top: 10px;
+}
+.recent-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.recent-info {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* Skeleton */
 .sk {
   position: relative;
   overflow: hidden;
-  background: var(--paper-3);
+  background: var(--bg-default);
   border-radius: 4px;
 }
 .sk::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 80%
-  );
-  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+  background: var(--bg-skeleton);
+  animation: pulse 2s ease-in-out infinite;
 }
-.pill-sk {
-  width: 88px;
-  height: 30px;
-  border-radius: 999px;
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
-.stat-sk {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  background: none;
-}
-.stat-sk::after {
-  display: none;
-}
-.stat-sk-value {
-  width: 64px;
-  height: 24px;
-}
-.stat-sk-label {
-  width: 48px;
-  height: 10px;
-}
-@keyframes sk-shimmer {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-.wrap {
-  max-width: var(--max-content);
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.wrap-narrow {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.grid-5 {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 24px;
-}
-.loading-box {
+.stat-val { width: 48px; height: 22px; }
+.stat-lbl { width: 64px; height: 10px; }
+
+/* Empty */
+.empty-box {
   padding: 48px;
   text-align: center;
-  color: var(--ink-40);
-  border: 1px dashed var(--rule-strong);
-  border-radius: 8px;
+  color: var(--text-tertiary);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
 }
 
-@media (max-width: 960px) {
-  .grid-5 {
-    grid-template-columns: repeat(3, 1fr);
-  }
+/* Cycle transitions */
+.cycle-enter-active,
+.cycle-leave-active {
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
 }
-@media (max-width: 640px) {
-  .grid-5 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .wrap,
-  .wrap-narrow {
-    padding: 0 20px;
-  }
-  .masthead {
-    padding: 56px 20px 0;
-  }
-  .big-search {
-    margin-top: 28px;
-  }
-  .quick-row {
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 24px;
-  }
-  .stats-strip {
-    flex-wrap: wrap;
-    gap: 20px;
-  }
+.cycle-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.cycle-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+@media (max-width: 720px) {
+  .hero { padding: 56px 20px 32px; }
+  .section { padding: 0 20px; }
+  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-row { gap: 24px; flex-wrap: wrap; }
+  .recent-card { width: 120px; }
 }
 </style>

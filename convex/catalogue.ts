@@ -40,43 +40,52 @@ async function paginateScope(
   ctx: QueryCtx,
   levelYear: string,
   program: string,
+  college: string,
   type: string | undefined,
   paginationOpts: PaginationOptions,
 ) {
-  if (levelYear === "all" && program === "all") {
+  const filterCollege = college && college !== "all";
+  const filterProgram = program && program !== "all";
+  const filterLevel = levelYear && levelYear !== "all";
+
+  // No filters at all — full catalogue by recency.
+  if (!filterLevel && !filterProgram) {
     const base = ctx.db.query("catalogue").withIndex("by_created");
-    const fq = type
-      ? base.filter((q) => q.eq(q.field("type"), type))
+    const fq = filterCollege
+      ? base.filter((q) => q.eq(q.field("college"), college))
       : base;
-    return await fq.order("desc").paginate(paginationOpts);
+    const fq2 = type ? fq.filter((q) => q.eq(q.field("type"), type)) : fq;
+    return await fq2.order("desc").paginate(paginationOpts);
   }
-  if (levelYear === "all") {
-    // No level-first index exists for program-only scope: recency + filter.
-    const base = ctx.db.query("catalogue").withIndex("by_created");
-    const fq = base.filter((q) =>
-      type
-        ? q.and(q.eq(q.field("program"), program), q.eq(q.field("type"), type))
-        : q.eq(q.field("program"), program),
-    );
-    return await fq.order("desc").paginate(paginationOpts);
-  }
-  if (program === "all") {
+  // Level only (no program) — use level index + optional college/type filter.
+  if (!filterProgram) {
     const base = ctx.db
       .query("catalogue")
       .withIndex("by_level_program_type", (q) => q.eq("levelYear", levelYear));
-    const fq = type
-      ? base.filter((q) => q.eq(q.field("type"), type))
+    let fq = filterCollege
+      ? base.filter((q) => q.eq(q.field("college"), college))
       : base;
+    if (type) fq = fq.filter((q) => q.eq(q.field("type"), type));
     return await fq.order("desc").paginate(paginationOpts);
   }
+  // Program only (no level) — recency + program filter.
+  if (!filterLevel) {
+    const base = ctx.db.query("catalogue").withIndex("by_created");
+    let fq = base.filter((q) => q.eq(q.field("program"), program));
+    if (filterCollege) fq = fq.filter((q) => q.eq(q.field("college"), college));
+    if (type) fq = fq.filter((q) => q.eq(q.field("type"), type));
+    return await fq.order("desc").paginate(paginationOpts);
+  }
+  // Both level and program — use the compound index.
   const base = ctx.db
     .query("catalogue")
     .withIndex("by_level_program_type", (q) =>
       q.eq("levelYear", levelYear).eq("program", program),
     );
-  const fq = type
-    ? base.filter((q) => q.eq(q.field("type"), type))
+  let fq = filterCollege
+    ? base.filter((q) => q.eq(q.field("college"), college))
     : base;
+  if (type) fq = fq.filter((q) => q.eq(q.field("type"), type));
   return await fq.order("desc").paginate(paginationOpts);
 }
 
@@ -86,21 +95,102 @@ export const listByLevelProgram = query({
   args: {
     levelYear: v.string(),
     program: v.string(),
+    college: v.string(),
     type: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, a) => {
-    return await paginateScope(ctx, a.levelYear, a.program, a.type, a.paginationOpts);
+    return await paginateScope(ctx, a.levelYear, a.program, a.college, a.type, a.paginationOpts);
+  },
+});
+
+// Scoped count for detail-screen headers. Same scope semantics as
+// listByLevelProgram so the number matches what a widened browse of the
+// same scope would traverse — subject/course screens use the ids they
+// already facet from to keep header counts and lists self-consistent.
+export const countByLevelProgram = query({
+  args: {
+    levelYear: v.string(),
+    program: v.string(),
+    college: v.string(),
+    subject: v.optional(v.string()),
+    course: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const page = await paginateScope(ctx, a.levelYear, a.program, a.college, undefined, {
+      numItems: 10000,
+      cursor: null,
+    });
+    return page.page.filter(
+      (p) => (a.subject ? p.subject === a.subject : true) && (a.course ? p.course === a.course : true),
+    ).length;
+  },
+});
+
+// Contributors within a scope, optionally narrowed to one subject or
+// course. Sorted by contribution count — detail screens render real
+// "Top contributors" without shipping the paper bodies to the client.
+export const contributorsByLevelProgram = query({
+  args: {
+    levelYear: v.string(),
+    program: v.string(),
+    college: v.string(),
+    subject: v.optional(v.string()),
+    course: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const page = await paginateScope(ctx, a.levelYear, a.program, a.college, undefined, {
+      numItems: 10000,
+      cursor: null,
+    });
+    const counts = new Map<string, { name: string; n: number }>();
+    for (const p of page.page) {
+      if (a.subject && p.subject !== a.subject) continue;
+      if (a.course && p.course !== a.course) continue;
+      const e = counts.get(p.contributor);
+      if (e) e.n += 1;
+      else counts.set(p.contributor, { name: p.contributorName, n: 1 });
+    }
+    return [...counts.entries()]
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((x, y) => y.n - x.n)
+      .slice(0, 12);
+  },
+});
+
+// Papers for one subject (or course) within the onboarding scope,
+// paginated — the server-side version of what subject/course screens
+// previously filtered client-side from the first 50 rows.
+export const listBySubject = query({
+  args: {
+    levelYear: v.string(),
+    program: v.string(),
+    college: v.string(),
+    subject: v.string(),
+    course: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, a) => {
+    const page = await paginateScope(ctx, a.levelYear, a.program, a.college, undefined, a.paginationOpts);
+    return {
+      ...page,
+      page: page.page.filter(
+        (p) => p.subject === a.subject && (a.course ? p.course === a.course : true),
+      ),
+    };
   },
 });
 
 // Hydrate a visible set of papers by Drive id (max 50 per call).
+// The zod schema admits 100 ids; this handler previously sliced to 50, so
+// callers that passed 50–100 ids (Saved capped at 100, Downloads) silently
+// lost the tail rows. Slice to the schema's real bound instead.
 export const getByIds = zCustomQuery(query, NoOp)({
   args: { ids: z.array(z.string()).max(100) },
   returns: catalogueItemSchema.array(),
   handler: async (ctx, { ids }) => {
     const rows = await Promise.all(
-      ids.slice(0, 50).map((id) =>
+      ids.slice(0, 100).map((id) =>
         ctx.db
           .query("catalogue")
           .withIndex("by_drive_id", (q) => q.eq("id", id))
@@ -134,11 +224,12 @@ export const searchPage = query({
   args: {
     levelYear: v.string(),
     program: v.string(),
+    college: v.string(),
     q: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, a) => {
-    const page = await paginateScope(ctx, a.levelYear, a.program, undefined, a.paginationOpts);
+    const page = await paginateScope(ctx, a.levelYear, a.program, a.college, undefined, a.paginationOpts);
     const q = a.q?.trim().toLowerCase();
     if (!q) return page;
     return {
@@ -251,35 +342,59 @@ export const syncDiffFromDrive = zCustomAction(internalAction, NoOp)({
   },
 });
 
+// getColleges — returns distinct college values from the catalogue.
+// Used by onboarding to populate the College step dynamically.
+export const getColleges = query({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db.query("catalogue").collect();
+    const colleges = [...new Set(docs.map((d) => d.college).filter(Boolean))].sort();
+    return colleges;
+  },
+});
+
 // Facets — server-side scope aggregation for filters, shelves, and stats.
 // Mobile paginates ITEMS but needs whole-scope METADATA (subjects, courses,
 // year bounds, counts). This computes it in one scoped read per scope
 // change (never polled): derivation mirrors the web store
 // (computeCourses/computeSubjects) so numbers match the website.
 export const facets = query({
-  args: { levelYear: v.string(), program: v.string() },
+  args: { levelYear: v.string(), program: v.string(), college: v.string() },
   handler: async (ctx, a) => {
     let docs;
-    if (a.levelYear === "all" && a.program === "all") {
-      docs = await ctx.db.query("catalogue").collect();
-    } else if (a.levelYear === "all") {
-      docs = await ctx.db
+    const filterCollege = a.college && a.college !== "all";
+    const filterProgram = a.program && a.program !== "all";
+    const filterLevel = a.levelYear && a.levelYear !== "all";
+
+    if (!filterLevel && !filterProgram) {
+      const base = ctx.db.query("catalogue");
+      docs = filterCollege
+        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
+        : await base.collect();
+    } else if (!filterProgram) {
+      const base = ctx.db
+        .query("catalogue")
+        .withIndex("by_level_program_type", (q) => q.eq("levelYear", a.levelYear));
+      docs = filterCollege
+        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
+        : await base.collect();
+    } else if (!filterLevel) {
+      const base = ctx.db
         .query("catalogue")
         .withIndex("by_created")
-        .filter((q) => q.eq(q.field("program"), a.program))
-        .collect();
-    } else if (a.program === "all") {
-      docs = await ctx.db
-        .query("catalogue")
-        .withIndex("by_level_program_type", (q) => q.eq("levelYear", a.levelYear))
-        .collect();
+        .filter((q) => q.eq(q.field("program"), a.program));
+      docs = filterCollege
+        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
+        : await base.collect();
     } else {
-      docs = await ctx.db
+      const base = ctx.db
         .query("catalogue")
         .withIndex("by_level_program_type", (q) =>
           q.eq("levelYear", a.levelYear).eq("program", a.program),
-        )
-        .collect();
+        );
+      docs = filterCollege
+        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
+        : await base.collect();
     }
 
     const courseMap = new Map<string, { name: string; code: string; level: string; display: string }>();
@@ -333,10 +448,54 @@ export const facets = query({
       .filter((s) => s.count > 0)
       .sort((a, b) => b.count - a.count);
 
+    // Drill-down hierarchy for Browse (college → program → level) with true
+    // counts. The client previously rebuilt this from the first 20-row page,
+    // which hid every program/level beyond it and mislabeled course numbers
+    // ("102") as levels. levelYear is the real level band (1→100 Level).
+    const collegeMap = new Map<string, Map<string, Map<string, number>>>();
+    for (const p of docs) {
+      const col = p.college || "General";
+      const prog = p.program || "General";
+      const lvl = p.levelYear || "";
+      let progs = collegeMap.get(col);
+      if (!progs) {
+        progs = new Map();
+        collegeMap.set(col, progs);
+      }
+      let levels = progs.get(prog);
+      if (!levels) {
+        levels = new Map();
+        progs.set(prog, levels);
+      }
+      levels.set(lvl, (levels.get(lvl) || 0) + 1);
+    }
+    const collegeFacets = [...collegeMap.entries()]
+      .map(([name, progs]) => {
+        const programs = [...progs.entries()]
+          .map(([pname, levels]) => {
+            const levelList = [...levels.entries()]
+              .map(([key, count]) => ({ key, count }))
+              .sort((a, b) => a.key.localeCompare(b.key));
+            return {
+              name: pname,
+              paperCount: levelList.reduce((n, l) => n + l.count, 0),
+              levels: levelList,
+            };
+          })
+          .sort((a, b) => b.paperCount - a.paperCount);
+        return {
+          name,
+          paperCount: programs.reduce((n, p) => n + p.paperCount, 0),
+          programs,
+        };
+      })
+      .sort((a, b) => b.paperCount - a.paperCount);
+
     const years = docs.map((p) => p.year);
     return {
       subjects: subjects.map(({ courses: _c, ...s }) => s),
       courses,
+      colleges: collegeFacets,
       yearMin: years.length ? Math.min(...years) : 2020,
       yearMax: years.length ? Math.max(...years) : new Date().getFullYear(),
       totalPapers: docs.length,

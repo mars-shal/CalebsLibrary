@@ -16,14 +16,14 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://precious-firefly-783.convex.cloud"
+        "EXPO_PUBLIC_CONVEX_URL": "https://tough-antelope-495.convex.cloud"
       }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://precious-firefly-783.convex.cloud"
+        "EXPO_PUBLIC_CONVEX_URL": "https://tough-antelope-495.convex.cloud"
       }
     }
   },

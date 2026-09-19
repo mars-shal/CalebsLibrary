@@ -4,7 +4,7 @@
 // MMKV, no accounts, no network.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-exams');
+const storage: KV = getKV('bellsnotes-exams');
 const KEY = 'exams.v1';
 
 export interface ExamEntry {

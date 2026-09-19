@@ -1,7 +1,8 @@
 // FilterSheet — Browse filters in ONE bottom sheet (replaces the web
 // filter-bar + selects). Subject single-select + All, course chips scoped to
 // the subject, type pills, year steppers, 6 sorts, reset.
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { Sheet } from './Sheet';
 import { Eyebrow, SortList, TypePills, YearStepper } from './filterbits';
 import { fonts, radii } from '../theme/tokens';
@@ -61,7 +62,7 @@ export function FilterSheet({
           {[{ id: 'all', name: 'All departments' }, ...subjects].map((s) => {
             const active = filters.subject === s.id;
             return (
-              <Pressable
+              <HapticPressable
                 key={s.id}
                 onPress={() => set({ subject: s.id, course: 'all' })}
                 accessibilityRole="radio"
@@ -71,9 +72,9 @@ export function FilterSheet({
                   paddingVertical: 9,
                   paddingHorizontal: 14,
                   borderRadius: active ? radii.pill : 4,
-                  backgroundColor: active ? c.ink100 : 'transparent',
+                  backgroundColor: active ? c.textPrimary : 'transparent',
                   borderWidth: 1,
-                  borderColor: active ? c.ink100 : c.ruleStrong,
+                  borderColor: active ? c.textPrimary : c.borderStrong,
                   minHeight: 44,
                   justifyContent: 'center',
                 }}
@@ -82,13 +83,13 @@ export function FilterSheet({
                   style={{
                     fontSize: 13,
                     fontWeight: '500',
-                    color: active ? c.paper : c.textSecondary,
+                    color: active ? c.bgDefault : c.textSecondary,
                     fontFamily: fonts.sansMedium,
                   }}
                 >
                   {s.name}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             );
           })}
         </View>
@@ -98,7 +99,7 @@ export function FilterSheet({
           {[{ id: 'all', displayName: 'All courses' }, ...scopedCourses].map((x) => {
             const active = filters.course === x.id;
             return (
-              <Pressable
+              <HapticPressable
                 key={x.id}
                 onPress={() => set({ course: x.id })}
                 accessibilityRole="radio"
@@ -108,9 +109,9 @@ export function FilterSheet({
                   paddingVertical: 9,
                   paddingHorizontal: 14,
                   borderRadius: active ? radii.pill : 4,
-                  backgroundColor: active ? c.ink100 : 'transparent',
+                  backgroundColor: active ? c.textPrimary : 'transparent',
                   borderWidth: 1,
-                  borderColor: active ? c.ink100 : c.ruleStrong,
+                  borderColor: active ? c.textPrimary : c.borderStrong,
                   minHeight: 44,
                   justifyContent: 'center',
                 }}
@@ -119,13 +120,13 @@ export function FilterSheet({
                   style={{
                     fontSize: 13,
                     fontWeight: '500',
-                    color: active ? c.paper : c.textSecondary,
+                    color: active ? c.bgDefault : c.textSecondary,
                     fontFamily: fonts.sansMedium,
                   }}
                 >
                   {x.displayName}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             );
           })}
         </View>
@@ -165,7 +166,7 @@ export function FilterSheet({
         <Eyebrow>Sort shelves</Eyebrow>
         <SortList options={BROWSE_SORTS} value={filters.sort} onChange={(sort) => set({ sort })} />
 
-        <Pressable
+        <HapticPressable
           onPress={onReset}
           accessibilityRole="button"
           accessibilityLabel="Reset all filters"
@@ -174,7 +175,7 @@ export function FilterSheet({
           <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>
             Reset all filters
           </Text>
-        </Pressable>
+        </HapticPressable>
       </ScrollView>
     </Sheet>
   );

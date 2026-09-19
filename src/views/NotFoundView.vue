@@ -1,51 +1,50 @@
 <script setup lang="ts">
-// 404 — fallen book stack. Ported from NotFound.jsx.
+// 404 — scattered index-stack cards. Not fallen books.
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import Icon from '@/components/Icon.vue'
-import BookCover from '@/components/BookCover.vue'
+import IndexStack from '@/components/IndexStack.vue'
 
 const drive = useDriveStore()
 const router = useRouter()
 
 const stack = computed(() => {
-  // First three papers become the fallen stack; fewer (or none) degrade to
-  // a shorter stack or the placeholder — never an undefined paper.
   const papers = drive.papers.slice(0, 3)
-  const cls = ['book-1', 'book-2', 'book-3']
-  const op = [1, 0.7, 0.7]
-  return papers.map((paper, i) => ({ paper, cls: cls[i]!, opacity: op[i]! }))
+  return papers.map((paper, i) => ({
+    paper,
+    cls: ['card-1', 'card-2', 'card-3'][i]!,
+    opacity: i === 0 ? 1 : 0.6,
+  }))
 })
 </script>
 
 <template>
   <div class="screen-wrap notfound">
-    <!-- Fallen books -->
+    <!-- Scattered cards -->
     <div class="stack">
       <template v-if="stack.length">
-        <div v-for="b in stack" :key="b.paper.id" class="stack-book" :class="b.cls" :style="{ opacity: b.opacity }">
-          <BookCover :paper="b.paper" :size="stack.length >= 2 && b.cls !== 'book-1' ? 'sm' : 'md'" />
+        <div v-for="b in stack" :key="b.paper.id" class="stack-card" :class="b.cls" :style="{ opacity: b.opacity }">
+          <IndexStack :paper="b.paper" :size="b.cls === 'card-1' ? 'md' : 'sm'" />
         </div>
       </template>
-      <div v-else style="height: 240px" />
+      <div v-else style="height: 200px" />
     </div>
 
     <div class="hero-404">404</div>
 
-    <h1 class="title">This page wandered off the shelves.</h1>
+    <h1 class="title">Lost in the stacks.</h1>
 
     <p class="sub">
-      Whatever you were looking for isn't here — or isn't here anymore.
-      Perhaps a moderator moved it, or it was withdrawn from circulation.
+      This page doesn't exist — or it was moved somewhere else.
     </p>
 
     <div class="actions">
       <button class="btn btn-primary" @click="router.push({ name: 'home' })">
-        <Icon name="home" :size="14" /> Back to the library
+        <Icon name="home" :size="14" /> Go home
       </button>
       <button class="btn btn-secondary" @click="router.push({ name: 'browse' })">
-        Browse everything
+        Browse
       </button>
     </div>
   </div>
@@ -60,80 +59,59 @@ const stack = computed(() => {
 }
 .stack {
   position: relative;
-  height: 240px;
+  height: 200px;
   margin-bottom: 40px;
 }
-.stack-book {
+.stack-card {
   position: absolute;
   left: 50%;
 }
-.book-1 {
-  transform: translateX(-50%) translateY(20px) rotate(-14deg);
+.card-1 {
+  transform: translateX(-50%) translateY(10px) rotate(-8deg);
   z-index: 1;
 }
-.book-2 {
-  transform: translateX(-70%) translateY(70px) rotate(-38deg);
+.card-2 {
+  transform: translateX(-70%) translateY(50px) rotate(-22deg);
   z-index: 2;
 }
-.book-3 {
-  transform: translateX(-30%) translateY(90px) rotate(24deg);
+.card-3 {
+  transform: translateX(-30%) translateY(60px) rotate(16deg);
   z-index: 2;
 }
 .hero-404 {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: clamp(64px, 12vw, 96px);
-  color: var(--ink-100);
+  font-family: var(--font-mono);
+  font-size: clamp(56px, 10vw, 80px);
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 16px;
-  font-weight: 500;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 .title {
-  font-size: clamp(28px, 5vw, 40px);
-  color: var(--ink-100);
+  font-size: clamp(24px, 4vw, 36px);
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.025em;
-  font-weight: 500;
+  font-weight: 600;
 }
 .sub {
-  font-size: 17px;
-  color: var(--ink-70);
-  margin-top: 20px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-top: 16px;
   margin-bottom: 40px;
   line-height: 1.6;
-  letter-spacing: -0.005em;
 }
 .actions {
   display: flex;
   justify-content: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 @media (max-width: 640px) {
-  .notfound {
-    padding: 80px 20px 72px;
-  }
-  .stack {
-    height: 180px;
-    margin-bottom: 32px;
-  }
-  .hero-404 {
-    font-size: clamp(56px, 16vw, 72px);
-  }
-  .title {
-    font-size: clamp(24px, 6.5vw, 30px);
-  }
-  .sub {
-    font-size: 15.5px;
-    margin-top: 16px;
-    margin-bottom: 32px;
-  }
-  .actions {
-    gap: 10px;
-  }
-  .actions .btn {
-    width: 100%;
-  }
+  .notfound { padding: 80px 20px 72px; }
+  .stack { height: 160px; margin-bottom: 32px; }
+  .hero-404 { font-size: clamp(48px, 14vw, 64px); }
+  .title { font-size: clamp(22px, 6vw, 28px); }
+  .actions { flex-direction: column; }
+  .actions .btn { width: 100%; }
 }
 </style>

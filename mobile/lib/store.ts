@@ -1,11 +1,11 @@
 // App stores — zustand + MMKV (manual persistence, versioned keys).
-// Key map (web → mobile): calebsLibraryBookmarks (same), calebsLibraryVotes
+// Key map (web → mobile): bellsnotesBookmarks (same), bellsnotesVotes
 // (same), onboarding.v1 (new), trends.local (new, unpersisted session cache
 // for optimistic trending before server round-trip).
 import { create } from 'zustand';
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-app');
+const storage: KV = getKV('bellsnotes-app');
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
@@ -28,6 +28,7 @@ function writeJSON(key: string, value: unknown): void {
 export type LevelYear = '1' | '2' | '3' | '4' | '5' | 'all';
 
 export interface Scope {
+  college: string; // college name or 'all'
   program: string; // subject id or 'all'
   levelYear: LevelYear;
 }
@@ -41,15 +42,16 @@ interface OnboardingState extends Scope {
 
 const ONBOARDING_KEY = 'onboarding.v1';
 
-const savedScope = readJSON<Scope>(ONBOARDING_KEY, { program: 'all', levelYear: 'all' });
+const savedScope = readJSON<Scope>(ONBOARDING_KEY, { college: 'all', program: 'all', levelYear: 'all' });
 
 export const useOnboarding = create<OnboardingState>((set) => ({
+  college: savedScope.college || 'all',
   program: savedScope.program || 'all',
   levelYear: (savedScope.levelYear as LevelYear) || 'all',
   done: readJSON<boolean>(`${ONBOARDING_KEY}.done`, false),
   setScope: (s) =>
     set((st) => {
-      const next = { program: s.program ?? st.program, levelYear: s.levelYear ?? st.levelYear };
+      const next = { college: s.college ?? st.college, program: s.program ?? st.program, levelYear: s.levelYear ?? st.levelYear };
       writeJSON(ONBOARDING_KEY, next);
       return next;
     }),
@@ -64,12 +66,13 @@ export const useOnboarding = create<OnboardingState>((set) => ({
 }));
 
 export function useScope(): Scope {
+  const college = useOnboarding((s) => s.college);
   const program = useOnboarding((s) => s.program);
   const levelYear = useOnboarding((s) => s.levelYear);
-  return { program, levelYear };
+  return { college, program, levelYear };
 }
 
-const BOOKMARKS_KEY = 'calebsLibraryBookmarks';
+const BOOKMARKS_KEY = 'bellsnotesBookmarks';
 
 interface BookmarkState {
   ids: string[];
@@ -96,7 +99,7 @@ export const useBookmarks = create<BookmarkState>((set) => ({
   },
 }));
 
-const VOTES_KEY = 'calebsLibraryVotes';
+const VOTES_KEY = 'bellsnotesVotes';
 interface VoteState {
   votes: Record<string, 1 | 0 | -1>;
   setVote: (id: string, v: 1 | 0 | -1) => void;
@@ -157,7 +160,7 @@ export interface Profile {
   college?: string;
 }
 
-const PROFILE_KEY = 'calebs-profile.v1';
+const PROFILE_KEY = 'bellsnotes-profile.v1';
 
 interface SessionState {
   profile: Profile | null;

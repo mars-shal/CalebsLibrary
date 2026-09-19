@@ -11,9 +11,9 @@ export function Ornament() {
       importantForAccessibility="no-hide-descendants"
       style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 }}
     >
-      <View style={{ flex: 1, height: 1, backgroundColor: c.rule }} />
+      <View style={{ flex: 1, height: 1, backgroundColor: c.borderDefault }} />
       <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textQuiet }} />
-      <View style={{ flex: 1, height: 1, backgroundColor: c.rule }} />
+      <View style={{ flex: 1, height: 1, backgroundColor: c.borderDefault }} />
     </View>
   );
 }

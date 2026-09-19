@@ -46,7 +46,7 @@ export function ScopePill({ onPress }: { onPress: () => void }) {
         paddingHorizontal: 14,
         borderRadius: radii.pill,
         borderWidth: 1,
-        borderColor: c.ruleStrong,
+        borderColor: c.borderStrong,
         minHeight: 44,
       }}
     >

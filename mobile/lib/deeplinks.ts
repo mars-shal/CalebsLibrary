@@ -1,7 +1,7 @@
-// Deep links — calebs:// scheme routing for cold + warm starts.
+// Deep links — bellsnotes:// scheme routing for cold + warm starts.
 // The scheme is declared in app.json; until now only /s/:code resolved
-// (via the website). This wires Linking so calebs://paper/<id>,
-// calebs://course/<id>, calebs://subject/<id> and calebs://s/<code> open
+// (via the website). This wires Linking so bellsnotes://paper/<id>,
+// bellsnotes://course/<id>, bellsnotes://subject/<id> and bellsnotes://s/<code> open
 // the right screen in-app, from a cold or warm start.
 import { useEffect, useRef } from 'react';
 import * as Linking from 'expo-linking';
@@ -10,25 +10,30 @@ import { track } from './analytics';
 
 function routeFor(url: string): string | null {
   const parsed = Linking.parse(url);
-  // calebs://paper/xyz → path ["paper","xyz"]; calebs:///paper?… same.
+  // Single-scheme URLs put the first segment in HOSTNAME, not path:
+  //   bellsnotes://paper/xyz  → hostname 'paper', path ['xyz']
+  //   bellsnotes:///paper/xyz → hostname null,   path ['paper','xyz']
+  // Handle both so the natural share form routes instead of dying.
   const segs = (parsed.path ?? '').split('/').filter(Boolean);
-  if (segs.length === 0) return null;
-  const [head, tail] = segs;
+  const head = parsed.hostname || segs[0];
+  const tail = parsed.hostname ? segs[0] : segs[1];
+  if (!head) return null;
   switch (head) {
     case 'paper':
-      return tail ? `/paper/${tail}` : null;
     case 'course':
-      return tail ? `/course/${tail}` : null;
     case 'subject':
-      return tail ? `/subject/${tail}` : null;
     case 's':
-      return tail ? `/s/${tail}` : null;
+      return tail ? `/${head}/${tail}` : null;
     default:
       return null; // unknown scheme paths fall through to the normal UI
   }
 }
 
 /** Host once in the root layout. Handles getInitialURL (cold) + url events (warm). */
+// Module-level flag the onboarding gate reads: while a routed deep link is
+// pending/settled, the gate must not yank the user to onboarding/tabs.
+export const deepLinkState = { active: false };
+
 export function useDeepLinks(): void {
   const router = useRouter();
   const handled = useRef(false);
@@ -37,6 +42,7 @@ export function useDeepLinks(): void {
     const open = (url: string, replace = false) => {
       const route = routeFor(url);
       if (!route) return;
+      deepLinkState.active = true;
       track('app_open', { deep_link: route });
       if (replace) void router.replace(route as never);
       else void router.push(route as never);

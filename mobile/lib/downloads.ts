@@ -13,7 +13,7 @@ import { getKV, type KV } from './storage';
 export const DOWNLOADS_CAP = 300 * 1024 * 1024;
 const REGISTRY_KEY = 'downloads.v1';
 
-const storage: KV = getKV('calebs-downloads');
+const storage: KV = getKV('bellsnotes-downloads');
 
 export interface DownloadEntry {
   id: string;

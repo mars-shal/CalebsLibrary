@@ -2,6 +2,11 @@
 
 > Role for whoever executes this (human or agent): act as a senior software developer AND an expert prompt engineer. Follow this document literally, phase by phase. This project is NOT a demo. Every phase must be taken to 100% production grade — store-shippable, offline-capable, crash-free, accessible, secure. No mocks, no fakes, no dead buttons ship. If a requirement cannot be met at production quality, stop the phase and surface it instead of faking it.
 
+> As of the Bells Notes rebrand pass, `PRD.md` and `UI.md` referenced below are the
+> Bells Notes versions, not the original Caleb's Library ones. `REBUILD.md` stays as
+> historical audit/backend reference only — treat any of its statements about visual
+> brand-matching or web being frozen as void (see its patch notes).
+
 ## A. How the three source docs relate — read them in this order, re-read at every phase
 
 1. `REBUILD.md` = WHY + HOW-backend. The audited truth of the web app (11 routes, 12 components, 15 Convex functions, 7 storage keys, schema gaps, fake-data inventory) plus the reason Convex got banned and the schema-v2 + diff-sync fix. Consult it whenever touching backend, sync, schema, or porting logic.
@@ -12,11 +17,11 @@ MANDATE: at the START of every phase below, re-read the listed sections of all t
 
 ## B. Locked decisions (do not relitigate)
 
-> All four build docs live together in `mobile/`: `BUILD_PROMPT.md` (this file), `REBUILD.md`, `PRD.md`, `UI.md`. Bare doc names below always mean the co-located `mobile/` copy. Web `src/` stays frozen at repo root; `convex/` stays at root (evolved to v2); `shared/` is pure TS for both sides.
+> All four build docs live together in `mobile/`: `BUILD_PROMPT.md` (this file), `REBUILD.md`, `PRD.md`, `UI.md`. Bare doc names below always mean the co-located `mobile/` copy. Web `src/` is being rebranded in parallel and shares the same Convex deployment as mobile (PRD.md §6); `convex/` stays at root (evolved to v2); `shared/` is pure TS for both sides.
 
 - Expo + expo-router + user's own Convex deployment. Folders created (`mobile/`, `shared/`).
 - v1 = full parity (Notes + PQs + uploads + comments + votes + bookmarks + short-links + trends + admin). PQs ship as real data, never LLM-faked.
-- Offline-first (metadata cache + 300MB LRU PDF cache). Balanced-rows density. Glass maximal on chrome with enforced fallback. All 40 icons animated interaction-only. Expo analytics. Color + typography identical to web.
+- Offline-first (metadata cache + 300MB LRU PDF cache). Balanced-rows density. Glass maximal on chrome with enforced fallback. All 40 icons animated interaction-only. Expo analytics.
 
 ## C. Global production rules (apply to every phase, no exceptions)
 

@@ -21,7 +21,7 @@ export function HighlightText({
     <Text style={{ fontSize, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
       {segs.map((s, i) =>
         s.hit ? (
-          <Text key={i} style={{ backgroundColor: c.ink100, color: c.paper }}>
+          <Text key={i} style={{ backgroundColor: c.textPrimary, color: c.bgDefault }}>
             {s.text}
           </Text>
         ) : (

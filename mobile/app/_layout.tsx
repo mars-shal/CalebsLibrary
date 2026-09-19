@@ -18,7 +18,7 @@ import { useAppFonts } from '@/theme/fonts';
 import { ToastHost, toast } from '@/components/Toast';
 import { CelebrateHost } from '@/components/Celebrate';
 import { useOnboarding } from '@/lib/store';
-import { useDeepLinks } from '@/lib/deeplinks';
+import { useDeepLinks, deepLinkState } from '@/lib/deeplinks';
 import { useAutoUpdates } from '@/lib/updates';
 import { migrateToDocumentDir } from '@/lib/downloads';
 
@@ -38,6 +38,9 @@ function OnboardingGate() {
   useEffect(() => {
     // Splash (no segments) routes itself — never yank it mid-moment.
     if (segments[0] === undefined) return;
+    // Deep links land on a target screen BEFORE onboarding completes; the
+    // gate must not yank a deep-linked user out of the linked screen.
+    if (deepLinkState.active) return;
     const onOnboarding = segments[0] === 'onboarding';
     if (!done && !onOnboarding) router.replace('/onboarding');
     else if (done && onOnboarding) router.replace('/(tabs)');
@@ -75,6 +78,48 @@ function LinkAndUpdates() {
   return null;
 }
 
+function AppStack() {
+  // Premium stack transitions: native-stack 'fade_from_bottom' (iOS 14+
+  // default style) phased with the screens' own staggered entrances.
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade_from_bottom',
+        animationDuration: 280,
+        contentStyle: { backgroundColor: 'transparent' },
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="paper/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="subject/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="course/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="downloads" options={{ headerShown: false }} />
+      <Stack.Screen name="upload" options={{ headerShown: false }} />
+      <Stack.Screen name="admin" options={{ headerShown: false }} />
+      <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="about" options={{ headerShown: false }} />
+      <Stack.Screen name="s/[code]" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
+function AppChrome() {
+  return (
+    <>
+      <OnboardingGate />
+      <FlushOnOnline />
+      <LinkAndUpdates />
+      <AppStack />
+      <ToastHost />
+      <CelebrateHost />
+    </>
+  );
+}
+
 export default function RootLayout() {
   const fontsLoaded = useAppFonts();
 
@@ -103,26 +148,8 @@ export default function RootLayout() {
       <ThemedStatusBar />
       <NetProvider>
         <ConvexAppProvider>
-          <OnboardingGate />
-          <FlushOnOnline />
-          <LinkAndUpdates />
-          <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="paper/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="subject/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="course/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="downloads" options={{ headerShown: false }} />
-          <Stack.Screen name="upload" options={{ headerShown: false }} />
-          <Stack.Screen name="admin" options={{ headerShown: false }} />
-          <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="about" options={{ headerShown: false }} />
-          <Stack.Screen name="s/[code]" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <ToastHost />
-        <CelebrateHost />
-      </ConvexAppProvider>
+          <AppChrome />
+        </ConvexAppProvider>
       </NetProvider>
     </ThemeProvider>
   );

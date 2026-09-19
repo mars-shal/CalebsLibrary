@@ -3,7 +3,7 @@
 // Reduced-motion runtimes get the toast only (no burst).
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-milestones');
+const storage: KV = getKV('bellsnotes-milestones');
 
 export type MilestoneKind = 'downloads' | 'saves' | 'uploads';
 

@@ -3,10 +3,11 @@
 // themselves in the placeholder (motion-gated). Parents own data, commit
 // side-effects, and optional focus interception (Home phases into Search).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import type { Paper } from '@shared/design';
 import { Icon } from '../icons/icons';
-import { BookCover } from './BookCover';
+import { IndexStack } from './IndexStack';
 import { HighlightText } from './HighlightText';
 import { fonts, radii } from '../theme/tokens';
 import { useThemeColors } from './ThemeProvider';
@@ -153,16 +154,15 @@ export function SearchBar({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: c.ink0,
+          backgroundColor: c.bgElevated,
           borderWidth: 1,
-          borderColor: c.ruleStrong,
+          borderColor: c.borderStrong,
           borderRadius: radii.card,
           paddingVertical: 10,
           paddingHorizontal: 14,
           gap: 8,
         }}
       >
-        <Icon name="search" size={18} color={c.textQuiet} />
         <Icon name="search" size={18} color={c.textQuiet} />
         <TextInput
           value={value}
@@ -201,22 +201,19 @@ export function SearchBar({
             left: 0,
             right: 0,
             marginTop: 4,
-            backgroundColor: c.elevated,
+            backgroundColor: c.bgElevated,
             borderWidth: 1,
-            borderColor: c.rule,
+            borderColor: c.borderDefault,
             borderRadius: radii.card,
             zIndex: 999,
-            elevation: 16,
-            shadowColor: '#000',
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
+            boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
             maxHeight: 340,
           }}
           contentContainerStyle={{ overflow: 'hidden', borderRadius: radii.card }}
         >
-          {suggestions.map((s) => (
-            <Pressable
-              key={`${s.type}:${s.text}`}
+          {suggestions.map((s, si) => (
+            <HapticPressable
+              key={`${s.type}:${s.text}:${si}`}
               onPress={() => {
                 onChange(s.text);
                 commit(s.text);
@@ -237,7 +234,7 @@ export function SearchBar({
                   fontSize: 10,
                   textTransform: 'uppercase',
                   color: c.textQuiet,
-                  backgroundColor: c.paper3,
+                  backgroundColor: c.bgSkeleton,
                   paddingHorizontal: 6,
                   paddingVertical: 2,
                   borderRadius: 3,
@@ -246,7 +243,7 @@ export function SearchBar({
               >
                 {s.type}
               </Text>
-            </Pressable>
+            </HapticPressable>
           ))}
           {topResults.length > 0 ? (
             <View>
@@ -266,7 +263,7 @@ export function SearchBar({
                 Top results
               </Text>
               {topResults.map((p) => (
-                <Pressable
+                <HapticPressable
                   key={`top-${p.id}`}
                   onPress={() => {
                     setOpen(false);
@@ -283,7 +280,7 @@ export function SearchBar({
                     minHeight: 64,
                   }}
                 >
-                  <BookCover paper={p} size="xs" />
+                  <IndexStack paper={p} size="xs" />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <HighlightText text={p.title} query={value} fontSize={14} />
                     <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 3 }}>
@@ -291,12 +288,12 @@ export function SearchBar({
                     </Text>
                   </View>
                   <Icon name="chevron" size={14} color={c.textQuiet} />
-                </Pressable>
+                </HapticPressable>
               ))}
             </View>
           ) : null}
           {canSeeAll ? (
-            <Pressable
+            <HapticPressable
               onPress={() => {
                 setOpen(false);
                 onSeeAll?.(value.trim());
@@ -310,15 +307,15 @@ export function SearchBar({
                 gap: 8,
                 padding: 14,
                 borderTopWidth: 1,
-                borderTopColor: c.rule,
+                borderTopColor: c.borderDefault,
                 minHeight: 52,
-                backgroundColor: c.paper2,
+                backgroundColor: c.bgDefault,
               }}
             >
               <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>
                 See all results →
               </Text>
-            </Pressable>
+            </HapticPressable>
           ) : null}
         </ScrollView>
       ) : null}

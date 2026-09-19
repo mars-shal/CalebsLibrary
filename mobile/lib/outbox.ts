@@ -7,7 +7,7 @@ import { getKV, type KV } from './storage';
 import { getConvexClient, api } from './convex';
 import { getDeviceHash } from './device';
 
-const storage: KV = getKV('calebs-outbox');
+const storage: KV = getKV('bellsnotes-outbox');
 const KEY = 'outbox.v1';
 
 export type OutboxOp =
@@ -103,12 +103,16 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 // reconnect/foreground events cover transitions, but a long-lived online
 // session (app never leaves foreground, network already up) previously left
 // ops stuck until the next state change. A modest interval fixes that.
+// Self-sustaining: the loop reschedules on EVERY outcome (empty, progress,
+// or network-blocked). The previous `if (remaining > 0)` chained a follow-up
+// only while ops remained, so one drain-then-enqueue cycle killed the loop
+// permanently until the next app-state change.
 export function scheduleOutboxFlush(delayMs = 60_000): void {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = setTimeout(() => {
     retryTimer = null;
-    void flushOutbox().then((remaining) => {
-      if (remaining > 0) scheduleOutboxFlush();
+    void flushOutbox().then(() => {
+      scheduleOutboxFlush();
     });
   }, delayMs);
 }

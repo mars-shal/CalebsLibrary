@@ -1,56 +1,60 @@
 /* ============================================================
-   Caleb's Library — Design Tokens (light editorial)
-   Off-white paper. Charcoal ink. Zero color accents.
-   Ported from design_handoff_calebs_library/tokens.css
+   Bells Notes — Design Tokens (monochrome)
+   Near-white surface. Near-black text. Zero color accents.
    ============================================================ */
 
 :root {
-  /* Paper (light backgrounds, from warmest to plain) */
-  --paper: #f5f2ea; /* app background — warm off-white */
-  --paper-2: #ede9dd; /* section separators / hover */
-  --paper-3: #e2ddce; /* deeper cream */
-  --paper-4: #cec7b3; /* aged edge — used sparingly */
+  /* Surface (light backgrounds, from warmest to plain) */
+  --paper: #fafafa;
+  --paper-2: #f0f0f0;
+  --paper-3: #e5e5e5;
+  --paper-4: #d4d4d4;
 
   /* Ink (charcoal scale, from softest gray to full ink) */
   --ink-0: #ffffff;
-  --ink-5: #f5f2ea; /* == paper */
-  --ink-10: #ded9cd; /* subtle */
-  --ink-20: #b8b1a3;
-  --ink-30: #8f887b; /* placeholder */
-  --ink-40: #6b625b; /* tertiary */
-  --ink-50: #4a423c;
-  --ink-70: #3d3733; /* secondary */
-  --ink-85: #241f1c;
-  --ink-100: #171412; /* charcoal — primary text */
+  --ink-5: #fafafa;
+  --ink-10: #e5e5e5;
+  --ink-20: #a3a3a3;
+  --ink-30: #737373;
+  --ink-40: #525252;
+  --ink-50: #404040;
+  --ink-70: #262626;
+  --ink-85: #1a1a1a;
+  --ink-100: #171717;
 
   /* Rules & dividers */
-  --rule: rgba(23, 20, 18, 0.1);
-  --rule-strong: rgba(23, 20, 18, 0.2);
-  --shadow-soft: 0 1px 2px rgba(23, 20, 18, 0.04);
-  --shadow-book: 0 8px 24px rgba(23, 20, 18, 0.18), 0 2px 4px rgba(23, 20, 18, 0.1);
+  --rule: rgba(23, 23, 23, 0.08);
+  --rule-strong: rgba(23, 23, 23, 0.15);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-book: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
 
   /* Semantic aliases */
   --bg: var(--paper);
-  --bg-elevated: #faf7ef;
-  --bg-pdf: #fdfaf3;
+  --bg-default: var(--paper);
+  --bg-elevated: #ffffff;
+  --bg-pdf: #ffffff;
+  --bg-skeleton: var(--paper-3);
   --surface: var(--paper);
   --border: var(--rule);
+  --border-default: var(--rule);
+  --border-strong: var(--rule-strong);
   --divider: var(--rule);
   --divider-strong: var(--rule-strong);
-  --error: #c0392b;
-  --overlay: rgba(23, 20, 18, 0.92);
-  --shadow-focus: 0 4px 16px rgba(23, 20, 18, 0.08);
-  --shadow-lifted: 0 2px 4px rgba(23, 20, 18, 0.3);
-  --shadow-gradient: linear-gradient(to bottom, rgba(23, 20, 18, 0.12), transparent);
+  --error: #171717;
+  --overlay: rgba(0, 0, 0, 0.92);
+  --shadow-focus: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lifted: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-gradient: linear-gradient(to bottom, rgba(0, 0, 0, 0.08), transparent);
 
   --text-primary: var(--ink-100);
-  --text-secondary: var(--ink-70);
-  --text-tertiary: var(--ink-40);
-  --text-quiet: var(--ink-30);
+  --text-secondary: var(--ink-40);
+  --text-tertiary: var(--ink-30);
+  --text-quiet: var(--ink-20);
 
   /* Fonts */
-  --font-serif: 'EB Garamond', 'Times New Roman', Georgia, serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-serif: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --font-heading: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --font-sans: 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
 
   /* Type scale */
@@ -93,8 +97,8 @@
   --dur-slow: 480ms;
 
   /* Layout */
-  --top-h: 56px; /* top strip */
-  --banner-h: 32px; /* open banner */
+  --top-h: 56px;
+  --banner-h: 32px;
   --max-content: 1240px;
 }
 
@@ -102,66 +106,73 @@
    Dark mode
    ============================================================ */
 html.dark {
-  --paper: #131210;
-  --paper-2: #1c1a17;
-  --paper-3: #252320;
-  --paper-4: #3a3632;
+  --paper: #0a0a0a;
+  --paper-2: #171717;
+  --paper-3: #262626;
+  --paper-4: #404040;
 
   --ink-0: #000000;
-  --ink-5: #131210;
-  --ink-10: #2a2825;
-  --ink-20: #403d39;
-  --ink-30: #5c5852;
-  --ink-40: #7a7570;
-  --ink-50: #9a958f;
-  --ink-70: #bdb8b1;
-  --ink-85: #ddd9d3;
-  --ink-100: #f0ece6;
+  --ink-5: #0a0a0a;
+  --ink-10: #1a1a1a;
+  --ink-20: #404040;
+  --ink-30: #525252;
+  --ink-40: #737373;
+  --ink-50: #a3a3a3;
+  --ink-70: #d4d4d4;
+  --ink-85: #e5e5e5;
+  --ink-100: #f5f5f5;
 
-  --rule: rgba(240, 236, 230, 0.1);
-  --rule-strong: rgba(240, 236, 230, 0.18);
+  --rule: rgba(245, 245, 245, 0.08);
+  --rule-strong: rgba(245, 245, 245, 0.15);
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-book: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.25);
 
   --bg: var(--paper);
-  --bg-elevated: #1a1816;
-  --bg-pdf: #1a1816;
+  --bg-default: var(--paper);
+  --bg-elevated: #141414;
+  --bg-pdf: #141414;
+  --bg-skeleton: var(--paper-3);
   --surface: var(--paper);
   --border: var(--rule);
+  --border-default: var(--rule);
+  --border-strong: var(--rule-strong);
   --divider: var(--rule);
   --divider-strong: var(--rule-strong);
-  --error: #e74c3c;
-  --overlay: rgba(19, 18, 16, 0.92);
+  --error: #f5f5f5;
+  --overlay: rgba(10, 10, 10, 0.92);
   --shadow-focus: 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-lifted: 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-gradient: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent);
 
   --text-primary: var(--ink-100);
-  --text-secondary: var(--ink-70);
-  --text-tertiary: var(--ink-40);
-  --text-quiet: var(--ink-30);
+  --text-secondary: var(--ink-40);
+  --text-tertiary: var(--ink-30);
+  --text-quiet: var(--ink-20);
+
+  /* Fonts (same as light) */
+  --font-heading: 'Fraunces', 'Times New Roman', Georgia, serif;
 }
 
 html.dark ::selection {
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(240, 236, 230, 0.15);
+  background: rgba(245, 245, 245, 0.15);
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(240, 236, 230, 0.28);
+  background: rgba(245, 245, 245, 0.28);
 }
 
 html.dark mark {
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
 }
 
 html.dark .strip {
-  background: rgba(19, 18, 16, 0.92);
+  background: rgba(10, 10, 10, 0.92);
 }
 
 /* Base */
@@ -187,8 +198,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'ss01', 'cv11';
   letter-spacing: -0.005em;
-  /* clip (not hidden) so no sticky descendant breaks and stray wide content
-     can never create a page-wide horizontal scrollbar on any screen size. */
   overflow-x: clip;
 }
 
@@ -200,7 +209,7 @@ video {
 
 /* Utility classes */
 .serif {
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-weight: 400;
   letter-spacing: -0.01em;
 }
@@ -226,7 +235,7 @@ video {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  color: var(--ink-30);
+  color: var(--text-quiet);
 }
 .ornament::before,
 .ornament::after {
@@ -245,20 +254,20 @@ video {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(23, 20, 18, 0.15);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(23, 20, 18, 0.3);
+  background: rgba(0, 0, 0, 0.24);
 }
 
 ::selection {
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
 }
 
 :focus-visible {
-  outline: 1.5px solid var(--ink-100);
+  outline: 1.5px solid var(--text-primary);
   outline-offset: 2px;
 }
 
@@ -290,20 +299,20 @@ a {
   white-space: nowrap;
 }
 .btn-primary {
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
 }
 .btn-primary:hover {
-  background: var(--ink-85);
+  background: var(--text-secondary);
 }
 .btn-secondary {
   background: transparent;
-  color: var(--ink-100);
-  border: 1px solid var(--rule-strong);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
 }
 .btn-secondary:hover {
-  border-color: var(--ink-100);
-  background: var(--paper-2);
+  border-color: var(--text-primary);
+  background: var(--bg-default);
 }
 .btn-ghost {
   background: transparent;
@@ -314,7 +323,7 @@ a {
 }
 .btn-ghost:hover {
   color: var(--text-primary);
-  background: var(--paper-2);
+  background: var(--bg-default);
 }
 
 /* Card */
@@ -326,8 +335,8 @@ a {
 
 /* Input */
 .input {
-  background: var(--paper);
-  border: 1px solid var(--rule-strong);
+  background: var(--bg-default);
+  border: 1px solid var(--border-strong);
   color: var(--text-primary);
   padding: 10px 14px;
   border-radius: var(--r-sm);
@@ -338,10 +347,10 @@ a {
 }
 .input:focus {
   outline: none;
-  border-color: var(--ink-100);
+  border-color: var(--text-primary);
 }
 .input::placeholder {
-  color: var(--ink-30);
+  color: var(--text-quiet);
 }
 
 /* Tag */
@@ -353,14 +362,14 @@ a {
   font-size: 11px;
   font-weight: 500;
   border-radius: 3px;
-  background: var(--paper-2);
-  color: var(--ink-70);
-  border: 1px solid var(--rule);
+  background: var(--bg-default);
+  color: var(--text-quiet);
+  border: 1px solid var(--border-default);
 }
 .tag-paper {
   background: transparent;
-  color: var(--ink-40);
-  border-color: var(--rule);
+  color: var(--text-tertiary);
+  border-color: var(--border-default);
 }
 
 /* Avatar — monochromatic circle */
@@ -368,8 +377,8 @@ a {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
   font-family: var(--font-sans);
   font-weight: 500;
   font-size: 13px;
@@ -377,51 +386,51 @@ a {
   letter-spacing: 0.02em;
 }
 
-/* Book cover — light-theme variant */
-.book-cover {
+/* Index stack — layered flat cards (replaces book-cover) */
+.index-stack {
   position: relative;
   aspect-ratio: 2 / 3;
-  border-radius: 2px 6px 6px 2px;
-  box-shadow: var(--shadow-book);
-  overflow: hidden;
+  border-radius: var(--r-md);
+  overflow: visible;
+  cursor: pointer;
   transition:
     transform var(--dur-med) var(--ease-out),
     box-shadow var(--dur-med) var(--ease-out);
 }
-.book-cover::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 8px;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.4),
-    rgba(0, 0, 0, 0.15) 40%,
-    rgba(255, 255, 255, 0.04) 55%,
-    rgba(0, 0, 0, 0.15)
-  );
-  z-index: 2;
+.index-stack:hover {
+  transform: translateY(-6px) rotate(-0.5deg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
 }
-.book-cover::after {
-  content: '';
+.index-stack .card-back {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 3px 3px;
-  pointer-events: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-default);
 }
-.book-cover:hover {
-  transform: translateY(-6px) rotate(-0.5deg);
-  box-shadow: 0 20px 40px rgba(23, 20, 18, 0.28), 0 4px 8px rgba(23, 20, 18, 0.16);
+.index-stack .card-back:nth-child(1) {
+  transform: rotate(4deg) translateY(2px);
+}
+.index-stack .card-back:nth-child(2) {
+  transform: rotate(2deg) translateY(1px);
+}
+.index-stack .card-front {
+  position: relative;
+  z-index: 2;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  padding: var(--cover-pad, 12px);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 /* Mono-meta helper */
 .mono-meta {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--ink-40);
+  color: var(--text-tertiary);
   letter-spacing: 0.02em;
 }
 
@@ -464,8 +473,8 @@ a {
 
 /* Mark highlight (search matches) */
 mark {
-  background: var(--ink-100);
-  color: var(--paper);
+  background: var(--text-primary);
+  color: var(--bg-default);
   padding: 0 3px;
   border-radius: 2px;
 }

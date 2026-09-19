@@ -15,12 +15,12 @@ export function Avatar({ name, size = 32 }: { name?: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: c.ink100,
+        backgroundColor: c.textPrimary,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: c.paper, fontSize: size * 0.42, fontWeight: '500', fontFamily: fonts.sansMedium }}>
+      <Text style={{ color: c.bgDefault, fontSize: size * 0.42, fontWeight: '500', fontFamily: fonts.sansMedium }}>
         {initialsOf(name)}
       </Text>
     </View>

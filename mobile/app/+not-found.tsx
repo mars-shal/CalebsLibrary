@@ -2,7 +2,8 @@
 // in a later pass; never index into an empty catalogue like the web did).
 // The numeral floats gently (reduced-motion gated) — the ambient moment.
 import { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { Link, Stack } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
@@ -12,9 +13,9 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { fonts, spacing } from '@/theme/tokens';
-import { SpotArt } from '@/components/SpotArt';
 import { useThemeColors } from '@/components/ThemeProvider';
 import { useReducedMotion } from '@/motion/motion';
+import { SpotArt } from '@/components/SpotArt';
 
 export default function NotFound() {
   const c = useThemeColors();
@@ -26,12 +27,18 @@ export default function NotFound() {
   }, [y, reduceMotion]);
   const float = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 120, alignItems: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 120, alignItems: 'center' }}>
       <Stack.Screen options={{ title: 'Not found' }} />
-      <SpotArt name="link" size={120} />
       <Animated.View style={float}>
         <Text style={{ fontSize: 88, color: c.textPrimary, fontFamily: fonts.serifItalic }}>404</Text>
       </Animated.View>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{ marginTop: -28, marginBottom: 8, pointerEvents: 'none' }}
+      >
+        <SpotArt name="shelf" size={110} />
+      </View>
       <Text style={{ fontSize: 28, color: c.textPrimary, fontFamily: fonts.sansMedium, marginTop: 8, textAlign: 'center' }}>
         This page wandered off the shelves.
       </Text>
@@ -39,22 +46,22 @@ export default function NotFound() {
         Whatever you were looking for isn&apos;t here — or isn&apos;t here anymore.
       </Text>
       <Link href="/(tabs)" asChild>
-        <Pressable
+        <HapticPressable
           accessibilityRole="button"
           accessibilityLabel="Back to the library"
-          style={{ backgroundColor: c.ink100, borderRadius: 6, paddingVertical: 13, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
+          style={{ backgroundColor: c.textPrimary, borderRadius: 6, paddingVertical: 13, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
         >
-          <Text style={{ color: c.paper, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
-        </Pressable>
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontFamily: fonts.sansSemi }}>Back to the library</Text>
+        </HapticPressable>
       </Link>
       <Link href="/(tabs)/browse" asChild>
-        <Pressable
+        <HapticPressable
           accessibilityRole="button"
           accessibilityLabel="Browse everything"
-          style={{ marginTop: 12, borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 6, paddingVertical: 13, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
+          style={{ marginTop: 12, borderWidth: 1, borderColor: c.borderStrong, borderRadius: 6, paddingVertical: 13, paddingHorizontal: 22, minHeight: 52, justifyContent: 'center' }}
         >
           <Text style={{ color: c.textPrimary, fontWeight: '500', fontFamily: fonts.sansMedium }}>Browse everything</Text>
-        </Pressable>
+        </HapticPressable>
       </Link>
     </View>
   );

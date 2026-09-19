@@ -1,7 +1,9 @@
 // Settings — scope, appearance, storage, support, legal.
 // No decorative toggles: every row acts (analytics pipeline lands Phase 7,
 // so no opt-out row ships until it controls something real).
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
+import Animated from 'react-native-reanimated';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -16,11 +18,15 @@ import { useBookmarks, useLowDataFlag, useOnboarding, useSession, type LevelYear
 import { scopeLabel } from '@/components/ScopePill';
 import { Avatar } from '@/components/Avatar';
 import { Segmented } from '@/components/Segmented';
+import { useDockScrollWiring } from '@/motion/dockScroll';
+import { useGlassTier } from '@/components/SafeGlass';
 import { Sheet } from '@/components/Sheet';
 import { Icon } from '@/icons/icons';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeChoice, useThemeColors } from '@/components/ThemeProvider';
 import { toast } from '@/components/Toast';
+
+const DockScrollView = Animated.ScrollView;
 
 function Row({
   label,
@@ -49,16 +55,16 @@ function Row({
       {right ?? (onPress ? <Icon name="chevron" size={14} color={c.textQuiet} /> : null)}
     </View>
   );
-  if (!onPress) return <View style={{ borderBottomWidth: 1, borderBottomColor: c.rule }}>{inner}</View>;
+  if (!onPress) return <View style={{ borderBottomWidth: 1, borderBottomColor: c.borderDefault }}>{inner}</View>;
   return (
-    <Pressable
+    <HapticPressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={{ borderBottomWidth: 1, borderBottomColor: c.rule }}
+      style={{ borderBottomWidth: 1, borderBottomColor: c.borderDefault }}
     >
       {inner}
-    </Pressable>
+    </HapticPressable>
   );
 }
 
@@ -74,12 +80,14 @@ export default function Settings() {
   const clearBookmarks = useBookmarks((s) => s.clear);
   const [resetOpen, setResetOpen] = useState(false);
   const [armed, setArmed] = useState<'downloads' | 'saved' | null>(null);
+  const dockWire = useDockScrollWiring('settings');
 
   const version = Constants.expoConfig?.version ?? '0.1.0';
   const convexHost = (process.env.EXPO_PUBLIC_CONVEX_URL ?? '').replace('https://', '');
+  const glassTier = useGlassTier();
 
   const copySupport = async () => {
-    const text = `Caleb's Library ${version} · ${convexHost} · scope ${program}/${levelYear} · storage ${(storageUsed() / 1048576).toFixed(1)}MB`;
+    const text = `Bells Notes ${version} · ${convexHost} · scope ${program}/${levelYear} · storage ${(storageUsed() / 1048576).toFixed(1)}MB · glass ${glassTier}`;
     try {
       await Clipboard.setStringAsync(text);
       toast('Support info copied');
@@ -89,12 +97,12 @@ export default function Settings() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+    <DockScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" onScroll={dockWire.onScroll} scrollEventThrottle={dockWire.scrollEventThrottle}>
       <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
         Settings
       </Text>
@@ -138,12 +146,17 @@ export default function Settings() {
         sub={`${(storageUsed() / 1048576).toFixed(1)} MB of 300 MB`}
         onPress={() => router.push('/downloads')}
       />
-      <Pressable
+      <Row
+        label="Upload a paper"
+        sub="Share notes with your school · moderated"
+        onPress={() => router.push('/upload')}
+      />
+      <HapticPressable
         onPress={toggleLowData}
         accessibilityRole="switch"
         accessibilityState={{ checked: lowData }}
         accessibilityLabel="Low-data mode"
-        style={{ borderBottomWidth: 1, borderBottomColor: c.rule }}
+        style={{ borderBottomWidth: 1, borderBottomColor: c.borderDefault }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, minHeight: 56 }}>
           <View style={{ flex: 1 }}>
@@ -160,16 +173,16 @@ export default function Settings() {
               height: 22,
               borderRadius: 4,
               borderWidth: 1,
-              borderColor: lowData ? c.ink100 : c.ruleStrong,
-              backgroundColor: lowData ? c.ink100 : 'transparent',
+              borderColor: lowData ? c.textPrimary : c.borderStrong,
+              backgroundColor: lowData ? c.textPrimary : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {lowData ? <Text style={{ color: c.paper, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+            {lowData ? <Text style={{ color: c.bgDefault, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
           </View>
         </View>
-      </Pressable>
+      </HapticPressable>
       <Row
         label="New term reset"
         sub="Scope, downloads, saved — your call"
@@ -199,7 +212,7 @@ export default function Settings() {
         <Text style={{ fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans, lineHeight: 22, marginBottom: 16 }}>
           Starting fresh? Pick what goes. Scope changes apply instantly; clearing downloads or saved asks twice.
         </Text>
-        <Pressable
+        <HapticPressable
           onPress={() => {
             setResetOpen(false);
             reopen();
@@ -207,11 +220,11 @@ export default function Settings() {
           }}
           accessibilityRole="button"
           accessibilityLabel="Change study scope"
-          style={{ borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', marginBottom: 10 }}
+          style={{ borderWidth: 1, borderColor: c.borderStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', marginBottom: 10 }}
         >
           <Text style={{ fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>Change study scope</Text>
-        </Pressable>
-        <Pressable
+        </HapticPressable>
+        <HapticPressable
           onPress={() => {
             if (armed === 'downloads') {
               void clearCache().then(() => {
@@ -225,13 +238,13 @@ export default function Settings() {
           }}
           accessibilityRole="button"
           accessibilityLabel={armed === 'downloads' ? 'Confirm clear downloads' : 'Clear downloads'}
-          style={{ borderWidth: 1, borderColor: armed === 'downloads' ? c.error : c.ruleStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', marginBottom: 10 }}
+          style={{ borderWidth: 1, borderColor: armed === 'downloads' ? c.error : c.borderStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', marginBottom: 10 }}
         >
           <Text style={{ fontWeight: '500', color: armed === 'downloads' ? c.error : c.textPrimary, fontFamily: fonts.sansMedium }}>
             {armed === 'downloads' ? 'Tap again to clear downloads' : 'Clear downloads'}
           </Text>
-        </Pressable>
-        <Pressable
+        </HapticPressable>
+        <HapticPressable
           onPress={() => {
             if (armed === 'saved') {
               clearBookmarks();
@@ -244,14 +257,14 @@ export default function Settings() {
           }}
           accessibilityRole="button"
           accessibilityLabel={armed === 'saved' ? 'Confirm clear saved' : 'Clear saved papers'}
-          style={{ borderWidth: 1, borderColor: armed === 'saved' ? c.error : c.ruleStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center' }}
+          style={{ borderWidth: 1, borderColor: armed === 'saved' ? c.error : c.borderStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center' }}
         >
           <Text style={{ fontWeight: '500', color: armed === 'saved' ? c.error : c.textPrimary, fontFamily: fonts.sansMedium }}>
             {armed === 'saved' ? 'Tap again to clear saved' : 'Clear saved papers'}
           </Text>
-        </Pressable>
+        </HapticPressable>
       </Sheet>
-    </ScrollView>
+    </DockScrollView>
     </KeyboardAvoidingView>
     </View>
   );
@@ -284,13 +297,13 @@ function ProfileSection() {
 
   const inputStyle = {
     borderWidth: 1,
-    borderColor: c.ruleStrong,
+    borderColor: c.borderStrong,
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
     color: c.textPrimary,
     fontFamily: fonts.sans,
-    backgroundColor: c.elevated,
+    backgroundColor: c.bgElevated,
     minHeight: 48,
   } as const;
 
@@ -307,9 +320,9 @@ function ProfileSection() {
             gap: 12,
             padding: 16,
             borderWidth: 1,
-            borderColor: c.rule,
+            borderColor: c.borderDefault,
             borderRadius: 12,
-            backgroundColor: c.elevated,
+            backgroundColor: c.bgElevated,
           }}
         >
           <Avatar name="Guest" size={44} />
@@ -321,17 +334,17 @@ function ProfileSection() {
               Sign in to get greeted by name
             </Text>
           </View>
-          <Pressable
+          <HapticPressable
             onPress={() => {
               reopen();
               router.push('/onboarding');
             }}
             accessibilityRole="button"
             accessibilityLabel="Sign in"
-            style={{ backgroundColor: c.ink100, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18, minHeight: 44, justifyContent: 'center' }}
+            style={{ backgroundColor: c.textPrimary, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18, minHeight: 44, justifyContent: 'center' }}
           >
-            <Text style={{ color: c.paper, fontWeight: '600', fontSize: 13, fontFamily: fonts.sansSemi }}>Sign in</Text>
-          </Pressable>
+            <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 13, fontFamily: fonts.sansSemi }}>Sign in</Text>
+          </HapticPressable>
         </View>
       ) : !editing ? (
         <View
@@ -341,9 +354,9 @@ function ProfileSection() {
             gap: 12,
             padding: 16,
             borderWidth: 1,
-            borderColor: c.rule,
+            borderColor: c.borderDefault,
             borderRadius: 12,
-            backgroundColor: c.elevated,
+            backgroundColor: c.bgElevated,
           }}
         >
           <Avatar name={profile.name} size={44} />
@@ -356,14 +369,14 @@ function ProfileSection() {
               {profile.level === 'all' ? 'All levels' : `${profile.level}00 Level`}
             </Text>
           </View>
-          <Pressable
+          <HapticPressable
             onPress={() => setEditing(true)}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
             style={{ padding: 10, minHeight: 44, justifyContent: 'center' }}
           >
             <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>Edit</Text>
-          </Pressable>
+          </HapticPressable>
         </View>
       ) : (
         <EditProfileForm
@@ -379,7 +392,7 @@ function ProfileSection() {
         />
       )}
       {profile && !editing ? (
-        <Pressable
+        <HapticPressable
           onPress={signOut}
           accessibilityRole="button"
           accessibilityLabel={signingOut ? 'Confirm sign out' : 'Sign out'}
@@ -388,7 +401,7 @@ function ProfileSection() {
           <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sansMedium }}>
             {signingOut ? 'Tap again to sign out' : 'Sign out'}
           </Text>
-        </Pressable>
+        </HapticPressable>
       ) : null}
     </View>
   );
@@ -411,7 +424,7 @@ function ProfileSection() {
         deviceHash: getDeviceHash(),
       });
       patchProfile({ name: clean, program: p, level: l });
-      setScope({ program: p, levelYear: l });
+      setScope({ college: profile!.college ?? 'all', program: p, levelYear: l });
       setEditing(false);
       toast('Profile updated');
     } catch (e) {
@@ -444,7 +457,7 @@ function EditProfileForm({
   const [formProgram, setFormProgram] = useState(initialProgram);
   const [formLevel, setFormLevel] = useState<LevelYear>(initialLevel);
   return (
-    <View style={{ borderWidth: 1, borderColor: c.rule, borderRadius: 12, backgroundColor: c.elevated, padding: 16, gap: 12 }}>
+    <View style={{ borderWidth: 1, borderColor: c.borderDefault, borderRadius: 12, backgroundColor: c.bgElevated, padding: 16, gap: 12 }}>
       <TextInput
         value={formName}
         onChangeText={setFormName}
@@ -460,7 +473,7 @@ function EditProfileForm({
         {['all', ...PROGRAM_CODES.slice(0, 11)].map((code) => {
           const active = formProgram === code;
           return (
-            <Pressable
+            <HapticPressable
               key={code}
               onPress={() => setFormProgram(code)}
               accessibilityRole="radio"
@@ -470,17 +483,17 @@ function EditProfileForm({
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 borderRadius: active ? 999 : 4,
-                backgroundColor: active ? c.ink100 : 'transparent',
+                backgroundColor: active ? c.textPrimary : 'transparent',
                 borderWidth: 1,
-                borderColor: active ? c.ink100 : c.ruleStrong,
+                borderColor: active ? c.textPrimary : c.borderStrong,
                 minHeight: 40,
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.paper : c.textSecondary, fontFamily: fonts.sansMedium }}>
+              <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.bgDefault : c.textSecondary, fontFamily: fonts.sansMedium }}>
                 {code === 'all' ? 'ALL' : code}
               </Text>
-            </Pressable>
+            </HapticPressable>
           );
         })}
       </View>
@@ -491,7 +504,7 @@ function EditProfileForm({
         {(['1', '2', '3', '4', '5', 'all'] as LevelYear[]).map((l) => {
           const active = formLevel === l;
           return (
-            <Pressable
+            <HapticPressable
               key={l}
               onPress={() => setFormLevel(l)}
               accessibilityRole="radio"
@@ -501,40 +514,40 @@ function EditProfileForm({
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 borderRadius: active ? 999 : 4,
-                backgroundColor: active ? c.ink100 : 'transparent',
+                backgroundColor: active ? c.textPrimary : 'transparent',
                 borderWidth: 1,
-                borderColor: active ? c.ink100 : c.ruleStrong,
+                borderColor: active ? c.textPrimary : c.borderStrong,
                 minHeight: 40,
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.paper : c.textSecondary, fontFamily: fonts.sansMedium }}>
+              <Text style={{ fontSize: 12, fontWeight: '500', color: active ? c.bgDefault : c.textSecondary, fontFamily: fonts.sansMedium }}>
                 {l === 'all' ? 'ALL' : `${l}00`}
               </Text>
-            </Pressable>
+            </HapticPressable>
           );
         })}
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-        <Pressable
+        <HapticPressable
           onPress={onCancel}
           accessibilityRole="button"
           accessibilityLabel="Cancel editing"
-          style={{ flex: 1, borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center' }}
+          style={{ flex: 1, borderWidth: 1, borderColor: c.borderStrong, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center' }}
         >
           <Text style={{ fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>Cancel</Text>
-        </Pressable>
-        <Pressable
+        </HapticPressable>
+        <HapticPressable
           onPress={() => onSave(formName, formProgram, formLevel)}
           disabled={saving}
           accessibilityRole="button"
           accessibilityLabel="Save profile"
-          style={{ flex: 1, backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center', opacity: saving ? 0.6 : 1 }}
+          style={{ flex: 1, backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center', opacity: saving ? 0.6 : 1 }}
         >
-          <Text style={{ fontWeight: '600', color: c.paper, fontFamily: fonts.sansSemi }}>
+          <Text style={{ fontWeight: '600', color: c.bgDefault, fontFamily: fonts.sansSemi }}>
             {saving ? 'Saving…' : 'Save'}
           </Text>
-        </Pressable>
+        </HapticPressable>
       </View>
     </View>
   );

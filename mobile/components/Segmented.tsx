@@ -44,9 +44,9 @@ export function Segmented<T extends string>({
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: radii.pill,
-              backgroundColor: active ? c.ink100 : 'transparent',
+              backgroundColor: active ? c.textPrimary : 'transparent',
               borderWidth: 1,
-              borderColor: active ? c.ink100 : c.ruleStrong,
+              borderColor: active ? c.textPrimary : c.borderStrong,
               minHeight: 44,
               justifyContent: 'center',
             }}
@@ -55,7 +55,7 @@ export function Segmented<T extends string>({
               style={{
                 fontSize: 13,
                 fontWeight: '500',
-                color: active ? c.paper : c.textSecondary,
+                color: active ? c.bgDefault : c.textSecondary,
                 fontFamily: fonts.sansMedium,
               }}
             >

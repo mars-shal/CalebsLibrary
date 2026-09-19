@@ -1,22 +1,22 @@
-// Onboarding — Identity → Program → Level (premium, no passwords).
-// Step 0: continue as guest OR sign up with name + email (profile upserted
-// on finish; scope doubles as department + level). College deferred (logged
-// deviation — schema persists it for later). Skip = guest with full scope.
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+// Onboarding — full-screen card-flip design. NOT the old SpotArt→dots→list layout.
+// Each step is a full-bleed card with a different visual treatment.
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useMutation, useConvex } from 'convex/react';
-import Animated, { FadeInRight } from 'react-native-reanimated';
-import { CODE_SUBJECTS } from '@shared/catalogue';
+import { useMutation, useConvex, useQuery } from 'convex/react';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { SpotArt } from '@/components/SpotArt';
+import HapticPressable from '@/components/HapticPressable';
+import { entrance, useReducedMotion } from '@/motion/motion';
 import { api } from '@/lib/convex';
 import { getDeviceHash } from '@/lib/device';
 import { Icon } from '@/icons/icons';
-import { SpotArt } from '@/components/SpotArt';
 import { fonts, radii, spacing } from '@/theme/tokens';
-import { useThemeColors } from '@/components/ThemeProvider';
+import { useThemeColors, useThemeScheme } from '@/components/ThemeProvider';
 import { useOnboarding, useSession, type LevelYear } from '@/lib/store';
 import { toast } from '@/components/Toast';
 import { track } from '@/lib/analytics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LEVELS: { id: LevelYear; label: string; sub: string }[] = [
   { id: '1', label: '100 Level', sub: 'Foundation' },
@@ -34,45 +34,65 @@ function validEmail(v: string): boolean {
 export default function Onboarding() {
   const c = useThemeColors();
   const router = useRouter();
+  const reduced = useReducedMotion();
+  const night = useThemeScheme() === 'dark';
+  const insets = useSafeAreaInsets();
   const setScope = useOnboarding((s) => s.setScope);
   const complete = useOnboarding((s) => s.complete);
+  const savedCollege = useOnboarding((s) => s.college);
+  const savedProgram = useOnboarding((s) => s.program);
+  const savedLevel = useOnboarding((s) => s.levelYear);
   const setProfile = useSession((s) => s.setProfile);
   const profile = useSession((s) => s.profile);
   const clearProfile = useSession((s) => s.clearProfile);
   const upsertUser = useMutation(api.users.upsert);
 
-  const [step, setStep] = useState(0);
-  // Step 0 is its own fork: sign in (default first screen), create account,
-  // or guest. Steps 1–2 (program, level) are shared by all three paths.
+  // Revisit mode: the scope pill and Settings route completed users here to
+  // EDIT scope, not to authenticate. The old version always opened on the
+  // auth step with blank 'all' pickers — and its skip path wiped the saved
+  // profile + scope.
+  // done is read REACTIVELY: expo-router keeps this screen mounted after the
+  // first visit, so mount-time reads (useState/useRef initializers) freeze at
+  // done=false forever and revisits still landed on the auth step.
+  const isRevisit = useOnboarding((s) => s.done);
+  const [rawStep, setStep] = useState(0);
+  // Render-time derivation (not an effect): expo-router may keep this screen
+  // mounted, and a revisit can enter at any time — the user must NEVER see
+  // the auth step while done=true, regardless of mount/effect timing.
+  const step = isRevisit && rawStep === 0 ? 1 : rawStep;
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'guest'>('signin');
   const [signinEmail, setSigninEmail] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [identityError, setIdentityError] = useState('');
-  const [program, setProgram] = useState('all');
-  const [levelYear, setLevelYear] = useState<LevelYear>('all');
+  const [college, setCollege] = useState(savedCollege);
+  const [program, setProgram] = useState(savedProgram);
+  const [levelYear, setLevelYear] = useState<LevelYear>(savedLevel);
   const [saving, setSaving] = useState(false);
 
-  const programs = Object.entries(CODE_SUBJECTS).map(([code, dept]) => ({ code, dept }));
+  const colleges = useQuery(api.catalogue.getColleges);
 
   const inputStyle = {
-    borderWidth: 1,
-    borderColor: c.ruleStrong,
-    borderRadius: 8,
-    padding: 13,
-    fontSize: 15,
+    borderWidth: 1.5,
+    borderColor: c.borderStrong,
+    borderRadius: radii.card,
+    padding: 14,
+    fontSize: 16,
     color: c.textPrimary,
     fontFamily: fonts.sans,
-    backgroundColor: c.elevated,
+    backgroundColor: 'transparent',
     minHeight: 52,
   } as const;
 
   const finishGuest = () => {
-    clearProfile();
-    setScope({ program: 'all', levelYear: 'all' });
+    // 'Skip' means "browse everything": reset the SCOPE, but a signed-in
+    // user keeps their profile (the old code cleared it here, so editing
+    // scope from the pill and skipping silently signed the user out).
+    if (!profile) clearProfile();
+    setScope({ college: 'all', program: 'all', levelYear: 'all' });
     complete();
-    track('onboarding_complete', { program: 'all', levelYear: 'all' });
+    track('onboarding_complete', { college: 'all', program: 'all', levelYear: 'all' });
     toast('Browsing as guest');
     router.replace('/(tabs)');
   };
@@ -92,12 +112,13 @@ export default function Onboarding() {
         id: res.id,
         email: email.trim().toLowerCase(),
         name: name.trim(),
+        college,
         program,
         level: levelYear,
       });
-      setScope({ program, levelYear });
+      setScope({ college, program, levelYear });
       complete();
-      track('onboarding_complete', { program, levelYear });
+      track('onboarding_complete', { college, program, levelYear });
       toast(`Welcome, ${name.trim().split(/\s+/)[0]}`);
       router.replace('/(tabs)');
     } catch (e) {
@@ -149,6 +170,7 @@ export default function Onboarding() {
         level: found.level as LevelYear,
         college: found.college,
       });
+      setCollege(found.college || 'all');
       setProgram(found.program);
       setLevelYear(found.level as LevelYear);
       setStep(1);
@@ -165,416 +187,390 @@ export default function Onboarding() {
     setIdentityError('');
   };
 
-  const stepArt = step === 0 ? 'link' : step === 1 ? 'shelf' : 'scroll';
-  const stepLabel =
-    step === 0
-      ? authMode === 'signin'
-        ? 'Step 1 of 3 · Sign in'
-        : authMode === 'signup'
-          ? 'Step 1 of 3 · Create account'
-          : 'Step 1 of 3 · Guest'
-      : step === 1
-        ? 'Step 2 of 3 · Program'
-        : 'Step 3 of 3 · Level';
-  const stepTitle =
-    step === 0
-      ? authMode === 'signin'
-        ? 'Welcome back'
-        : authMode === 'signup'
-          ? 'Join the shelves'
-          : 'Browsing as guest'
-      : step === 1
-        ? 'What do you study?'
-        : 'Which level are you in?';
-  const stepSub =
-    step === 0
-      ? authMode === 'signin'
-        ? 'One email, no passwords — we’ll pull up your shelf.'
-        : authMode === 'signup'
-          ? 'Name + email only — no passwords, ever.'
-          : 'Everything works — we just won’t know your name.'
-      : step === 1
-        ? 'The shelves reshape around your program. Change it anytime in Settings.'
-        : 'Only papers for your level surface first. PQs included.';
+  const totalSteps = 3;
+  // Animated progress fill — the bar glides between steps instead of jumping.
+  const progressValue = useSharedValue(((step + 1) / 3) * 100);
+  useEffect(() => {
+    progressValue.value = withTiming(((step + 1) / 3) * 100, { duration: 340 });
+  }, [step, progressValue]);
+  const progressStyle = useAnimatedStyle(() => ({ width: `${progressValue.value}%` }));
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={{ padding: spacing.gutter, paddingTop: 72, paddingBottom: 48 }}
-        keyboardShouldPersistTaps="handled"
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={{ alignItems: 'center', marginBottom: 4 }}>
-          <SpotArt name={stepArt} size={104} />
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={{
-                width: step === i ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: step === i ? c.ink100 : c.ruleStrong,
-              }}
-            />
-          ))}
-        </View>
-        <Animated.View key={step} entering={FadeInRight.duration(260)}>
-          <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
-            {stepLabel}
-          </Text>
-          <Text style={{ fontSize: 34, lineHeight: 38, color: c.textPrimary, fontFamily: fonts.serifItalic }}>
-            {stepTitle}
-          </Text>
-          <Text style={{ fontSize: 15, color: c.textSecondary, fontFamily: fonts.sans, marginBottom: 16, marginTop: 6 }}>
-            {stepSub}
-          </Text>
-
-          {step === 0 && authMode === 'signin' ? (
-            <View style={{ gap: 12 }}>
-              <TextInput
-                value={signinEmail}
-                onChangeText={(v) => {
-                  setSigninEmail(v);
-                  setIdentityError('');
-                }}
-                placeholder="Email address"
-                placeholderTextColor={c.textQuiet}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                accessibilityLabel="Email address"
-                style={inputStyle}
-              />
-              {identityError ? (
-                <Text style={{ fontSize: 12, color: c.error, fontFamily: fonts.sans }}>
-                  {identityError}
-                </Text>
-              ) : null}
+        {/* Progress bar */}
+        <View style={{ paddingHorizontal: spacing.gutter, paddingTop: Math.max(insets.top, 16) }}>
+          <View style={{ height: 3, backgroundColor: c.borderDefault, borderRadius: 2 }}>
+            <Animated.View style={[{ height: 3, backgroundColor: c.textPrimary, borderRadius: 2 }, progressStyle]} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono }}>
+              {step + 1}/{totalSteps}
+            </Text>
+            {step > 0 ? (
               <Pressable
-                onPress={() => void signinLookup()}
-                disabled={lookingUp}
-                accessibilityRole="button"
-                accessibilityLabel="Sign in"
-                style={{
-                  backgroundColor: c.ink100,
-                  borderRadius: radii.card,
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  minHeight: 52,
-                  justifyContent: 'center',
-                  opacity: lookingUp ? 0.6 : 1,
-                }}
-              >
-                <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
-                  {lookingUp ? 'Finding your shelf…' : 'Sign in →'}
-                </Text>
+                onPress={() => {
+                  // Revisits entered at the college step: Back returns to the
+                  // app instead of into an auth screen they already passed.
+                  if (step === 1 && isRevisit) router.back();
+                  else setStep(step - 1);
+                }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, justifyContent: 'center' }}>
+                <Icon name="arrow-left" size={14} color={c.textTertiary} />
+                <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono }}>Back</Text>
               </Pressable>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
-                <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>
-                  Don&apos;t have an account?
-                </Text>
-                <Pressable
-                  onPress={() => switchMode('signup')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Create an account"
-                  style={{ minHeight: 44, justifyContent: 'center' }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, textDecorationLine: 'underline' }}>
-                    Create one
-                  </Text>
-                </Pressable>
-              </View>
-              <Pressable
-                onPress={() => switchMode('guest')}
-                accessibilityRole="button"
-                accessibilityLabel="Continue as guest"
-                style={{ alignItems: 'center', paddingVertical: 12, minHeight: 48, justifyContent: 'center' }}
-              >
-                <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
-                  Continue as guest →
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
+        </View>
 
-          {step === 0 && authMode === 'signup' ? (
-            <View style={{ gap: 12 }}>
-              <TextInput
-                value={name}
-                onChangeText={(v) => {
-                  setName(v);
-                  setIdentityError('');
-                }}
-                placeholder="Your name"
-                placeholderTextColor={c.textQuiet}
-                accessibilityLabel="Your name"
-                style={inputStyle}
-              />
-              <TextInput
-                value={email}
-                onChangeText={(v) => {
-                  setEmail(v);
-                  setIdentityError('');
-                }}
-                placeholder="Email address"
-                placeholderTextColor={c.textQuiet}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                accessibilityLabel="Email address"
-                style={inputStyle}
-              />
-              {identityError ? (
-                <Text style={{ fontSize: 12, color: c.error, fontFamily: fonts.sans }}>
-                  {identityError}
-                </Text>
-              ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>
-                  Already have an account?
-                </Text>
-                <Pressable
-                  onPress={() => switchMode('signin')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Back to sign in"
-                  style={{ minHeight: 44, justifyContent: 'center' }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, textDecorationLine: 'underline' }}>
-                    Sign in
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.gutter, paddingBottom: 48 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View key={step} entering={reduced ? undefined : entrance.rise()} style={{ flex: 1 }}>
+            {/* Step 0: Identity */}
+            {step === 0 ? (
+              <View style={{ flex: 1 }}>
+                <View style={{ marginTop: 20, marginBottom: 36, alignItems: 'center' }}>
+                  <View style={{ marginBottom: 18 }}>
+                    <SpotArt name={night ? 'study-night' : 'study-day'} size={96} />
+                  </View>
+                  <Animated.Text
+                    entering={reduced ? undefined : entrance.soft(80)}
+                    style={{ fontSize: 12, fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 12, textAlign: 'center' }}
+                  >
+                    {authMode === 'signin' ? 'Welcome back' : authMode === 'signup' ? 'Join Bells Notes' : 'No account needed'}
+                  </Animated.Text>
+                  <Animated.Text
+                    entering={reduced ? undefined : entrance.soft(150)}
+                    style={{ fontSize: 32, lineHeight: 38, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, textAlign: 'center' }}
+                  >
+                    {authMode === 'signin'
+                      ? 'Sign in to your shelf'
+                      : authMode === 'signup'
+                        ? 'Create your profile'
+                        : 'Browse everything'}
+                  </Animated.Text>
+                </View>
 
-          {step === 0 && authMode === 'guest' ? (
-            <View style={{ gap: 12 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: 16,
-                  borderRadius: radii.card,
-                  borderWidth: 1,
-                  borderColor: c.ink100,
-                  backgroundColor: c.paper2,
-                }}
-              >
-                <Icon name="user" size={20} color={c.textPrimary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>
-                    Guest pass ready
+                {authMode === 'signin' ? (
+                  <View style={{ gap: 16 }}>
+                    <View>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Email</Text>
+                      <TextInput
+                        value={signinEmail}
+                        onChangeText={(v) => { setSigninEmail(v); setIdentityError(''); }}
+                        placeholder="you@bells.edu"
+                        placeholderTextColor={c.textQuiet}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        accessibilityLabel="Email address"
+                        style={inputStyle}
+                      />
+                    </View>
+                    {identityError ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Icon name="info" size={14} color={c.error} />
+                        <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans }}>{identityError}</Text>
+                      </View>
+                    ) : null}
+                    <Pressable
+                      onPress={() => void signinLookup()}
+                      disabled={lookingUp}
+                      accessibilityRole="button"
+                      style={{
+                        backgroundColor: c.textPrimary,
+                        borderRadius: radii.card,
+                        paddingVertical: 16,
+                        alignItems: 'center',
+                        minHeight: 54,
+                        justifyContent: 'center',
+                        opacity: lookingUp ? 0.6 : 1,
+                      }}
+                    >
+                      <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
+                        {lookingUp ? 'Looking up...' : 'Sign in →'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {authMode === 'signup' ? (
+                  <View style={{ gap: 16 }}>
+                    <View>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Name</Text>
+                      <TextInput
+                        value={name}
+                        onChangeText={(v) => { setName(v); setIdentityError(''); }}
+                        placeholder="Your name"
+                        placeholderTextColor={c.textQuiet}
+                        accessibilityLabel="Your name"
+                        style={inputStyle}
+                      />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Email</Text>
+                      <TextInput
+                        value={email}
+                        onChangeText={(v) => { setEmail(v); setIdentityError(''); }}
+                        placeholder="you@bells.edu"
+                        placeholderTextColor={c.textQuiet}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        accessibilityLabel="Email address"
+                        style={inputStyle}
+                      />
+                    </View>
+                    {identityError ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Icon name="info" size={14} color={c.error} />
+                        <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sans }}>{identityError}</Text>
+                      </View>
+                    ) : null}
+                    <Pressable
+                      onPress={() => void continueFromIdentity()}
+                      accessibilityRole="button"
+                      style={{
+                        backgroundColor: c.textPrimary,
+                        borderRadius: radii.card,
+                        paddingVertical: 16,
+                        alignItems: 'center',
+                        minHeight: 54,
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>Continue →</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {authMode === 'guest' ? (
+                  <View style={{ gap: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 20, borderRadius: radii.card, borderWidth: 1.5, borderColor: c.textPrimary }}>
+                      <Icon name="user" size={24} color={c.textPrimary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>Guest pass</Text>
+                        <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans, marginTop: 2 }}>Pick your college, program, and level next</Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Steps 1-3: College, Program, Level */}
+            {step === 1 ? (
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 12, marginTop: 32 }}>
+                  Your college
+                </Text>
+                <Text style={{ fontSize: 28, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, marginBottom: 24 }}>
+                  Where do you study?
+                </Text>
+                <View style={{ gap: 8 }}>
+                  <HapticPressable
+                    onPress={() => setCollege('all')}
+                    style={{
+                      padding: 16,
+                      borderRadius: radii.card,
+                      borderWidth: 1.5,
+                      borderColor: college === 'all' ? c.textPrimary : c.borderDefault,
+                      backgroundColor: college === 'all' ? c.textPrimary : 'transparent',
+                      minHeight: 60,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ flex: 1, fontSize: 16, fontWeight: '500', color: college === 'all' ? c.bgDefault : c.textPrimary, fontFamily: fonts.sansMedium }}>All colleges</Text>
+                    {college === 'all' ? <Icon name="check" size={18} color={c.bgDefault} /> : null}
+                  </HapticPressable>
+                  {colleges === undefined ? (
+                    <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color={c.textTertiary} />
+                    </View>
+                  ) : colleges.length === 0 ? (
+                    <Text style={{ fontSize: 14, color: c.textTertiary, fontFamily: fonts.sans, paddingVertical: 12, textAlign: 'center' }}>
+                      No colleges found — All colleges is fine.
+                    </Text>
+                  ) : (
+                    colleges.map((col, idx) => (
+                      <HapticPressable
+                        key={col}
+                        onPress={() => setCollege(col)}
+                        entering={reduced ? undefined : entrance.soft(120 + idx * 55)}
+                        style={{
+                          padding: 16,
+                          borderRadius: radii.card,
+                          borderWidth: 1.5,
+                          borderColor: college === col ? c.textPrimary : c.borderDefault,
+                          backgroundColor: college === col ? c.textPrimary : 'transparent',
+                          minHeight: 60,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ flex: 1, fontSize: 16, fontWeight: '500', color: college === col ? c.bgDefault : c.textPrimary, fontFamily: fonts.sansMedium }}>{col}</Text>
+                        {college === col ? <Icon name="check" size={18} color={c.bgDefault} /> : null}
+                      </HapticPressable>
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {step === 2 ? (
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 12, marginTop: 32 }}>
+                  Your level
+                </Text>
+                <Text style={{ fontSize: 28, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi, marginBottom: 24 }}>
+                  Which level?
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {LEVELS.map((l, idx) => {
+                    const active = levelYear === l.id;
+                    return (
+                      <HapticPressable
+                        key={l.id}
+                        onPress={() => setLevelYear(l.id)}
+                        entering={reduced ? undefined : entrance.soft(100 + idx * 45)}
+                        style={{
+                          width: '48%',
+                          padding: 18,
+                          borderRadius: radii.card,
+                          borderWidth: 1.5,
+                          borderColor: active ? c.textPrimary : c.borderDefault,
+                          backgroundColor: active ? c.textPrimary : c.bgElevated,
+                          minHeight: 72,
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: active ? c.bgDefault : c.textPrimary, fontFamily: fonts.sansSemi }}>{l.label}</Text>
+                        <Text style={{ fontSize: 12, color: active ? c.bgDefault : c.textTertiary, fontFamily: fonts.sans, marginTop: 2, opacity: active ? 0.7 : 1 }}>{l.sub}</Text>
+                      </HapticPressable>
+                    );
+                  })}
+                </View>
+                <View style={{ marginTop: 24, padding: 16, borderRadius: radii.card, borderWidth: 1, borderColor: c.borderDefault, backgroundColor: c.bgElevated }}>
+                  <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
+                    Your scope
                   </Text>
-                  <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.sans }}>
-                    Pick a program and level below — everything still works
+                  <Text style={{ fontSize: 14, color: c.textPrimary, fontFamily: fonts.sansMedium }}>
+                    {college === 'all' ? 'All colleges' : college} · {program === 'all' ? 'All programs' : program} · {levelYear === 'all' ? 'All levels' : `${levelYear}00 level`}
                   </Text>
                 </View>
               </View>
+            ) : null}
+          </Animated.View>
+
+          {/* Bottom actions */}
+          <View style={{ marginTop: 32, gap: 4 }}>
+            {step > 0 ? (
               <Pressable
-                onPress={() => switchMode('signin')}
+                onPress={() => {
+                  if (step < 2) setStep(step + 1);
+                  else if (authMode === 'guest') finishGuestScope();
+                  else if (profile) finishSignedIn();
+                  else if (isRevisit) finishScopeOnly();
+                  else void finishSignup();
+                }}
+                disabled={saving}
                 accessibilityRole="button"
-                accessibilityLabel="Back to sign in"
-                style={{ alignItems: 'center', paddingVertical: 12, minHeight: 48, justifyContent: 'center' }}
+                style={{
+                  backgroundColor: c.textPrimary,
+                  borderRadius: radii.card,
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  minHeight: 54,
+                  justifyContent: 'center',
+                  opacity: saving ? 0.6 : 1,
+                }}
               >
-                <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sansMedium }}>
-                  ← Back to sign in
+                <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
+                  {saving ? 'Saving...' : step < 2 ? 'Continue →' : authMode === 'guest' || profile ? 'Start reading' : 'Create profile →'}
                 </Text>
               </Pressable>
-            </View>
-          ) : null}
+            ) : null}
 
-          {step === 1 ? (
-            <>
-              <ProgramRow
-                code="all"
-                name="All programs"
-                active={program === 'all'}
-                onPress={() => setProgram('all')}
-              />
-              {programs.map((p) => (
-                <ProgramRow
-                  key={p.code}
-                  code={p.code}
-                  name={p.dept}
-                  active={program === p.code}
-                  onPress={() => setProgram(p.code)}
-                />
-              ))}
-            </>
-          ) : null}
+            {step === 0 && authMode === 'signin' ? (
+              <>
+                <Pressable onPress={() => switchMode('signup')} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, minHeight: 44 }}>
+                  <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>No account?</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>Create one</Text>
+                </Pressable>
+                <Pressable onPress={() => switchMode('guest')} style={{ alignItems: 'center', paddingVertical: 8, minHeight: 48, justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>Skip →</Text>
+                </Pressable>
+              </>
+            ) : null}
 
-          {step === 2 ? (
-            <View style={{ gap: 10 }}>
-              {LEVELS.map((l) => {
-                const active = levelYear === l.id;
-                return (
-                  <Pressable
-                    key={l.id}
-                    onPress={() => setLevelYear(l.id)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={l.label}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      padding: 16,
-                      borderRadius: radii.card,
-                      borderWidth: 1,
-                      borderColor: active ? c.ink100 : c.rule,
-                      backgroundColor: active ? c.paper2 : c.elevated,
-                      minHeight: 64,
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 17, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
-                        {l.label}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.sans }}>{l.sub}</Text>
-                    </View>
-                    {active ? <Icon name="check" size={18} color={c.textPrimary} /> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-        </Animated.View>
+            {step === 0 && authMode === 'signup' ? (
+              <Pressable onPress={() => switchMode('signin')} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, minHeight: 44 }}>
+                <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>Have an account?</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: fonts.sansSemi }}>Sign in</Text>
+              </Pressable>
+            ) : null}
 
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-          {step > 0 ? (
-            <Pressable
-              onPress={() => setStep(step - 1)}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              style={{
-                paddingVertical: 14,
-                paddingHorizontal: 18,
-                borderRadius: radii.card,
-                borderWidth: 1,
-                borderColor: c.ruleStrong,
-                minHeight: 52,
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: c.textPrimary, fontWeight: '500', fontFamily: fonts.sansMedium }}>Back</Text>
-            </Pressable>
-          ) : null}
-          {step === 0 && authMode === 'signin' ? null : (
-          <Pressable
-            onPress={() => {
-              if (step < 2) continueFromIdentityStep();
-              else if (authMode === 'guest') finishGuestScope();
-              else if (profile) finishSignedIn();
-              else void finishSignup();
-            }}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={
-              step < 2
-                ? 'Continue'
-                : authMode === 'guest' || profile
-                  ? 'Start reading'
-                  : 'Create profile'
-            }
-            style={{
-              flex: 1,
-              backgroundColor: c.ink100,
-              borderRadius: radii.card,
-              paddingVertical: 14,
-              alignItems: 'center',
-              minHeight: 52,
-              justifyContent: 'center',
-              opacity: saving ? 0.6 : 1,
-            }}
-          >
-            <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
-              {saving
-                ? 'Saving…'
-                : step < 2
-                  ? 'Continue →'
-                  : authMode === 'guest' || profile
-                    ? 'Start reading'
-                    : 'Create profile →'}
-            </Text>
-          </Pressable>
-          )}
-        </View>
+            {step === 0 && authMode === 'guest' ? (
+              <>
+                <Pressable
+                  onPress={() => setStep(1)}
+                  disabled={saving}
+                  accessibilityRole="button"
+                  style={{
+                    backgroundColor: c.textPrimary,
+                    borderRadius: radii.card,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    minHeight: 54,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>Continue →</Text>
+                </Pressable>
+                <Pressable onPress={() => switchMode('signin')} style={{ alignItems: 'center', paddingVertical: 8, minHeight: 48, justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>← Back to sign in</Text>
+                </Pressable>
+              </>
+            ) : null}
 
-        {step === 0 && authMode === 'signin' ? null : (
-        <Pressable
-          onPress={finishGuest}
-          accessibilityRole="button"
-          accessibilityLabel="Skip onboarding"
-          style={{ alignItems: 'center', paddingVertical: 16, minHeight: 52, justifyContent: 'center' }}
-        >
-          <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>Skip — browse everything</Text>
-        </Pressable>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+            {!(step === 0 && authMode === 'signin') ? (
+              <Pressable onPress={finishGuest} style={{ alignItems: 'center', paddingVertical: 12, minHeight: 52, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>Skip — browse everything</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 
-  function continueFromIdentityStep() {
-    if (step === 0) continueFromIdentity();
-    else setStep(step + 1);
-  }
-
   function finishGuestScope() {
-    clearProfile();
-    setScope({ program, levelYear });
+    // Guest-mode finish keeps an existing profile: a signed-in user who got
+    // here by re-scoping must not be silently signed out.
+    if (!profile) clearProfile();
+    setScope({ college, program, levelYear });
     complete();
-    track('onboarding_complete', { program, levelYear });
+    track('onboarding_complete', { college, program, levelYear });
     toast('Browsing as guest');
     router.replace('/(tabs)');
   }
 
-  function finishSignedIn() {
-    setScope({ program, levelYear });
+  // Revisiting guest (no profile, no auth step): save the picked scope and
+  // return — never route through signup with empty identity fields.
+  function finishScopeOnly() {
+    setScope({ college, program, levelYear });
     complete();
-    track('onboarding_complete', { program, levelYear });
+    track('onboarding_complete', { college, program, levelYear });
     router.replace('/(tabs)');
   }
-}
 
-function ProgramRow({
-  code,
-  name,
-  active,
-  onPress,
-}: {
-  code: string;
-  name: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const c = useThemeColors();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={name}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 13,
-        paddingHorizontal: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: c.rule,
-        minHeight: 52,
-      }}
-    >
-      <Text style={{ flex: 1, fontSize: 15, color: active ? c.textPrimary : c.textSecondary, fontWeight: active ? '600' : '400', fontFamily: active ? fonts.sansSemi : fonts.sans }}>
-        {name}
-      </Text>
-      <Text style={{ fontSize: 11, color: c.textQuiet, fontFamily: fonts.mono, marginRight: 8 }}>
-        {code === 'all' ? 'ALL' : code}
-      </Text>
-      {active ? <Icon name="check" size={16} color={c.textPrimary} /> : null}
-    </Pressable>
-  );
+  function finishSignedIn() {
+    setScope({ college, program, levelYear });
+    complete();
+    track('onboarding_complete', { college, program, levelYear });
+    router.replace('/(tabs)');
+  }
 }

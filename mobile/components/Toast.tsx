@@ -35,8 +35,7 @@ export function ToastHost() {
   if (!message) return null;
   return (
     <View
-      pointerEvents="none"
-      style={{ position: 'absolute', left: 20, right: 20, bottom: 110, alignItems: 'center', zIndex: 100 }}
+      style={{ position: 'absolute', left: 20, right: 20, bottom: 110, alignItems: 'center', zIndex: 100, pointerEvents: 'none' }}
     >
       <Animated.View
         key={key}
@@ -44,14 +43,14 @@ export function ToastHost() {
         exiting={FadeOutDown.duration(200)}
         accessibilityRole="alert"
         style={{
-          backgroundColor: c.ink100,
+          backgroundColor: c.textPrimary,
           paddingVertical: 10,
           paddingHorizontal: 16,
           borderRadius: radii.pill,
           maxWidth: '100%',
         }}
       >
-        <Text style={{ color: c.paper, fontSize: 13, fontWeight: '500', fontFamily: fonts.sansMedium, textAlign: 'center' }}>
+        <Text style={{ color: c.bgDefault, fontSize: 13, fontWeight: '500', fontFamily: fonts.sansMedium, textAlign: 'center' }}>
           {message}
         </Text>
       </Animated.View>

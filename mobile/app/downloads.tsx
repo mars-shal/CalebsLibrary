@@ -2,9 +2,11 @@
 // 300MB cap bar, per-file open/pin/delete, clear-all. Prefetch automation
 // lands with the Phase 6 background job — no decorative toggles here.
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { useQuery } from 'convex/react';
 import { api } from '@/lib/convex';
 import {
@@ -43,10 +45,13 @@ export default function Downloads() {
   const list = Object.values(entries)
     .filter((e) => e.complete)
     .sort((a, b) => b.openedAt - a.openedAt);
+  const ids = list.map((e) => e.id);
   const titles = useQuery(
     api.catalogue.getByIds,
-    list.length ? { ids: list.map((e) => e.id).slice(0, 100) } : 'skip',
+    ids.length ? { ids: ids.slice(0, 100) } : 'skip',
   ) as Paper[] | undefined;
+  // Rows past the server's per-call hydration bound keep their file id as a
+  // stand-in label instead of being indistinguishable from each other.
   const titleOf = (id: string) => titles?.find((p) => p.id === id)?.title ?? id;
 
   const used = storageUsed();
@@ -59,28 +64,38 @@ export default function Downloads() {
         toast('File missing — re-download from the paper');
         return;
       }
-    touchOpened(e.id);
-    touchRecent(e.id);
-    refresh();
-    try {
+      touchOpened(e.id);
+      touchRecent(e.id);
+      refresh();
       if (!(await isOnlineNow())) track('offline_open', { paperId: e.id });
+      // Same content-URI requirement as the paper screen: a file:// URI
+      // throws FileUriExposedException on modern Android.
+      if (Platform.OS === 'android') {
+        const { getContentUriAsync } = await import('expo-file-system/legacy');
+        const contentUri = await getContentUriAsync(f.uri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: e.ext === 'pdf' ? 'application/pdf' : '*/*',
+        });
+        return;
+      }
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(f.uri, { dialogTitle: titleOf(e.id) });
       } else {
         toast('No viewer available on this device');
       }
     } catch {
-      // Sharing failed — fall through to outer handler
-      throw new Error('Could not open the file');
+      toast('Could not open the file');
     }
-  } catch {
-    toast('Could not open the file');
-  }
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bgDefault }} contentContainerStyle={{ paddingBottom: 120 }}>
       <View style={{ paddingHorizontal: spacing.gutter, paddingTop: 64 }}>
+        <HapticPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginBottom: 8 }}>
+          <Icon name="arrow-left" size={18} color={c.textSecondary} />
+        </HapticPressable>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
           Offline
         </Text>
@@ -88,20 +103,20 @@ export default function Downloads() {
           Downloads
         </Text>
 
-        <View style={{ marginTop: 20, padding: 16, borderWidth: 1, borderColor: c.rule, borderRadius: 8, backgroundColor: c.elevated }}>
+        <View style={{ marginTop: 20, padding: 16, borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, backgroundColor: c.bgElevated }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
             <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>Storage used</Text>
             <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.mono }}>
               {formatMB(used)} / {formatMB(DOWNLOADS_CAP)}
             </Text>
           </View>
-          <View style={{ height: 6, borderRadius: 3, backgroundColor: c.rule, overflow: 'hidden' }}>
-            <View style={{ width: `${pct}%`, height: 6, backgroundColor: c.ink100 }} />
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: c.borderDefault, overflow: 'hidden' }}>
+            <View style={{ width: `${pct}%`, height: 6, backgroundColor: c.textPrimary }} />
           </View>
           <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.sans, marginTop: 10 }}>
             Oldest unpinned files auto-evict past the cap. Pinned files never evict.
           </Text>
-          <Pressable
+          <HapticPressable
             onPress={() => {
               const next = !prefetch;
               setPrefetchEnabled(next);
@@ -119,13 +134,13 @@ export default function Downloads() {
                 height: 22,
                 borderRadius: 4,
                 borderWidth: 1,
-                borderColor: prefetch ? c.ink100 : c.ruleStrong,
-                backgroundColor: prefetch ? c.ink100 : 'transparent',
+                borderColor: prefetch ? c.textPrimary : c.borderStrong,
+                backgroundColor: prefetch ? c.textPrimary : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {prefetch ? <Text style={{ color: c.paper, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+              {prefetch ? <Text style={{ color: c.bgDefault, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, color: c.textPrimary, fontFamily: fonts.sansMedium }}>
@@ -135,7 +150,7 @@ export default function Downloads() {
                 Top recent papers land on disk silently
               </Text>
             </View>
-          </Pressable>
+          </HapticPressable>
         </View>
 
         {list.length === 0 ? (
@@ -160,10 +175,10 @@ export default function Downloads() {
                   gap: 12,
                   paddingVertical: 14,
                   borderBottomWidth: 1,
-                  borderBottomColor: c.rule,
+                  borderBottomColor: c.borderDefault,
                 }}
               >
-                <Pressable
+                <HapticPressable
                   onPress={() => router.push(`/paper/${e.id}`)}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${titleOf(e.id)}`}
@@ -175,16 +190,16 @@ export default function Downloads() {
                   <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 4 }}>
                     {formatMB(e.size)}{e.pinned ? ' · PINNED' : ''}
                   </Text>
-                </Pressable>
-                <Pressable
+                </HapticPressable>
+                <HapticPressable
                   onPress={() => void open(e)}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${titleOf(e.id)} file`}
                   style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon name="file" size={18} color={c.textSecondary} />
-                </Pressable>
-                <Pressable
+                </HapticPressable>
+                <HapticPressable
                   onPress={() => {
                     togglePin(e.id);
                     refresh();
@@ -195,8 +210,8 @@ export default function Downloads() {
                   style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon name={e.pinned ? 'bookmark' : 'plus'} size={18} color={e.pinned ? c.textPrimary : c.textTertiary} />
-                </Pressable>
-                <Pressable
+                </HapticPressable>
+                <HapticPressable
                   onPress={() => {
                     void deletePaper(e.id).then(() => {
                       refresh();
@@ -208,10 +223,10 @@ export default function Downloads() {
                   style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon name="x" size={16} color={c.textTertiary} />
-                </Pressable>
+                </HapticPressable>
               </View>
             ))}
-            <Pressable
+            <HapticPressable
               onPress={() => {
                 void clearCache().then(() => {
                   refresh();
@@ -223,7 +238,7 @@ export default function Downloads() {
               style={{ alignItems: 'center', paddingVertical: 16, minHeight: 52, justifyContent: 'center' }}
             >
               <Text style={{ fontSize: 13, color: c.error, fontFamily: fonts.sansMedium }}>Clear all downloads</Text>
-            </Pressable>
+            </HapticPressable>
           </View>
         )}
       </View>

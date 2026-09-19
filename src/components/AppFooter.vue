@@ -42,12 +42,12 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
       <div class="grid">
         <div class="brand">
           <div class="brand-logo">
-            <span class="logo-serif">Caleb's</span>
-            <span class="logo-caps">Library</span>
+            <span class="logo-serif">Bells</span>
+            <span class="logo-caps">Notes</span>
           </div>
           <p class="brand-copy">
-            An open, community-run library of student notes, study guides, and papers.
-            Free to read. Free to contribute. No account needed.
+            A free library for Bells students. Notes, past questions, and study guides
+            from real students. Free to read. Free to contribute.
           </p>
         </div>
         <div v-for="col in columns" :key="col.label" class="col">
@@ -65,7 +65,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
         </div>
       </div>
       <div class="bottom">
-        <span class="mono">© 2026 · Caleb's Library · A community project</span>
+        <span class="mono">© 2026 · Bells Notes · Built for Bells University</span>
         <span class="mono tagline">Made with care. Kept alive by contributors.</span>
       </div>
     </div>
@@ -74,8 +74,8 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 
 <style scoped>
 .footer {
-  background: var(--paper-2);
-  border-top: 1px solid var(--rule);
+  background: var(--bg-default);
+  border-top: 1px solid var(--border-default);
   margin-top: 96px;
 }
 .inner {
@@ -95,23 +95,23 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
   margin-bottom: 12px;
 }
 .logo-serif {
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 500;
   font-style: italic;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .logo-caps {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  color: var(--ink-40);
+  color: var(--text-quiet);
   text-transform: uppercase;
 }
 .brand-copy {
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--ink-70);
+  color: var(--text-secondary);
   max-width: 340px;
 }
 .col-label {
@@ -124,24 +124,24 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 }
 .footer-link {
   font-size: 13px;
-  color: var(--ink-70);
+  color: var(--text-secondary);
   cursor: pointer;
   width: fit-content;
   transition: color var(--dur-fast);
 }
 .footer-link:hover {
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .bottom {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border-default);
   display: flex;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: var(--ink-40);
+  color: var(--text-quiet);
 }
 @media (max-width: 900px) {
   .grid {

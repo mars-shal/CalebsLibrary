@@ -3,7 +3,7 @@
 // uninstall resets it; no hardware identifiers ever read.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-device');
+const storage: KV = getKV('bellsnotes-device');
 const KEY = 'device.hash';
 
 function randomHex(bytes: number): string {

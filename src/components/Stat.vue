@@ -15,7 +15,7 @@ defineProps<{ value: string; label: string }>()
   letter-spacing: -0.03em;
   line-height: 1;
   font-weight: 500;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .stat-label {
   margin-top: 6px;

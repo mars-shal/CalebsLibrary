@@ -4,7 +4,7 @@
 // on the next open. Pure MMKV, no network, no accounts.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-streaks');
+const storage: KV = getKV('bellsnotes-streaks');
 const CUR_KEY = 'streak.cur';
 const BEST_KEY = 'streak.best';
 const LAST_KEY = 'streak.last'; // ISO day of last reading day

@@ -1,7 +1,9 @@
 // Saved — personal library (port of web bookmarks).
 // MMKV bookmark ids hydrated via getByIds; unsave inline. Cached-download
 // status arrives with the Downloads manager (Phase 4); rows show paper meta.
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
+import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useQuery } from 'convex/react';
@@ -11,11 +13,14 @@ import { getRecents } from '@/lib/recents';
 import { cachePapers, getCachedPaper } from '@/lib/cache';
 import { useOverlaidPapers } from '@/lib/queries';
 import type { Paper } from '@shared/design';
-import { BookCover } from '@/components/BookCover';
+import { IndexStack } from '@/components/IndexStack';
 import { EmptyState } from '@/components/states';
 import { Icon } from '@/icons/icons';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
+import { useDockScrollWiring } from '@/motion/dockScroll';
+
+const DockFlatList = Animated.FlatList;
 
 export default function Saved() {
   const c = useThemeColors();
@@ -27,6 +32,7 @@ export default function Saved() {
     api.catalogue.getByIds,
     ids.length ? { ids: ids.slice(0, 100) } : 'skip',
   ) as Paper[] | undefined;
+  const dockWire = useDockScrollWiring('saved');
 
   useEffect(() => {
     if (papers?.length) cachePapers(papers);
@@ -43,7 +49,7 @@ export default function Saved() {
   const seenIds = new Set(getRecents().map((r) => r.id));
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
       <View style={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 12 }}>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
           Your shelf
@@ -56,22 +62,22 @@ export default function Saved() {
             <Text style={{ flex: 1, fontSize: 13, color: c.textTertiary, fontFamily: fonts.sans }}>
               {ids.length} saved · downloads live in each paper
             </Text>
-            <Pressable
+            <HapticPressable
               onPress={() => router.push('/downloads')}
               accessibilityRole="button"
               accessibilityLabel="Manage downloads"
               style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
             >
               <Text style={{ fontSize: 13, color: c.textPrimary, fontFamily: fonts.sansMedium }}>Downloads</Text>
-            </Pressable>
-            <Pressable
+            </HapticPressable>
+            <HapticPressable
               onPress={clear}
               accessibilityRole="button"
               accessibilityLabel="Clear all saved papers"
               style={{ padding: 8, minHeight: 44, justifyContent: 'center' }}
             >
               <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>Clear all</Text>
-            </Pressable>
+            </HapticPressable>
           </View>
         ) : null}
       </View>
@@ -88,10 +94,12 @@ export default function Saved() {
           />
         </View>
       ) : (
-        <FlatList
+        <DockFlatList
           data={ordered}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ paddingBottom: 140 }}
+          onScroll={dockWire.onScroll}
+          scrollEventThrottle={dockWire.scrollEventThrottle}
           renderItem={({ item: p }) => (
             <View
               style={{
@@ -100,18 +108,18 @@ export default function Saved() {
                 paddingVertical: 16,
                 paddingHorizontal: spacing.gutter,
                 borderBottomWidth: 1,
-                borderBottomColor: c.rule,
+                borderBottomColor: c.borderDefault,
                 alignItems: 'flex-start',
               }}
             >
-              <Pressable
+              <HapticPressable
                 onPress={() => router.push(`/paper/${p.id}`)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${p.title}`}
               >
-                <BookCover paper={p} size="xs" />
-              </Pressable>
-              <Pressable
+                <IndexStack paper={p} size="xs" />
+              </HapticPressable>
+              <HapticPressable
                 onPress={() => router.push(`/paper/${p.id}`)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${p.title}`}
@@ -128,15 +136,15 @@ export default function Saved() {
                     {p.type} · {p.year}
                   </Text>
                 </View>
-              </Pressable>
-              <Pressable
+              </HapticPressable>
+              <HapticPressable
                 onPress={() => toggle(p.id)}
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${p.title} from saved`}
                 style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Icon name="bookmark" size={18} color={c.textPrimary} />
-              </Pressable>
+              </HapticPressable>
             </View>
           )}
         />

@@ -95,9 +95,9 @@ export function BookCover({
             {
               width: s.w,
               aspectRatio: 2 / 3,
-              backgroundColor: theme.paper2,
+              backgroundColor: theme.bgDefault,
               borderWidth: 1,
-              borderColor: theme.rule,
+              borderColor: theme.borderDefault,
               borderRadius: 4,
               alignItems: 'center',
               justifyContent: 'center',
@@ -147,11 +147,7 @@ export function BookCover({
             borderTopRightRadius: 6,
             borderBottomRightRadius: 6,
             overflow: 'hidden',
-            shadowColor: '#23201c',
-            shadowOpacity: 0.18,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 6,
+            boxShadow: '0px 8px 24px rgba(35, 32, 28, 0.18)',
           },
           animatedStyle,
           style,
@@ -208,7 +204,6 @@ export function BookCover({
         {/* sheen sweep on press */}
         {!reduceMotion ? (
           <Animated.View
-            pointerEvents="none"
             style={[
               {
                 position: 'absolute',
@@ -218,6 +213,7 @@ export function BookCover({
                 backgroundColor: '#ffffff',
                 transform: [{ rotate: '-18deg' }],
                 zIndex: 3,
+                pointerEvents: 'none',
               },
               sheenStyle,
             ]}

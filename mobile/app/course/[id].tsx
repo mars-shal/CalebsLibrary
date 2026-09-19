@@ -2,16 +2,18 @@
 // Hero displayName, Notes/PQs segmented tabs, infinite course list,
 // one-tap exam pack (bulk download of the listed set).
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
+import { getFreeDiskStorageAsync } from 'expo-file-system/legacy';
 import { api } from '@/lib/convex';
 import { useFacets, useOverlaidPapers, useSearchPages } from '@/lib/queries';
 import { downloadPaper, isDownloaded, resolvePaperUrl } from '@/lib/downloads';
 import { toast } from '@/components/Toast';
 import { Icon } from '@/icons/icons';
 import type { Paper } from '@shared/design';
-import { BookCover } from '@/components/BookCover';
+import { IndexStack } from '@/components/IndexStack';
 import { Segmented } from '@/components/Segmented';
 import { SkeletonRow } from '@/components/Skeleton';
 import { EmptyState } from '@/components/states';
@@ -28,67 +30,82 @@ export default function Course() {
   const [tab, setTab] = useState<'all' | 'Notes' | 'Past Exam'>('all');
 
   const course = facets?.courses.find((x) => x.id === id);
+  // Tab ids must map to the CATALOGUE's type vocabulary: papers store
+  // 'Lecture Notes' (not 'Notes') and 'Past Exam' (not 'Past questions').
+  // The old filter compared against 'Notes' and never matched anything, so
+  // the Notes tab (and its exam pack) was always empty.
+  const tabType = tab === 'Notes' ? 'Lecture Notes' : tab === 'Past Exam' ? 'Past Exam' : undefined;
   const papersBase = useMemo(() => {
     const list = (results as Paper[]).filter((p) => p.course === id);
-    return tab === 'all' ? list : list.filter((p) => p.type === tab);
-  }, [results, id, tab]);
+    return tabType ? list.filter((p) => p.type === tabType) : list;
+  }, [results, id, tabType]);
   const papers = useOverlaidPapers(papersBase);
 
-  // Exam pack: the COMPLETE server-side set for this tab (not just loaded
-  // pages), downloaded sequentially with skip-cached + cap + cancel.
-  const pack = useQuery(
-    api.catalogue.packIds,
-    id ? { course: id, type: tab === 'all' ? 'all' : tab } : 'skip',
-  ) as { id: string; fileExt: string; fileId: string }[] | undefined;
-  const [packState, setPackState] = useState({ active: false, done: 0, total: 0 });
-  const packCancel = useRef(false);
-  const packLabel = tab === 'all' ? 'papers' : tab === 'Notes' ? 'notes' : 'past questions';
+// Exam pack: the COMPLETE server-side set for this tab (not just loaded
+// pages), downloaded sequentially with skip-cached + cap + cancel.
+// NOTE: packIds is course-scoped; a course larger than the 300MB device cap
+// can never fully fit, so downloads that hit the cap are expected failures
+// (the error toast from downloadPaper surfaces per-file).
+const pack = useQuery(
+  api.catalogue.packIds,
+  id ? { course: id, type: tabType ?? 'all' } : 'skip',
+) as { id: string; fileExt: string; fileId: string }[] | undefined;
+const [packState, setPackState] = useState({ active: false, done: 0, total: 0 });
+const packCancel = useRef(false);
+const packLabel = tab === 'all' ? 'papers' : tab === 'Notes' ? 'notes' : 'past questions';
 
-  const startPack = async () => {
-    if (packState.active || !pack?.length) return;
-    const fresh: { id: string; fileExt: string; fileId: string }[] = [];
-    for (const it of pack) {
-      try {
-        if (!(await isDownloaded(it.id))) fresh.push(it);
-      } catch {
-        fresh.push(it);
-      }
+const startPack = async () => {
+  if (packState.active || !pack?.length) return;
+  // 300MB headroom probe: a pack that obviously cannot fit fails fast with
+  // guidance instead of churning through every file and failing 40 times.
+  const free = await getFreeDiskStorageAsync().catch(() => Number.POSITIVE_INFINITY);
+  if (free < 50 * 1024 * 1024) {
+    toast('Not enough free storage for this pack');
+    return;
+  }
+  const fresh: { id: string; fileExt: string; fileId: string }[] = [];
+  for (const it of pack) {
+    try {
+      if (!(await isDownloaded(it.id))) fresh.push(it);
+    } catch {
+      fresh.push(it);
     }
-    if (!fresh.length) {
-      toast('Already downloaded');
-      return;
+  }
+  if (!fresh.length) {
+    toast('Already downloaded');
+    return;
+  }
+  packCancel.current = false;
+  setPackState({ active: true, done: 0, total: fresh.length });
+  let done = 0;
+  let failed = 0;
+  for (const it of fresh) {
+    if (packCancel.current) break;
+    try {
+      const url = await resolvePaperUrl({ id: it.id, fileId: it.fileId });
+      await downloadPaper({ id: it.id, ext: it.fileExt, url });
+      done += 1;
+    } catch {
+      failed += 1;
     }
-    packCancel.current = false;
-    setPackState({ active: true, done: 0, total: fresh.length });
-    let done = 0;
-    let failed = 0;
-    for (const it of fresh) {
-      if (packCancel.current) break;
-      try {
-        const url = await resolvePaperUrl({ id: it.id, fileId: it.fileId });
-        await downloadPaper({ id: it.id, ext: it.fileExt, url });
-        done += 1;
-      } catch {
-        failed += 1;
-      }
-      setPackState({ active: true, done: done + failed, total: fresh.length });
-    }
-    const cancelled = packCancel.current;
-    setPackState({ active: false, done: 0, total: 0 });
-    toast(
-      cancelled
-        ? `Stopped — ${done} downloaded`
-        : failed > 0
-          ? `${done} downloaded, ${failed} failed`
-          : `${done} ${done === 1 ? 'paper' : 'papers'} downloaded`,
-    );
-  };
+    setPackState({ active: true, done: done + failed, total: fresh.length });
+  }
+  const cancelled = packCancel.current;
+  setPackState({ active: false, done: 0, total: 0 });
+  toast(
+    cancelled
+      ? `Stopped — ${done} downloaded`
+      : failed > 0
+        ? `${done} downloaded, ${failed} failed`
+        : `${done} ${done === 1 ? 'paper' : 'papers'} downloaded`,
+  );
+};
 
   const loading = !facets && status === 'LoadingFirstPage';
 
   if (!loading && !course) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, padding: spacing.gutter, paddingTop: 96 }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault, padding: spacing.gutter, paddingTop: 96 }}>
         <EmptyState
           title="Course not found."
           icon="books"
@@ -100,7 +117,7 @@ export default function Course() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
       <View style={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 12 }}>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
           Course
@@ -125,9 +142,9 @@ export default function Course() {
             style={{
               marginTop: 14,
               borderWidth: 1,
-              borderColor: c.rule,
+              borderColor: c.borderDefault,
               borderRadius: 8,
-              backgroundColor: c.elevated,
+              backgroundColor: c.bgElevated,
               padding: 14,
             }}
           >
@@ -143,7 +160,7 @@ export default function Course() {
                 </Text>
               </View>
               {packState.active ? (
-                <Pressable
+                <HapticPressable
                   onPress={() => {
                     packCancel.current = true;
                   }}
@@ -154,7 +171,7 @@ export default function Course() {
                     paddingHorizontal: 16,
                     borderRadius: 999,
                     borderWidth: 1,
-                    borderColor: c.ruleStrong,
+                    borderColor: c.borderStrong,
                     minHeight: 44,
                     justifyContent: 'center',
                   }}
@@ -162,9 +179,9 @@ export default function Course() {
                   <Text style={{ fontSize: 13, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                     Cancel
                   </Text>
-                </Pressable>
+                </HapticPressable>
               ) : (
-                <Pressable
+                <HapticPressable
                   onPress={() => void startPack()}
                   accessibilityRole="button"
                   accessibilityLabel={`Download ${pack!.length} ${packLabel}`}
@@ -175,24 +192,24 @@ export default function Course() {
                     paddingVertical: 10,
                     paddingHorizontal: 16,
                     borderRadius: 999,
-                    backgroundColor: c.ink100,
+                    backgroundColor: c.textPrimary,
                     minHeight: 44,
                   }}
                 >
-                  <Icon name="download" size={14} color={c.paper} />
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.paper, fontFamily: fonts.sansSemi }}>
+                  <Icon name="download" size={14} color={c.bgDefault} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.bgDefault, fontFamily: fonts.sansSemi }}>
                     Get pack
                   </Text>
-                </Pressable>
+                </HapticPressable>
               )}
             </View>
             {packState.active ? (
-              <View style={{ height: 4, borderRadius: 2, backgroundColor: c.rule, overflow: 'hidden', marginTop: 12 }}>
+              <View style={{ height: 4, borderRadius: 2, backgroundColor: c.borderDefault, overflow: 'hidden', marginTop: 12 }}>
                 <View
                   style={{
                     width: `${packState.total > 0 ? Math.round((packState.done / packState.total) * 100) : 0}%`,
                     height: 4,
-                    backgroundColor: c.ink100,
+                    backgroundColor: c.textPrimary,
                   }}
                 />
               </View>
@@ -213,7 +230,7 @@ export default function Course() {
           onEndReached={() => loadMore(50)}
           onEndReachedThreshold={0.5}
           renderItem={({ item: p }) => (
-            <Pressable
+            <HapticPressable
               onPress={() => router.push(`/paper/${p.id}`)}
               accessibilityRole="button"
               accessibilityLabel={`${p.title}, ${p.type}`}
@@ -223,18 +240,18 @@ export default function Course() {
                 paddingVertical: 16,
                 paddingHorizontal: spacing.gutter,
                 borderBottomWidth: 1,
-                borderBottomColor: c.rule,
+                borderBottomColor: c.borderDefault,
                 alignItems: 'flex-start',
               }}
             >
-              <BookCover paper={p} size="xs" />
+              <IndexStack paper={p} size="xs" />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <HighlightText text={p.title} query="" fontSize={16} />
                 <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 4 }}>
                   {p.type} · {p.year} · {p.pages} pages
                 </Text>
               </View>
-            </Pressable>
+            </HapticPressable>
           )}
         />
       ) : (

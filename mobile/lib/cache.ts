@@ -6,7 +6,7 @@ import { getKV, type KV } from './storage';
 import type { Paper } from '@shared/design';
 import type { Facets } from './queries';
 
-const storage: KV = getKV('calebs-cache');
+const storage: KV = getKV('bellsnotes-cache');
 const TTL_MS = 24 * 3600 * 1000;
 
 interface Entry<T> {

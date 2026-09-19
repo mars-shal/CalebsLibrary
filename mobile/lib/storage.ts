@@ -75,7 +75,7 @@ function nativeKV(id: string): KV | null {
     };
     const inst = createMMKV({ id });
     // Touch the native side NOW so a missing module throws here, guarded.
-    inst.getString('__calebs_probe__');
+    inst.getString('__bellsnotes_probe__');
     return {
       getString: (k) => inst.getString(k),
       set: (k, v) => inst.set(k, v),
@@ -101,7 +101,7 @@ export function getKV(id: string): KV {
       if (!warned) {
         warned = true;
         console.warn(
-          `[calebs] native storage unavailable (${envFingerprint()}) — using session memory. Persistence is OFF in this runtime.`,
+          `[bellsnotes] native storage unavailable (${envFingerprint()}) — using session memory. Persistence is OFF in this runtime.`,
         );
       }
       kv = new MemoryKV();
@@ -118,6 +118,6 @@ export function getKV(id: string): KV {
 
 export function isStoragePersistent(): boolean {
   // Force evaluation so the flag is accurate before first paint consumers.
-  getKV('calebs-probe');
+  getKV('bellsnotes-probe');
   return persistent;
 }

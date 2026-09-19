@@ -6,10 +6,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { useLowData } from '../lib/store';
 
 export const durations = {
   fast: 140,
@@ -28,6 +33,29 @@ export const springSheet = {
   damping: 30,
   mass: 1,
 } as const;
+
+// Shared easing — soft cubic-out for every entrance (premium = unhurried).
+export const easeOutCubic = Easing.out(Easing.cubic);
+
+// Entrance presets — staggered, phased, smooth. Pass a delay (ms) per element
+// to cascade sections; pairs with useStaggerDelay below.
+export const entrance = {
+  soft: (delay = 0) => FadeInDown.duration(320).delay(delay).easing(easeOutCubic),
+  rise: (delay = 0) => FadeInUp.duration(360).delay(delay).easing(easeOutCubic),
+  fade: (delay = 0) => FadeIn.duration(280).delay(delay).easing(easeOutCubic),
+} as const;
+
+export function useStaggerDelay(index: number, base = 0, step = 55): number {
+  return base + index * step;
+}
+
+// Ambient-decor gate: floating/twinkling loops are the first thing cut on
+// low-end or low-data devices — entrances and transitions stay for everyone.
+export function useAmbientOn(): boolean {
+  const reduced = useReducedMotion();
+  const lowData = useLowData();
+  return !reduced && !lowData;
+}
 
 export async function hapticLight(): Promise<void> {
   try {

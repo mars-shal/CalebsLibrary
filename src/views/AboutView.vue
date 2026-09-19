@@ -13,13 +13,13 @@ const router = useRouter()
 const RULES = [
   {
     label: 'RULE 01',
-    title: 'Attribution is not optional.',
-    body: 'Every paper carries the name of the person who contributed it. Take credit for your work; give credit to others\u2019.',
+    title: 'Built by a Bells student, for Bells students.',
+    body: 'This library exists because one student got tired of digging through WhatsApp groups for last semester\'s notes. It\'s not a startup, not a side project that got out of hand — it\'s just a tool that works.',
   },
   {
     label: 'RULE 02',
-    title: 'No commercial reuse.',
-    body: 'The library is a gift from the community to the community. It stays that way.',
+    title: 'Attribution is not optional.',
+    body: 'Every paper carries the name of the person who contributed it. Take credit for your work; give credit to others\u2019.',
   },
   {
     label: 'RULE 03',
@@ -38,21 +38,20 @@ const moderators = computed(() => {
 
 <template>
   <div class="screen-wrap about">
-    <div class="smallcaps" style="margin-bottom: 16px">How it works</div>
-    <h1 class="hero-title">What Caleb's Library is.</h1>
+    <div class="smallcaps" style="margin-bottom: 16px">About</div>
+    <h1 class="hero-title">Bells Notes.</h1>
     <p class="hero-sub">
-      An open, community-run collection of student notes, study guides, and papers.
-      Free to read, free to contribute, run by whoever shows up.
+      A free library for Bells students. Notes, past questions, and study guides
+      from real students — no accounts, no paywalls, no nonsense.
     </p>
 
     <Ornament style="margin-bottom: 48px" />
 
     <div class="body">
       <p>
-        It began, as most useful things do, as a shared folder.
-        Caleb H. and three friends kept their notes in one place in 2019.
-        That folder spread — first to their year, then to the years below them,
-        then to departments they'd never taken.
+        It started because one student kept losing their notes. A shared folder
+        became a Google Drive, became this. No big launch, no funding, no team —
+        just students helping students pass their courses.
       </p>
       <p>
         Today it holds {{ drive.stats.papers.toLocaleString() }} documents.
@@ -74,21 +73,21 @@ const moderators = computed(() => {
 
       <h2 class="section-title">Who runs this.</h2>
       <p>
-        Nobody, and everybody. Caleb started it; a rotating group of about a dozen
-        contributors keeps it running. There's no university behind it,
-        no company, no ads. If it stops working, whoever's around fixes it.
+        A Bells student. That's it. No university backing, no company, no ads.
+        If it breaks, whoever's around fixes it. If it stops being useful, it
+        stops existing.
       </p>
       <p>
         Uploads ask for a name and email — the email stays private and is only
         used if a moderator needs to reach you.
-        There are no accounts to create, nothing to log in to. Read, upload, or leave.
+        No accounts to create, nothing to log in to. Read, upload, or leave.
       </p>
 
       <h2 class="section-title">Want to help.</h2>
       <p>
-        Upload something. Comment on something. Flag something that shouldn't be here.
+        Upload your notes. Comment on something. Flag something that shouldn't be here.
         If you want to be a moderator, contribute a dozen papers first — we ask the
-        top contributors when a moderator spot opens.
+        top contributors when a spot opens.
       </p>
     </div>
 
@@ -129,20 +128,20 @@ const moderators = computed(() => {
   padding: 72px 32px 0;
 }
 .hero-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-style: italic;
   font-size: clamp(36px, 8vw, 72px);
   line-height: 1;
   margin: 0;
   letter-spacing: -0.03em;
-  color: var(--ink-100);
+  color: var(--text-primary);
   font-weight: 500;
   text-wrap: balance;
 }
 .hero-sub {
   font-family: var(--font-sans);
   font-size: 20px;
-  color: var(--ink-70);
+  color: var(--text-secondary);
   margin: 24px 0 48px;
   line-height: 1.5;
   max-width: 640px;
@@ -151,7 +150,7 @@ const moderators = computed(() => {
 .body {
   font-size: 16px;
   line-height: 1.75;
-  color: var(--ink-100);
+  color: var(--text-primary);
   letter-spacing: -0.005em;
 }
 .body p {
@@ -161,7 +160,7 @@ const moderators = computed(() => {
   font-size: 28px;
   margin: 56px 0 20px;
   letter-spacing: -0.025em;
-  color: var(--ink-100);
+  color: var(--text-primary);
   font-weight: 500;
 }
 .rules {
@@ -177,31 +176,31 @@ const moderators = computed(() => {
   padding-top: 20px;
 }
 .rule.bordered {
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border-default);
 }
 .rule-label {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--ink-40);
+  color: var(--text-quiet);
   letter-spacing: 0.04em;
   padding-top: 6px;
 }
 .rule-title {
   font-size: 20px;
-  color: var(--ink-100);
+  color: var(--text-primary);
   margin-bottom: 6px;
   font-weight: 500;
   letter-spacing: -0.015em;
 }
 .rule-body {
-  color: var(--ink-70);
+  color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.65;
 }
 .moderators-card {
   margin-top: 72px;
   padding: 32px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   background: var(--bg-elevated);
 }
@@ -225,7 +224,7 @@ const moderators = computed(() => {
 }
 .mod-name {
   font-size: 12px;
-  color: var(--ink-100);
+  color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

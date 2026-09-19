@@ -6,7 +6,6 @@ import { View } from 'react-native';
 export function AmbientGrain() {
   return (
     <View
-      pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={{
@@ -17,6 +16,7 @@ export function AmbientGrain() {
         bottom: 0,
         backgroundColor: '#23201c',
         opacity: 0.04,
+        pointerEvents: 'none',
       }}
     />
   );

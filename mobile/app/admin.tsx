@@ -4,7 +4,9 @@
 // indistinguishable verified:false on failure. Every decision auto-logs
 // server-side. Paginated throughout (never full-collect).
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
+import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { useConvex, useMutation, useQuery } from 'convex/react';
@@ -16,16 +18,15 @@ import { Sheet } from '@/components/Sheet';
 import { EmptyState } from '@/components/states';
 import { SkeletonRow } from '@/components/Skeleton';
 import { Icon } from '@/icons/icons';
-import { SpotArt } from '@/components/SpotArt';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
 import { toast } from '@/components/Toast';
 import { track } from '@/lib/analytics';
 
-const settings: KV = getKV('calebs-settings');
-const ADMIN_FLAG = 'calebs_admin';
-const PASS_KEY = 'calebs_pass';
-const ATTEMPTS_KEY = 'calebs_admin_attempts';
+const settings: KV = getKV('bellsnotes-settings');
+const ADMIN_FLAG = 'bellsnotes_admin';
+const PASS_KEY = 'bellsnotes_pass';
+const ATTEMPTS_KEY = 'bellsnotes_admin_attempts';
 
 type Kind = 'comments' | 'submissions' | 'reports';
 type StatusFilter = 'pending' | 'approved' | 'rejected';
@@ -72,10 +73,12 @@ interface ReportRow {
 
 export default function Admin() {
   const c = useThemeColors();
+  const router = useRouter();
   const [unlocked, setUnlocked] = useState(settings.getString(ADMIN_FLAG) === '1');
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [wrong, setWrong] = useState(false);
+  const convex = useConvex();
 
   const unlock = async () => {
     if (!pass.trim() || busy) return;
@@ -87,9 +90,23 @@ export default function Admin() {
     setWrong(false);
     try {
       settings.set(ATTEMPTS_KEY, JSON.stringify([...recentAttempts(), Date.now()]));
+      // VERIFY against the server (the wrong-passphrase branch returns
+      // verified:false with an empty page): any passphrase used to unlock
+      // used to be accepted and only exploded later in the queue.
+      const probe = await convex.query(api.comments.queuePage, {
+        passphrase: pass,
+        paginationOpts: { numItems: 1, cursor: null },
+      });
+      if (!probe.verified) {
+        setWrong(true);
+        setPass('');
+        return;
+      }
       await SecureStore.setItemAsync(PASS_KEY, pass);
       settings.set(ADMIN_FLAG, '1');
       setUnlocked(true);
+    } catch {
+      toast('Could not verify — check your connection');
     } finally {
       setBusy(false);
     }
@@ -104,7 +121,7 @@ export default function Admin() {
 
   if (!unlocked) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -113,9 +130,11 @@ export default function Admin() {
         contentContainerStyle={{ padding: spacing.gutter, paddingTop: 120, alignItems: 'center', flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
-        <SpotArt name="shield" size={112} />
-        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.ink100, alignItems: 'center', justifyContent: 'center', marginTop: 16, marginBottom: 20 }}>
-          <Icon name="shield" size={22} color={c.paper} />
+        <HapticPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', width: '100%' }}>
+          <Icon name="arrow-left" size={18} color={c.textSecondary} />
+        </HapticPressable>
+        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.textPrimary, alignItems: 'center', justifyContent: 'center', marginTop: 16, marginBottom: 20 }}>
+          <Icon name="shield" size={22} color={c.bgDefault} />
         </View>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 8 }}>
           Moderators only
@@ -140,13 +159,13 @@ export default function Admin() {
           style={{
             width: '100%',
             borderWidth: 1,
-            borderColor: c.ruleStrong,
+            borderColor: c.borderStrong,
             borderRadius: 8,
             padding: 13,
             fontSize: 15,
             color: c.textPrimary,
             fontFamily: fonts.sans,
-            backgroundColor: c.elevated,
+            backgroundColor: c.bgElevated,
           }}
         />
         {wrong ? (
@@ -154,17 +173,17 @@ export default function Admin() {
             That&apos;s not the passphrase.
           </Text>
         ) : null}
-        <Pressable
+        <HapticPressable
           onPress={() => void unlock()}
           disabled={busy}
           accessibilityRole="button"
           accessibilityLabel="Unlock moderation"
-          style={{ marginTop: 16, width: '100%', backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busy ? 0.6 : 1 }}
+          style={{ marginTop: 16, width: '100%', backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busy ? 0.6 : 1 }}
         >
-          <Text style={{ color: c.paper, fontWeight: '600', fontFamily: fonts.sansSemi }}>
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontFamily: fonts.sansSemi }}>
             {busy ? 'Checking…' : 'Unlock'}
           </Text>
-        </Pressable>
+        </HapticPressable>
       </ScrollView>
       </KeyboardAvoidingView>
       </View>
@@ -176,6 +195,7 @@ export default function Admin() {
 
 function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => void }) {
   const c = useThemeColors();
+  const router = useRouter();
   const convex = useConvex();
   const [passphrase, setPassphrase] = useState('');
   const [kind, setKind] = useState<Kind>('comments');
@@ -297,12 +317,19 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
 
   const togglePin = async () => {
     if (!selectedItem || busyId || kind !== 'comments') return;
+    if (selectedItem.status !== 'approved') {
+      toast('Only approved comments can be pinned');
+      return;
+    }
     setBusyId(selectedItem.id);
     try {
       await decideComment({
         passphrase,
         id: selectedItem.id as never,
-        status: selectedItem.status as 'approved' | 'rejected',
+        // Pin toggles preserve the comment's current status. The moderation
+        // API only allows approved/rejected — a pending comment can't be the
+        // pinned answer, so bounce that with a clear message.
+        status: selectedItem.status === 'approved' ? 'approved' : 'rejected',
         pinned: !selectedPinned,
         deviceHash: getDeviceHash(),
       });
@@ -357,8 +384,11 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bgDefault }}>
       <View style={{ paddingHorizontal: spacing.gutter, paddingTop: 64, paddingBottom: 8 }}>
+        <HapticPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ minHeight: 44, justifyContent: 'center', marginBottom: 4 }}>
+          <Icon name="arrow-left" size={18} color={c.textSecondary} />
+        </HapticPressable>
         <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6 }}>
           Moderators · Signed in
         </Text>
@@ -366,9 +396,9 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
           <Text style={{ flex: 1, fontSize: 30, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
             Queue
           </Text>
-          <Pressable onPress={signOut} accessibilityRole="button" accessibilityLabel="Sign out" style={{ padding: 10, minHeight: 44, justifyContent: 'center' }}>
+          <HapticPressable onPress={signOut} accessibilityRole="button" accessibilityLabel="Sign out" style={{ padding: 10, minHeight: 44, justifyContent: 'center' }}>
             <Text style={{ fontSize: 12, color: c.textSecondary, fontFamily: fonts.sans }}>Sign out</Text>
-          </Pressable>
+          </HapticPressable>
         </View>
         <View style={{ marginTop: 12 }}>
           <Segmented
@@ -414,7 +444,7 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
           onEndReached={() => loadMore()}
           onEndReachedThreshold={0.5}
           renderItem={({ item, index }) => (
-            <Pressable
+            <HapticPressable
               onPress={() => setSelected(item.id)}
               accessibilityRole="button"
               accessibilityLabel={`Review item ${index + 1}`}
@@ -422,10 +452,10 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
                 paddingVertical: 14,
                 paddingHorizontal: spacing.gutter,
                 borderBottomWidth: 1,
-                borderBottomColor: c.rule,
+                borderBottomColor: c.borderDefault,
                 borderLeftWidth: 3,
-                borderLeftColor: selected === item.id ? c.ink100 : 'transparent',
-                backgroundColor: selected === item.id ? c.paper2 : 'transparent',
+                borderLeftColor: selected === item.id ? c.textPrimary : 'transparent',
+                backgroundColor: selected === item.id ? c.bgDefault : 'transparent',
               }}
             >
               <Text style={{ fontSize: 10, color: c.textTertiary, fontFamily: fonts.mono, marginBottom: 4 }}>
@@ -437,7 +467,7 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
               <Text numberOfLines={1} style={{ fontSize: 12, color: c.textSecondary, fontFamily: fonts.sans, marginTop: 4 }}>
                 {item.sub}
               </Text>
-            </Pressable>
+            </HapticPressable>
           )}
         />
       ) : (
@@ -456,7 +486,7 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
               {selectedItem.sub}
             </Text>
             {kind === 'submissions' ? (
-              <Pressable
+              <HapticPressable
                 onPress={() => void openSubmissionFile(selectedItem.id)}
                 accessibilityRole="button"
                 accessibilityLabel="Open submitted file"
@@ -465,7 +495,7 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
                 <Text style={{ fontSize: 13, color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                   Open submitted file →
                 </Text>
-              </Pressable>
+              </HapticPressable>
             ) : null}
             <TextInput
               value={note}
@@ -477,52 +507,52 @@ function Queue({ signOut, onBadPass }: { signOut: () => void; onBadPass: () => v
               style={{
                 marginTop: 16,
                 borderWidth: 1,
-                borderColor: c.ruleStrong,
+                borderColor: c.borderStrong,
                 borderRadius: 8,
                 padding: 12,
                 fontSize: 14,
                 color: c.textPrimary,
                 fontFamily: fonts.sans,
                 minHeight: 64,
-                backgroundColor: c.elevated,
+                backgroundColor: c.bgElevated,
               }}
             />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-              <Pressable
+              <HapticPressable
                 onPress={() => void decide(false)}
                 disabled={!!busyId}
                 accessibilityRole="button"
                 accessibilityLabel={kind === 'reports' ? 'Dismiss report' : 'Reject'}
-                style={{ flex: 1, borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
+                style={{ flex: 1, borderWidth: 1, borderColor: c.borderStrong, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
               >
                 <Text style={{ fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                   {kind === 'reports' ? 'Dismiss' : 'Reject'}
                 </Text>
-              </Pressable>
-              <Pressable
+              </HapticPressable>
+              <HapticPressable
                 onPress={() => void decide(true)}
                 disabled={!!busyId}
                 accessibilityRole="button"
                 accessibilityLabel={kind === 'reports' ? 'Mark reviewed' : 'Approve'}
-                style={{ flex: 1, backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
+                style={{ flex: 1, backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 13, alignItems: 'center', minHeight: 52, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
               >
-                <Text style={{ fontWeight: '600', color: c.paper, fontFamily: fonts.sansSemi }}>
+                <Text style={{ fontWeight: '600', color: c.bgDefault, fontFamily: fonts.sansSemi }}>
                   {kind === 'reports' ? 'Reviewed' : 'Approve'}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
             {kind === 'comments' ? (
-              <Pressable
+              <HapticPressable
                 onPress={() => void togglePin()}
                 disabled={!!busyId}
                 accessibilityRole="button"
                 accessibilityLabel={selectedPinned ? 'Unpin answer' : 'Pin as answer'}
-                style={{ marginTop: 10, borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
+                style={{ marginTop: 10, borderWidth: 1, borderColor: c.borderStrong, borderRadius: 8, paddingVertical: 12, alignItems: 'center', minHeight: 48, justifyContent: 'center', opacity: busyId ? 0.5 : 1 }}
               >
                 <Text style={{ fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium }}>
                   {selectedPinned ? 'Unpin answer' : 'Pin as answer'}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             ) : null}
           </ScrollView>
         ) : null}

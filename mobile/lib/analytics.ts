@@ -6,7 +6,7 @@
 // (setAnalyticsProvider) with zero screen edits.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-analytics');
+const storage: KV = getKV('bellsnotes-analytics');
 const ENABLED_KEY = 'analytics.enabled.v1';
 
 export type AnalyticsEvent =
@@ -22,7 +22,8 @@ export type AnalyticsEvent =
   | 'upload_decide'
   | 'share_create'
   | 'offline_open'
-  | 'cache_evict';
+  | 'cache_evict'
+  | 'glass_tier_sample';
 
 type Provider = (event: AnalyticsEvent, props?: Record<string, string | number | boolean>) => void;
 

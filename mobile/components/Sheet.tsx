@@ -42,13 +42,13 @@ export function Sheet({ visible, onClose, title, children, accessibilityLabel }:
           entering={SlideInDown.springify().damping(30).stiffness(300)}
           exiting={SlideOutDown.duration(200)}
           style={{
-            backgroundColor: scheme === 'dark' ? c.elevated : c.paper,
+            backgroundColor: scheme === 'dark' ? c.bgElevated : c.bgDefault,
             borderTopLeftRadius: radii.sheet,
             borderTopRightRadius: radii.sheet,
             borderTopWidth: 1,
             borderLeftWidth: 1,
             borderRightWidth: 1,
-            borderColor: c.rule,
+            borderColor: c.borderDefault,
             paddingHorizontal: spacing.gutter,
             paddingTop: 12,
             paddingBottom: 32,
@@ -56,7 +56,7 @@ export function Sheet({ visible, onClose, title, children, accessibilityLabel }:
           }}
         >
           <View style={{ alignItems: 'center', marginBottom: 12 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.ruleStrong }} />
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.borderStrong }} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
             <Text

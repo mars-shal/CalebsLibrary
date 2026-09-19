@@ -1,9 +1,10 @@
-// PaperCard — BookCover + 2-line title + type·▲upvotes meta.
+// PaperCard — IndexStack + 2-line title + type·▲upvotes meta.
 // Port of src/components/PaperCard.vue (hover -2px → press 0.97).
 // First-viewport stagger: entering fade-up, delay capped at 6 items.
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { BookCover, type CoverSize } from './BookCover';
+import { IndexStack, type StackSize } from './IndexStack';
 import { formatCount, type Paper } from '@shared/design';
 import { Icon } from '../icons/icons';
 import { fonts } from '../theme/tokens';
@@ -12,7 +13,7 @@ import { useReducedMotion } from '../motion/motion';
 
 export interface PaperCardProps {
   paper: Paper;
-  size?: Extract<CoverSize, 'sm' | 'md'>;
+  size?: Extract<StackSize, 'sm' | 'md'>;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   /** Position in list — drives capped stagger delay. */
@@ -30,13 +31,13 @@ export function PaperCard({ paper, size = 'md', onPress, style, index = 0 }: Pap
           : FadeInUp.delay(Math.min(index, 5) * 40).duration(260)
       }
     >
-    <Pressable
+    <HapticPressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${paper.title}, ${paper.type}, ${paper.upvotes} upvotes`}
       style={[{ flexDirection: 'column', gap: 12 }, style]}
     >
-      <BookCover paper={paper} size={size} />
+      <IndexStack paper={paper} size={size} />
       <View>
         <Text
           numberOfLines={2}
@@ -64,7 +65,7 @@ export function PaperCard({ paper, size = 'md', onPress, style, index = 0 }: Pap
           </View>
         </View>
       </View>
-    </Pressable>
+    </HapticPressable>
     </Animated.View>
   );
 }

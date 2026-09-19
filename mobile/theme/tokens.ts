@@ -1,75 +1,90 @@
-// Theme tokens — exact port of src/assets/tokens.css + UI.md §§1/3.
-// FIDELITY RULE: hexes, families, and brand language match the website
-// exactly. Own direction lives in radii/layout/motion/chrome only.
-
-// Theme tokens — softened evolution of src/assets/tokens.css + UI.md §§1/3.
-// FIDELITY RULE (amended per user): same hues and brand language as the
-// website, but light mode steps toward a softer off-white and the charcoal
-// eases off pure-black harshness. Own direction lives in radii/layout/
-// motion/chrome only.
+// Theme tokens — Bells Notes monochrome identity (UI.md §§1/3).
+// Monochrome only: grayscale contrast + weight, no hue-based palette.
+// Radii, spacing, shadow-to-native mapping, max-width buckets are structurally
+// unchanged from the original — those were never brand-colored decisions.
 
 export const light = {
-  paper: '#f7f4ec',
-  paper2: '#f0ece1',
-  paper3: '#e7e1d3',
-  paper4: '#d6cfbd',
+  paper: '#f7f5f2',
+  paper2: '#efece7',
+  paper3: '#e3dfd9',
+  paper4: '#d6d1ca',
   ink0: '#ffffff',
-  ink10: '#e2dccf',
-  ink20: '#bfb7a8',
-  ink30: '#978e80',
-  ink40: '#756c63',
-  ink50: '#575046',
-  ink70: '#46403a',
-  ink85: '#2e2925',
-  ink100: '#23201c',
-  rule: 'rgba(35, 32, 28, 0.08)',
-  ruleStrong: 'rgba(35, 32, 28, 0.14)',
-  elevated: '#faf8f1',
-  pdf: '#fdfaf3',
-  error: '#bb4436',
-  overlay: 'rgba(35, 32, 28, 0.9)',
-  textPrimary: '#23201c',
-  textSecondary: '#46403a',
-  textTertiary: '#756c63',
-  textQuiet: '#978e80',
+  ink10: '#eae7e2',
+  ink20: '#d6d1ca',
+  ink30: '#aaa49b',
+  ink40: '#7d766c',
+  ink50: '#5c554c',
+  ink70: '#443f38',
+  ink85: '#2b2723',
+  ink100: '#1c1917',
+  rule: 'rgba(28, 25, 23, 0.08)',
+  ruleStrong: 'rgba(28, 25, 23, 0.16)',
+  elevated: '#fffefb',
+  pdf: '#f2efe9',
+  error: '#1c1917',
+  overlay: 'rgba(28, 25, 23, 0.9)',
+  textPrimary: '#1c1917',
+  textSecondary: '#44403c',
+  textTertiary: '#79726a',
+  textQuiet: '#a8a29e',
+  bgDefault: '#f7f5f2',
+  bgElevated: '#fffefb',
+  bgSkeleton: '#e3dfd9',
+  borderDefault: 'rgba(28, 25, 23, 0.08)',
+  borderStrong: 'rgba(28, 25, 23, 0.16)',
 } as const;
 
 export const dark = {
-  paper: '#151311',
-  paper2: '#1d1a17',
-  paper3: '#252320',
-  paper4: '#3a3632',
+  // True-black paper (OLED): the brand's dark mode sits at #000 with warm
+  // lifted inks — deeper than the old #0a0a0a, softer text for comfort.
+  paper: '#000000',
+  paper2: '#0a0a0a',
+  paper3: '#141414',
+  paper4: '#232323',
   ink0: '#000000',
-  ink10: '#2a2825',
-  ink20: '#403d39',
-  ink30: '#5c5852',
-  ink40: '#7a7570',
-  ink50: '#9a958f',
-  ink70: '#bdb8b1',
-  ink85: '#ddd9d3',
-  ink100: '#ece7e0',
-  rule: 'rgba(236, 231, 224, 0.1)',
-  ruleStrong: 'rgba(236, 231, 224, 0.18)',
-  elevated: '#1a1816',
-  pdf: '#1a1816',
-  error: '#e74c3c',
-  overlay: 'rgba(21, 19, 17, 0.92)',
-  textPrimary: '#ece7e0',
-  textSecondary: '#bdb8b1',
-  textTertiary: '#7a7570',
-  textQuiet: '#5c5852',
+  ink10: '#161616',
+  ink20: '#2a2a2a',
+  ink30: '#4a4a4a',
+  ink40: '#7a7773',
+  ink50: '#a6a29c',
+  ink70: '#d1cdc7',
+  ink85: '#e8e5e0',
+  ink100: '#f4f1ec',
+  rule: 'rgba(244, 241, 236, 0.08)',
+  ruleStrong: 'rgba(244, 241, 236, 0.15)',
+  elevated: '#0f0e0d',
+  pdf: '#0a0a0a',
+  error: '#f4f1ec',
+  overlay: 'rgba(0, 0, 0, 0.92)',
+  textPrimary: '#f4f1ec',
+  textSecondary: '#d1cdc7',
+  textTertiary: '#a6a29c',
+  textQuiet: '#7a7773',
+  bgDefault: '#000000',
+  bgElevated: '#0f0e0d',
+  bgSkeleton: '#161616',
+  borderDefault: 'rgba(244, 241, 236, 0.08)',
+  borderStrong: 'rgba(244, 241, 236, 0.15)',
 } as const;
 
 export type Theme = typeof light | typeof dark;
 export type ColorScheme = 'light' | 'dark';
 
-// Glass + fallback fills (UI.md §3). Tints derive from paper/ink only.
+// Glass + fallback fills (UI.md §7). Tints derive from monochrome scale.
 export const glass = {
-  tintLight: 'rgba(247, 244, 236, 0.55)',
-  tintDark: 'rgba(21, 19, 17, 0.55)',
-  borderLight: 'rgba(255, 255, 255, 0.35)',
-  fallbackFillLight: 'rgba(247, 244, 236, 0.92)',
-  fallbackFillDark: 'rgba(21, 19, 17, 0.92)',
+  tintLight: 'rgba(247, 245, 242, 0.55)',
+  tintDark: 'rgba(0, 0, 0, 0.55)',
+  borderLight: 'rgba(255, 255, 255, 0.3)',
+  fallbackFillLight: 'rgba(247, 245, 242, 0.94)',
+  fallbackFillDark: 'rgba(0, 0, 0, 0.94)',
+  // Liquid Glass on non-iOS26 tiers (v2): translucent fills that sit OVER a
+  // live backdrop blur (Android 12+ dimezis / web backdrop-filter). Much
+  // lighter than the 0.92 solid-fallback washes — the blur does the work.
+  blurFillLight: 'rgba(247, 245, 242, 0.62)',
+  blurFillDark: 'rgba(0, 0, 0, 0.52)',
+  // Specular rim for blur tiers (SVG sheen adds the white highlights).
+  edgeLight: 'rgba(255, 255, 255, 0.5)',
+  edgeDark: 'rgba(255, 255, 255, 0.16)',
 } as const;
 
 // Radii evolve Apple-ward (web 2/3/5/10/16 → app values). Pills stay 999.
@@ -91,14 +106,16 @@ export const spacing = {
   cardGutter: 16,
 } as const;
 
-// Type roles. Serif reserved: brand/masthead/About/404 ONLY.
+// Type roles. Serif reserved: About/404 editorial moments ONLY.
+// Hanken Grotesk (brand wordmark "Grotsek"), General Sans (UI body), JetBrains Mono (meta).
 export const fonts = {
-  serif: 'EBGaramond_500Medium',
-  serifItalic: 'EBGaramond_500Medium_Italic',
-  sans: 'Inter_400Regular',
-  sansMedium: 'Inter_500Medium',
-  sansSemi: 'Inter_600SemiBold',
-  sansBold: 'Inter_700Bold',
+  brand: 'HankenGrotesk-SemiBold',
+  brandMedium: 'HankenGrotesk-Medium',
+  serif: 'Fraunces_500Medium',
+  serifItalic: 'Fraunces_500Medium_Italic',
+  sans: 'GeneralSans-Regular',
+  sansMedium: 'GeneralSans-Medium',
+  sansSemi: 'GeneralSans-Semibold',
   mono: 'JetBrainsMono_400Regular',
   monoMedium: 'JetBrainsMono_500Medium',
 } as const;

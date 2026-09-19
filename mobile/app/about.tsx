@@ -1,42 +1,42 @@
-// About — editorial "how it works" + legal (port of AboutView).
-// RULE 01–03 verbatim. Moderators = top-8 by uploads in loaded scope,
-// founder first (labeled as scope-local, not global). The old "three
-// thousand documents" precision claim is dropped (counts shift with scope).
+// About — editorial "how it works" + legal (Bells Notes rebrand).
+// RULE 01–03 rewritten for the solo-dev-for-Bells narrative.
+// Moderators = top-8 by uploads in loaded scope, founder first.
 // Legal sections versioned legal.v1.
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { useRouter } from 'expo-router';
 import { useFacets, useSearchPages } from '@/lib/queries';
 import { FOUNDER_EMAIL } from '@shared/catalogue';
 import type { Paper } from '@shared/design';
 import { Avatar } from '@/components/Avatar';
-import { SpotArt } from '@/components/SpotArt';
 import { Icon } from '@/icons/icons';
 import { fonts } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
+import { SpotArt } from '@/components/SpotArt';
 
 const RULES = [
   {
     label: 'RULE 01',
-    title: 'Attribution is not optional.',
-    body: 'Every paper carries the name of the person who contributed it. Take credit for your work; give credit to others’.',
+    title: 'Every paper has a name on it.',
+    body: 'Contributors are credited on every paper they share. If you wrote it, put your name on it. If someone else wrote it, leave their name alone.',
   },
   {
     label: 'RULE 02',
-    title: 'No commercial reuse.',
-    body: 'The library is a gift from the community to the community. It stays that way.',
+    title: 'This is not a business.',
+    body: 'Bells Notes is built by a Bells student for Bells students. No ads, no paywalls, no data harvesting. The library belongs to whoever uses it.',
   },
   {
     label: 'RULE 03',
-    title: 'Moderators have the last word.',
-    body: 'A small rotating group of contributors reviews every submission. They approve, request changes, or reject. Their decisions are appealable, but final.',
+    title: 'Moderators keep the shelves clean.',
+    body: 'A rotating group of top contributors reviews every submission. They approve, request changes, or reject. Their decisions are final — and they are also students, so be patient.',
   },
 ];
 
 const LEGAL: { title: string; body: string }[] = [
   {
     title: 'Privacy',
-    body: 'No accounts. Comments and uploads ask for a display name; email is optional, stays private, and is used only if moderators must reach you. Analytics are opt-out in Settings and contain no personal data.',
+    body: 'No accounts required. Comments and uploads ask for a display name; email is optional, stays private, and is used only if moderators must reach you. Analytics are opt-out in Settings and contain no personal data.',
   },
   {
     title: 'Terms',
@@ -48,7 +48,7 @@ const LEGAL: { title: string; body: string }[] = [
   },
   {
     title: 'Contact',
-    body: 'Reach a moderator through any report, or ask a contributor on campus. There is no support desk — whoever is around fixes what breaks.',
+    body: 'Reach a moderator through any report, or find a contributor on campus. There is no support desk — whoever is around fixes what breaks.',
   },
 ];
 
@@ -75,38 +75,41 @@ export default function About() {
   }, [results, facets]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 72, paddingBottom: 120 }}>
-      <View style={{ alignItems: 'center', marginBottom: 8 }}>
-        <SpotArt name="library" size={150} />
-      </View>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bgDefault }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 72, paddingBottom: 120 }}>
+      <HapticPressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginBottom: 8 }}>
+        <Icon name="arrow-left" size={18} color={c.textSecondary} />
+      </HapticPressable>
       <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 14 }}>
         How it works · legal.v1
       </Text>
-      <Text style={{ fontSize: 44, lineHeight: 46, color: c.textPrimary, fontFamily: fonts.serifItalic }}>
-        What Caleb&apos;s Library is.
+      <View style={{ alignItems: 'center', marginTop: 24 }}>
+        <SpotArt name="library" size={140} />
+      </View>
+      <Text style={{ fontSize: 44, lineHeight: 46, color: c.textPrimary, fontFamily: fonts.serifItalic, marginTop: 20 }}>
+        What Bells Notes is.
       </Text>
       <Text style={{ fontSize: 18, color: c.textSecondary, fontFamily: fonts.sans, marginTop: 20, lineHeight: 28 }}>
-        An open, community-run collection of student notes, study guides, and papers. Free to read, free to contribute, run by whoever shows up.
+        A free, open library built by a Bells student for Bells students. Notes, past questions, study guides — no accounts, no paywalls, no nonsense.
       </Text>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 40 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: c.rule }} />
+        <View style={{ flex: 1, height: 1, backgroundColor: c.borderDefault }} />
         <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.textQuiet }} />
-        <View style={{ flex: 1, height: 1, backgroundColor: c.rule }} />
+        <View style={{ flex: 1, height: 1, backgroundColor: c.borderDefault }} />
       </View>
 
       <Text style={{ fontSize: 16, lineHeight: 28, color: c.textPrimary, fontFamily: fonts.sans, marginBottom: 16 }}>
-        It began, as most useful things do, as a shared folder. Caleb H. and three friends kept their notes in one place in 2019. That folder spread — first to their year, then to the years below them, then to departments they&apos;d never taken.
+        It started as a shared Google Drive folder. One student, tired of hearing &apos;do you have last year&apos;s notes?&apos; put everything in one place and shared the link.
       </Text>
       <Text style={{ fontSize: 16, lineHeight: 28, color: c.textPrimary, fontFamily: fonts.sans }}>
-        Today it holds thousands of documents. Every one of them was left behind by a student who wanted the next person to have a slightly easier time than they did.
+        That link spread across hostels, across departments, across years. Now it holds thousands of documents — every one left behind by a student who wanted the next person to have it easier.
       </Text>
 
       <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginTop: 48, marginBottom: 8 }}>
         Three rules.
       </Text>
       {RULES.map((r, i) => (
-        <View key={r.label} style={{ paddingTop: 18, marginBottom: 18, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: c.rule }}>
+        <View key={r.label} style={{ paddingTop: 18, marginBottom: 18, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: c.borderDefault }}>
           <Text style={{ fontSize: 12, color: c.textTertiary, fontFamily: fonts.mono, marginBottom: 6 }}>{r.label}</Text>
           <Text style={{ fontSize: 19, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginBottom: 6 }}>
             {r.title}
@@ -119,27 +122,27 @@ export default function About() {
         Who runs this.
       </Text>
       <Text style={{ fontSize: 16, lineHeight: 28, color: c.textPrimary, fontFamily: fonts.sans, marginBottom: 16 }}>
-        Nobody, and everybody. Caleb started it; a rotating group of about a dozen contributors keeps it running. There&apos;s no university behind it, no company, no ads. If it stops working, whoever&apos;s around fixes it.
+        One Bells student built it. A rotating group of contributors keeps it running. There is no university behind it, no company, no ads. If it breaks, whoever is around fixes it.
       </Text>
       <Text style={{ fontSize: 16, lineHeight: 28, color: c.textPrimary, fontFamily: fonts.sans }}>
-        Uploads ask for a name and email — the email stays private and is only used if a moderator needs to reach you. There are no accounts to create, nothing to log in to. Read, upload, or leave.
+        Uploading asks for a name and email — the email stays private and is only used if a moderator needs to reach you. No accounts to create, nothing to log in to. Read, upload, or leave.
       </Text>
 
       <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginTop: 40, marginBottom: 8 }}>
         Want to help.
       </Text>
       <Text style={{ fontSize: 16, lineHeight: 28, color: c.textPrimary, fontFamily: fonts.sans }}>
-        Upload something. Comment on something. Flag something that shouldn&apos;t be here. If you want to be a moderator, contribute a dozen papers first — we ask the top contributors when a moderator spot opens.
+        Upload something. Comment on something. Flag something that should not be here. If you want to be a moderator, contribute a dozen papers first — the top contributors get asked when a spot opens.
       </Text>
 
       {moderators.length > 0 ? (
-        <View style={{ marginTop: 48, padding: 24, borderWidth: 1, borderColor: c.rule, borderRadius: 8, backgroundColor: c.elevated }}>
+        <View style={{ marginTop: 48, padding: 24, borderWidth: 1, borderColor: c.borderDefault, borderRadius: 8, backgroundColor: c.bgElevated }}>
           <Text style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 1.7, fontWeight: '600', color: c.textTertiary, fontFamily: fonts.sansSemi, marginBottom: 6 }}>
             Leaderboard · top contributors in your scope
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
             {moderators.map((m, i) => (
-              <Pressable
+              <HapticPressable
                 key={m.id}
                 onPress={() => router.push(`/profile/${m.id}`)}
                 accessibilityRole="button"
@@ -158,30 +161,30 @@ export default function About() {
                     {m.n} papers
                   </Text>
                 </View>
-              </Pressable>
+              </HapticPressable>
             ))}
           </View>
         </View>
       ) : null}
 
       <View style={{ marginTop: 40, gap: 12 }}>
-        <Pressable
+        <HapticPressable
           onPress={() => router.push('/upload')}
           accessibilityRole="button"
           accessibilityLabel="Contribute a paper"
-          style={{ backgroundColor: c.ink100, borderRadius: 8, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, minHeight: 52 }}
+          style={{ backgroundColor: c.textPrimary, borderRadius: 8, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, minHeight: 52 }}
         >
-          <Icon name="upload" size={14} color={c.paper} />
-          <Text style={{ color: c.paper, fontWeight: '600', fontFamily: fonts.sansSemi }}>Contribute a paper</Text>
-        </Pressable>
-        <Pressable
+          <Icon name="upload" size={14} color={c.bgDefault} />
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontFamily: fonts.sansSemi }}>Contribute a paper</Text>
+        </HapticPressable>
+        <HapticPressable
           onPress={() => router.navigate('/(tabs)/browse')}
           accessibilityRole="button"
           accessibilityLabel="Browse the library"
-          style={{ borderWidth: 1, borderColor: c.ruleStrong, borderRadius: 8, paddingVertical: 14, alignItems: 'center', minHeight: 52, justifyContent: 'center' }}
+          style={{ borderWidth: 1, borderColor: c.borderStrong, borderRadius: 8, paddingVertical: 14, alignItems: 'center', minHeight: 52, justifyContent: 'center' }}
         >
           <Text style={{ color: c.textPrimary, fontWeight: '500', fontFamily: fonts.sansMedium }}>Browse the library</Text>
-        </Pressable>
+        </HapticPressable>
       </View>
 
       <Text style={{ fontSize: 26, fontWeight: '500', color: c.textPrimary, fontFamily: fonts.sansMedium, marginTop: 56, marginBottom: 8 }}>

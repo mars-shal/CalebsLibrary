@@ -3,7 +3,7 @@
 // the safe storage layer.
 import { getKV, type KV } from './storage';
 
-const storage: KV = getKV('calebs-search-history');
+const storage: KV = getKV('bellsnotes-search-history');
 const KEY = 'recent.v1';
 const MAX = 8;
 

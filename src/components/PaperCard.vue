@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// PaperCard — BookCover + title + one-line meta
-import BookCover from './BookCover.vue'
+// PaperCard — IndexStack + title + one-line meta
+import IndexStack from './IndexStack.vue'
 import Icon from './Icon.vue'
 import { formatCount } from '@/script/design'
 import type { Paper } from '@/script/design'
@@ -11,7 +11,7 @@ defineEmits<{ (e: 'click'): void }>()
 
 <template>
   <div class="paper-card" @click="$emit('click')">
-    <BookCover :paper="paper" :size="size" @click="$emit('click')" />
+    <IndexStack :paper="paper" :size="size" @click="$emit('click')" />
     <div>
       <div class="card-title">{{ paper.title }}</div>
       <div class="card-meta">
@@ -46,7 +46,7 @@ defineEmits<{ (e: 'click'): void }>()
   font-weight: 500;
   margin-bottom: 4px;
   letter-spacing: -0.01em;
-  color: var(--ink-100);
+  color: var(--text-primary);
 }
 .card-meta {
   display: flex;
@@ -54,7 +54,7 @@ defineEmits<{ (e: 'click'): void }>()
   gap: 8px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--ink-40);
+  color: var(--text-tertiary);
   letter-spacing: 0.02em;
 }
 .dot {

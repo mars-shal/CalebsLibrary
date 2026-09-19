@@ -24,9 +24,9 @@ function Burst({ seed }: { seed: number }) {
     p.value = withTiming(1, { duration: 1100, easing: Easing.out(Easing.cubic) });
   }, [p]);
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
       {Array.from({ length: BITS }, (_, i) => (
-        <Bit key={i} index={i} seed={seed} progress={p} color={i % 3 === 0 ? c.textTertiary : c.paper3} />
+        <Bit key={i} index={i} seed={seed} progress={p} color={i % 3 === 0 ? c.textTertiary : c.bgSkeleton} />
       ))}
     </View>
   );
@@ -57,7 +57,6 @@ function Bit({
   const size = 6 + ((index * 13 + seed) % 7);
   return (
     <Animated.View
-      pointerEvents="none"
       style={[
         {
           position: 'absolute',
@@ -65,6 +64,7 @@ function Bit({
           height: size,
           borderRadius: 1.5,
           backgroundColor: color,
+          pointerEvents: 'none',
         },
         style,
       ]}
@@ -90,20 +90,19 @@ export function CelebrateHost() {
   if (!burst) return null;
   return (
     <View
-      pointerEvents="none"
-      style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 200 }}
+      style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 200, pointerEvents: 'none' }}
     >
       <Burst seed={burst.seed} />
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 160, alignItems: 'center' }}>
         <View
           style={{
-            backgroundColor: c.ink100,
+            backgroundColor: c.textPrimary,
             paddingVertical: 10,
             paddingHorizontal: 18,
             borderRadius: 999,
           }}
         >
-          <Text style={{ color: c.paper, fontSize: 13, fontWeight: '600', fontFamily: fonts.sansSemi }}>
+          <Text style={{ color: c.bgDefault, fontSize: 13, fontWeight: '600', fontFamily: fonts.sansSemi }}>
             {burst.message}
           </Text>
         </View>

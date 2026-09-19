@@ -1,7 +1,8 @@
 // FacetSheet — Search facets in ONE bottom sheet. Subject multi-select with
 // counts (top 12 + see-all), type multi-select, year steppers, reset.
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import HapticPressable from '@/components/HapticPressable';
 import { Sheet } from './Sheet';
 import { Eyebrow, TypePills, YearStepper } from './filterbits';
 import { fonts, radii } from '../theme/tokens';
@@ -51,7 +52,7 @@ export function FacetSheet({
           {listed.map((s) => {
             const active = facets.subjects.includes(s.id);
             return (
-              <Pressable
+              <HapticPressable
                 key={s.id}
                 onPress={() => toggleSubject(s.id)}
                 accessibilityRole="checkbox"
@@ -71,14 +72,14 @@ export function FacetSheet({
                     height: 20,
                     borderRadius: 4,
                     borderWidth: 1,
-                    borderColor: active ? c.ink100 : c.ruleStrong,
-                    backgroundColor: active ? c.ink100 : 'transparent',
+                    borderColor: active ? c.textPrimary : c.borderStrong,
+                    backgroundColor: active ? c.textPrimary : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
                   {active ? (
-                    <Text style={{ color: c.paper, fontSize: 12, fontWeight: '700' }}>✓</Text>
+                    <Text style={{ color: c.bgDefault, fontSize: 12, fontWeight: '700' }}>✓</Text>
                   ) : null}
                 </View>
                 <Text style={{ flex: 1, fontSize: 14, color: c.textSecondary, fontFamily: fonts.sans }}>
@@ -87,12 +88,12 @@ export function FacetSheet({
                 <Text style={{ fontSize: 11, color: c.textQuiet, fontFamily: fonts.mono }}>
                   {s.count}
                 </Text>
-              </Pressable>
+              </HapticPressable>
             );
           })}
         </View>
         {subjects.length > 12 ? (
-          <Pressable
+          <HapticPressable
             onPress={() => setShowAll(!showAll)}
             accessibilityRole="button"
             accessibilityLabel={showAll ? 'Show fewer subjects' : 'Show all subjects'}
@@ -101,7 +102,7 @@ export function FacetSheet({
             <Text style={{ fontSize: 13, color: c.textPrimary, fontFamily: fonts.sansMedium }}>
               {showAll ? 'Show fewer ↑' : `See all ${subjects.length} subjects ↓`}
             </Text>
-          </Pressable>
+          </HapticPressable>
         ) : (
           <View style={{ height: 16 }} />
         )}
@@ -138,7 +139,7 @@ export function FacetSheet({
           />
         </View>
 
-        <Pressable
+        <HapticPressable
           onPress={onReset}
           accessibilityRole="button"
           accessibilityLabel="Reset all filters"
@@ -147,15 +148,15 @@ export function FacetSheet({
           <Text style={{ fontSize: 13, color: c.textSecondary, fontFamily: fonts.sans }}>
             Reset all filters
           </Text>
-        </Pressable>
+        </HapticPressable>
 
-        <Pressable
+        <HapticPressable
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Show results"
           style={{
             marginTop: 8,
-            backgroundColor: c.ink100,
+            backgroundColor: c.textPrimary,
             borderRadius: radii.card,
             paddingVertical: 14,
             alignItems: 'center',
@@ -163,10 +164,10 @@ export function FacetSheet({
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: c.paper, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
+          <Text style={{ color: c.bgDefault, fontWeight: '600', fontSize: 15, fontFamily: fonts.sansSemi }}>
             Show results
           </Text>
-        </Pressable>
+        </HapticPressable>
       </ScrollView>
     </Sheet>
   );

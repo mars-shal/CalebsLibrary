@@ -1,4 +1,4 @@
-// Caleb's Library — catalogue data store (Pinia)
+// Bells Notes — catalogue data store (Pinia)
 //
 // The catalogue is synced to Convex by a server-side cron (convex/cron.ts
 // + convex/driveSync.ts), which walks the Google Drive tree and stores the
@@ -139,7 +139,7 @@ function deriveOwners(pool: Paper[]): OwnerCount[] {
   if (!map.has(FOUNDER_EMAIL)) {
     map.set(FOUNDER_EMAIL, {
       id: FOUNDER_EMAIL,
-      name: 'Caleb',
+      name: 'Bells',
       email: FOUNDER_EMAIL,
       count: 1,
     })
@@ -235,7 +235,7 @@ export const useDriveStore = defineStore('drive', () => {
   }
 
   // ---------- persistence cache (localStorage) ----------
-  const CACHE_KEY = 'calebsLibraryCatalogueCache'
+  const CACHE_KEY = 'bellsnotesCatalogueCache'
   const CACHE_VERSION = '1'
 
   interface CatalogueCache {

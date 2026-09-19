@@ -24,7 +24,7 @@ function ShimmerBlock({ width, height, radius = 4 }: { width: DimensionValue; he
     opacity: 0.25 + 0.2 * (1 - Math.abs(x.value)),
   }));
   return (
-    <View style={{ width, height, borderRadius: radius, backgroundColor: c.paper3, overflow: 'hidden' }}>
+    <View style={{ width, height, borderRadius: radius, backgroundColor: c.bgSkeleton, overflow: 'hidden' }}>
       <Animated.View style={[{ flex: 1, backgroundColor: '#ffffff' }, highlight]} />
     </View>
   );
@@ -52,7 +52,7 @@ export function SkeletonRow({ count = 5 }: { count?: number }) {
             gap: 16,
             paddingVertical: 16,
             borderBottomWidth: 1,
-            borderBottomColor: c.rule,
+            borderBottomColor: c.borderDefault,
             alignItems: 'center',
           }}
         >

@@ -1,19 +1,20 @@
 {
   "expo": {
-    "name": "Caleb's Library",
+    "name": "Bells Notes",
     "slug": "calebs-library",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "calebs",
+    "scheme": "bellsnotes",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "package": "org.calebslibrary.app",
+      "package": "app.bellsnotes.bellsnotes",
+      "versionCode": 4,
       "adaptiveIcon": {
-        "backgroundColor": "#f7f4ec",
+        "backgroundColor": "#fafafa",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,13 +29,25 @@
     "plugins": [
       "expo-router",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "buildArchs": ["arm64-v8a"]
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#f7f4ec"
+          "backgroundColor": "#fafafa"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

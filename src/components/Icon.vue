@@ -1,69 +1,57 @@
 <script setup lang="ts">
-// Inline SVG icon set — 24×24, 1.75px stroke, currentColor.
-// Ported from design_handoff_calebs_library/src/icons.jsx
+// Inline SVG icon set — Bells Notes. 24×24, 1.5px stroke, currentColor.
+// New stroke-icon set: cleaner geometry, round caps, distinct from old set.
 
 withDefaults(
   defineProps<{ name: string; size?: number | string; strokeWidth?: number }>(),
-  { size: 18, strokeWidth: 1.75 },
+  { size: 18, strokeWidth: 1.5 },
 )
 
-// google is the only filled/multicolor icon
-const FILLED = new Set(['google'])
-
 const paths: Record<string, string> = {
-  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z"/>',
-  books: '<path d="M4 4h4v16H4zM10 4h4v16h-4zM17 5l3.5 1-3.5 14L13.5 19z"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  upload: '<path d="M12 16V4m0 0-4 4m4-4 4 4M4 20h16"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-  dashboard: '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
-  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"/>',
-  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
-  bookmark: '<path d="M6 3h12v18l-6-4-6 4V3Z"/>',
-  download: '<path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/>',
-  'arrow-up': '<path d="M12 19V5M5 12l7-7 7 7"/>',
-  'arrow-down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
-  'arrow-right': '<path d="M5 12h14M12 5l7 7-7 7"/>',
-  'arrow-left': '<path d="M19 12H5M12 19l-7-7 7-7"/>',
-  check: '<path d="m4 12 5 5 11-11"/>',
-  x: '<path d="M6 6l12 12M18 6 6 18"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  filter: '<path d="M3 5h18l-7 9v5l-4 2v-7L3 5Z"/>',
-  grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
-  list: '<path d="M8 6h13M8 12h13M8 18h13M4 6h.01M4 12h.01M4 18h.01"/>',
-  star: '<path d="m12 3 2.6 5.9 6.4.6-4.9 4.4 1.5 6.4L12 17l-5.6 3.3 1.5-6.4L3 9.5l6.4-.6L12 3Z"/>',
-  book: '<path d="M4 4v16a1 1 0 0 0 1 1h15M6 4h13v14H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>',
-  file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  chat: '<path d="M21 12a8 8 0 0 1-8 8H4l3-3a8 8 0 1 1 14-5Z"/>',
-  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
-  cite: '<path d="M7 8h4v6c0 2-1 3-3 3M15 8h4v6c0 2-1 3-3 3"/>',
-  sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>',
+  home: '<path d="M4 11V20a1 1 0 0 0 1 1h4v-6h6v6h4a1 1 0 0 0 1-1V11"/><path d="M12 3l8 8"/>',
+  books: '<path d="M5 4h3v16H5z"/><path d="M10 4h3v16h-3z"/><path d="M15 5l4 1.5-4 13.5L13.5 19z"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m19 19-4-4"/>',
+  upload: '<path d="M12 15V5m0 0-4 4m4-4 4 4"/><path d="M5 19h14"/>',
+  user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+  dashboard: '<rect x="4" y="4" width="6" height="8" rx="1"/><rect x="14" y="4" width="6" height="4" rx="1"/><rect x="14" y="12" width="6" height="8" rx="1"/><rect x="4" y="16" width="6" height="4" rx="1"/>',
+  shield: '<path d="M12 3 5 6v5c0 4.5 3 7.5 7 8.5 4-1 7-4 7-8.5V6l-7-3z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 10.5v4M12 8h.01"/>',
+  bookmark: '<path d="M7 4h10v17l-5-3.5L7 21V4z"/>',
+  download: '<path d="M12 4v11m0 0-3.5-3.5m3.5 3.5 3.5-3.5"/><path d="M5 18h14"/>',
+  'arrow-up': '<path d="M12 18V6m0 0-5 5m5-5 5 5"/>',
+  'arrow-down': '<path d="M12 6v12m0 0-5-5m5 5 5-5"/>',
+  'arrow-right': '<path d="M6 12h12m0 0-5-5m5 5-5 5"/>',
+  'arrow-left': '<path d="M18 12H6m0 0 5-5m-5 5 5 5"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 8"/>',
+  x: '<path d="m6 6 12 12M18 6 6 18"/>',
+  plus: '<path d="M12 6v12M6 12h12"/>',
+  filter: '<path d="M4 6h16l-6.5 8v4.5L9 21v-4.5L4 6z"/>',
+  grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
+  list: '<path d="M9 7h10M9 12h10M9 17h10M5 7h.01M5 12h.01M5 17h.01"/>',
+  star: '<path d="m12 3 2.3 5.2 5.7.5-4.3 4 1.3 5.8L12 15.5l-5 3 1.3-5.8-4.3-4 5.7-.5z"/>',
+  book: '<path d="M5 5v14a1 1 0 0 0 1 1h13"/><path d="M7 5h11v13H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>',
+  file: '<path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9l-5-6z"/><path d="M14 3v5h5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2.5"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-8 8H5l3-3a8 8 0 1 1 14-5z"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8 13 7 3.5M16 6.5l-7 3.5"/>',
+  cite: '<path d="M8 8h3v5c0 1.5-.8 2.5-2.5 2.5M15 8h3v5c0 1.5-.8 2.5-2.5 2.5"/>',
+  sparkle: '<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.8 5.8l2.1 2.1m8.2 8.2 2.1 2.1M5.8 18.2l2.1-2.1m8.2-8.2 2.1-2.1"/>',
   chevron: '<path d="m9 6 6 6-6 6"/>',
-  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
-  bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M13.7 21a2 2 0 0 1-3.4 0"/>',
-  google: '<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.24 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"/>',
-  trending: '<path d="m3 17 6-6 4 4 8-8M14 7h7v7"/>',
-  heart: '<path d="M12 21s-8-5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-8 11-8 11-.9.5-1.1.5-2 0Z"/>',
+  settings: '<circle cx="12" cy="12" r="2.5"/><path d="M19.4 14.5a1.5 1.5 0 0 0 .3 1.6l.1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.5 1.5 0 0 0-1.6-.3 1.5 1.5 0 0 0-.9 1.3V20a1.8 1.8 0 1 1-3.6 0v-.1a1.5 1.5 0 0 0-1-1.3 1.5 1.5 0 0 0-1.6.3l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.5 1.5 0 0 0 .3-1.6V14a1.5 1.5 0 0 0-1.3-1H4a1.8 1.8 0 1 1 0-3.6h.1A1.5 1.5 0 0 0 5.4 8.3l.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.5 1.5 0 0 0 1.6.3H10a1.5 1.5 0 0 0 1-1.3V4a1.8 1.8 0 1 1 3.6 0v.1a1.5 1.5 0 0 0 1 1.3 1.5 1.5 0 0 0 1.6-.3l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.5 1.5 0 0 0-.3 1.6V9a1.5 1.5 0 0 0 1.3 1H20a1.8 1.8 0 1 1 0 3.6h-.1a1.5 1.5 0 0 0-1.3 1z"/>',
+  bell: '<path d="M7 8a5 5 0 1 1 10 0c0 6 2.5 8 2.5 8H4.5S7 14 7 8z"/><path d="M13.5 21a1.5 1.5 0 0 1-3 0"/>',
+  trending: '<path d="M4 17l5-5 3.5 3.5L20 9"/><path d="M15 9h5v5"/>',
+  heart: '<path d="M12 20s-7-4.5-7-10a4.5 4.5 0 0 1 8-2.5 4.5 4.5 0 0 1 8 2.5c0 5.5-7 10-7 10-.8.4-1.2.4-2 0z"/>',
   'more-h': '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-  flag: '<path d="M4 21V4M4 4h13l-2 4 2 4H4"/>',
-  eye: '<path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
-  refresh: '<path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
-  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>',
+  flag: '<path d="M5 21V5m0 0h11l-2 3.5 2 3.5H5"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  refresh: '<path d="M19 12a7 7 0 1 1-2-5"/><path d="M19 5v4h-4"/>',
+  sun: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2m0 15v2M4.9 4.9l1.5 1.5m11.2 11.2 1.5 1.5M2.5 12h2m15 0h2M4.9 19.1l1.5-1.5m11.2-11.2 1.5-1.5"/>',
+  moon: '<path d="M20 12.5A8.5 8.5 0 1 1 11.5 4a6.5 6.5 0 0 0 8.5 8.5z"/>',
 }
 </script>
 
 <template>
   <svg
-    v-if="FILLED.has(name)"
-    :width="typeof size === 'number' ? size : undefined"
-    :height="typeof size === 'number' ? size : undefined"
-    viewBox="0 0 24 24"
-    v-html="paths[name] || ''"
-  />
-  <svg
-    v-else
     :width="typeof size === 'number' ? size : undefined"
     :height="typeof size === 'number' ? size : undefined"
     viewBox="0 0 24 24"

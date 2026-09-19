@@ -5,14 +5,17 @@
 ## 0. Locked decisions
 
 - Mobile: **React Native / Expo (expo-router)** — NOT Capacitor wrap, NOT Flutter, NOT native.
-- Backend: **Keep Convex, new account (own deployment)**. Same Drive as source, fixed sync.
+- Backend: **Keep Convex, new account (own deployment)**. Same Drive as source, fixed sync. Superseded by PRD.md §6: web and mobile share ONE new account, not two separate ones.
 - Scope v1: **Full parity — Notes + PQs + uploads + comments + votes + bookmarks + short-links + trends + admin moderation.** Notes-only was rejected; PQs must ship.
 - Offline: **Yes, offline-first** — metadata cache + on-device PDF cache with LRU.
 - Repo shape: **monorepo, new folders. Do NOT transform `src/*.vue` in place.**
   ```
   CalebsLibrary/
     convex/      <- evolve to v2 (this file's spec)
-    src/         <- web as-is, frozen
+    src/         <- web app; being rebranded to Bells Notes in parallel (see PRD.md §6/§9)
+                    — no longer frozen. Both web and mobile now share one Convex
+                    deployment (PRD.md §6 supersedes this file's "new account" note
+                    below where they conflict).
     shared/      <- NEW: pure TS (schema + helpers, no Vue/RN imports)
     mobile/      <- NEW: Expo app
   ```

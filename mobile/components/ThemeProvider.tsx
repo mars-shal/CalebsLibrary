@@ -8,8 +8,8 @@ import { light, dark, type Theme } from '../theme/tokens';
 
 export type ThemeChoice = 'light' | 'dark' | 'system';
 
-const storage: KV = getKV('calebs-settings');
-const THEME_KEY = 'calebs_theme_choice';
+const storage: KV = getKV('bellsnotes-settings');
+const THEME_KEY = 'bellsnotes_theme_choice';
 
 const ThemeContext = createContext<{ theme: Theme; scheme: 'light' | 'dark'; choice: ThemeChoice; setChoice: (c: ThemeChoice) => void }>({
   theme: light,

@@ -61,7 +61,7 @@ export function YearStepper({
             justifyContent: 'center',
             borderRadius: radii.pill,
             borderWidth: 1,
-            borderColor: c.ruleStrong,
+            borderColor: c.borderStrong,
           }}
         >
           <Icon name="arrow-left" size={14} color={c.textPrimary} />
@@ -88,7 +88,7 @@ export function YearStepper({
             justifyContent: 'center',
             borderRadius: radii.pill,
             borderWidth: 1,
-            borderColor: c.ruleStrong,
+            borderColor: c.borderStrong,
           }}
         >
           <Icon name="arrow-right" size={14} color={c.textPrimary} />
@@ -133,9 +133,9 @@ export function TypePills({
               paddingVertical: 9,
               paddingHorizontal: 14,
               borderRadius: active ? radii.pill : 4,
-              backgroundColor: active ? c.ink100 : 'transparent',
+              backgroundColor: active ? c.textPrimary : 'transparent',
               borderWidth: 1,
-              borderColor: active ? c.ink100 : c.ruleStrong,
+              borderColor: active ? c.textPrimary : c.borderStrong,
               borderStyle: !active && !quick ? 'dashed' : 'solid',
               minHeight: 44,
               justifyContent: 'center',
@@ -145,7 +145,7 @@ export function TypePills({
               style={{
                 fontSize: 13,
                 fontWeight: '500',
-                color: active ? c.paper : c.textSecondary,
+                color: active ? c.bgDefault : c.textSecondary,
                 fontFamily: fonts.sansMedium,
               }}
             >
@@ -187,7 +187,7 @@ export function SortList<T extends string>({
               alignItems: 'center',
               paddingVertical: 13,
               borderBottomWidth: 1,
-              borderBottomColor: c.rule,
+              borderBottomColor: c.borderDefault,
               minHeight: 44,
             }}
           >
