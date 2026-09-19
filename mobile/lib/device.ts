@@ -7,11 +7,11 @@ const storage: KV = getKV('bellsnotes-device');
 const KEY = 'device.hash';
 
 function randomHex(bytes: number): string {
-  const chars = '0123456789abcdef';
+  // CSPRNG-backed: React Native 0.86 ships getRandomValues in the JS runtime.
+  const arr = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(arr);
   let s = '';
-  for (let i = 0; i < bytes * 2; i++) {
-    s += chars[Math.floor(Math.random() * 16)];
-  }
+  for (const b of arr) s += b.toString(16).padStart(2, '0');
   return s;
 }
 

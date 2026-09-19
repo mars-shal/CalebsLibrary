@@ -311,7 +311,8 @@ export default function Browse() {
                   {item.title}
                 </Text>
                 <Text style={{ fontSize: 11, color: c.textTertiary, fontFamily: fonts.mono, marginTop: 4 }}>
-                  {item.type} · {item.year} · {(item as any).course || ''}
+                  {item.type} · {item.year}{' '}
+                  {item.type === 'course' ? 'Course' : 'course' in item && item.course ? item.course : ''}
                 </Text>
               </View>
             </HapticPressable>

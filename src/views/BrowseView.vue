@@ -1,15 +1,15 @@
 <script setup lang="ts">
 // Browse — College→Program→Level hierarchy. NOT subject-first shelves.
 import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import Icon from '@/components/Icon.vue'
 import IndexStack from '@/components/IndexStack.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
+import type { Paper } from '@/script/design'
 
 const drive = useDriveStore()
 const router = useRouter()
-const route = useRoute()
 
 // College → Program → Level drill-down state
 const selectedCollege = ref<string | null>(null)
@@ -20,9 +20,9 @@ const selectedLevel = ref<string | null>(null)
 const colleges = computed(() => {
   const map = new Map<string, { name: string; programs: Map<string, { name: string; levels: Set<string> }> }>()
   for (const p of drive.papers) {
-    const college = (p as any).college || 'General'
-    const program = (p as any).program || 'General'
-    const level = (p as any).level || '100'
+    const college = p.college || 'General'
+    const program = p.program || 'General'
+    const level = p.level || '100'
     if (!map.has(college)) map.set(college, { name: college, programs: new Map() })
     const c = map.get(college)!
     if (!c.programs.has(program)) c.programs.set(program, { name: program, levels: new Set() })
@@ -51,13 +51,13 @@ const levels = computed(() => {
 const filteredPapers = computed(() => {
   let list = drive.papers
   if (selectedCollege.value) {
-    list = list.filter(p => (p as any).college === selectedCollege.value)
+    list = list.filter(p => p.college === selectedCollege.value)
   }
   if (selectedProgram.value) {
-    list = list.filter(p => (p as any).program === selectedProgram.value)
+    list = list.filter(p => p.program === selectedProgram.value)
   }
   if (selectedLevel.value) {
-    list = list.filter(p => (p as any).level === selectedLevel.value)
+    list = list.filter(p => p.level === selectedLevel.value)
   }
   return list
 })
@@ -89,7 +89,7 @@ function goBack() {
   }
 }
 
-function openPaper(p: any) {
+function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
 }
 

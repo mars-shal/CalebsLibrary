@@ -15,6 +15,7 @@ import { useOverlaidPapers } from '@/lib/queries';
 import type { Paper } from '@shared/design';
 import { IndexStack } from '@/components/IndexStack';
 import { EmptyState } from '@/components/states';
+import { SkeletonRow } from '@/components/Skeleton';
 import { Icon } from '@/icons/icons';
 import { fonts, spacing } from '@/theme/tokens';
 import { useThemeColors } from '@/components/ThemeProvider';
@@ -92,6 +93,12 @@ export default function Saved() {
             ctaLabel="Browse the library"
             onCta={() => router.navigate('/(tabs)/browse')}
           />
+        </View>
+      ) : papers === undefined && !ordered.length ? (
+        // Hydrating with a cold cache — skeleton rows, never a blank shelf
+        // (and never a false "nothing saved yet" while ids exist).
+        <View style={{ paddingHorizontal: spacing.gutter }}>
+          <SkeletonRow count={5} />
         </View>
       ) : (
         <DockFlatList

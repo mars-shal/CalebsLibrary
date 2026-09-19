@@ -9,8 +9,6 @@ import type { Paper } from '@/script/design'
 import { trendingSubjects } from '@/script/trends'
 import Icon from '@/components/Icon.vue'
 import IndexStack from '@/components/IndexStack.vue'
-import SectionHeader from '@/components/SectionHeader.vue'
-import Stat from '@/components/Stat.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 

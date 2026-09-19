@@ -3,7 +3,6 @@
 // 2-3 slightly fanned cards, top card front-facing with course code + note count.
 import { computed } from 'vue'
 import type { Paper } from '@/script/design'
-import { formatCount } from '@/script/design'
 
 type StackSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
