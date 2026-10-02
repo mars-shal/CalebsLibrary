@@ -7,9 +7,9 @@
 //
 // This module runs ONLY inside Convex (action context). The Drive API key is
 // received as a parameter from the caller (read from the Convex env), so it
-// never ships to the browser. v2: the college/level/semester path is
-// PERSISTED on every item (the old walk dropped it, making level/program
-// filtering impossible) plus license + file identity.
+// never ships to the browser and — critically — is never persisted onto a
+// catalogue row. Rows carry key-free public Drive URLs; keyed URLs are minted
+// at request time by the `files.downloadUrl` action.
 
 import {
   CODE_SUBJECTS,
@@ -96,7 +96,7 @@ async function pMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>
   return results
 }
 
-function buildPaper(f: DriveFile, path: Path, types: string[], apiKey: string): CatalogueItem {
+function buildPaper(f: DriveFile, path: Path, types: string[]): CatalogueItem {
   const hash = hashString(f.id)
   const fileName = f.name
   const title = fileName.replace(/\.[^.]+$/, '')
@@ -136,10 +136,12 @@ function buildPaper(f: DriveFile, path: Path, types: string[], apiKey: string): 
     fileExt: extFromName(fileName),
     sizeLabel: sizeBytes ? formatBytes(sizeBytes) : '—',
     previewUrl: `https://drive.google.com/file/d/${f.id}/preview`,
-    // INTERIM: baked key URL kept for web compat only. Mobile must use the
-    // `files.downloadUrl` action (request-time minting); a future pass
-    // should proxy bytes so the key never reaches any client.
-    downloadUrl: `${DRIVE_API}/files/${f.id}?alt=media&key=${apiKey}`,
+    // Key-free public Drive endpoint. The library tree is world-readable, so
+    // this needs no API key — which is the point: the key used to be baked
+    // into every row here and shipped to every client on every catalogue read.
+    // Clients that want a keyed URL call the `files.downloadUrl` action, which
+    // mints one at request time from the Convex env.
+    downloadUrl: `https://drive.google.com/uc?export=download&id=${f.id}`,
     createdAt: f.createdTime || new Date().toISOString(),
     parents: f.parents || [],
     college: path.college,
@@ -166,7 +168,7 @@ async function walk(
     (f) => f.mimeType !== 'application/vnd.google-apps.folder' && MATERIAL_MIME.test(f.mimeType),
   )
 
-  const here: CatalogueItem[] = fileItems.map((f) => buildPaper(f, path, types, apiKey))
+  const here: CatalogueItem[] = fileItems.map((f) => buildPaper(f, path, types))
   const childResults = await pMap(subFolders, 6, async (sub) => {
     if (sub.name === 'Notes' || sub.name === 'Past Questions') {
       return walk(sub.id, path, [...types, sub.name], apiKey)
@@ -209,6 +211,67 @@ function toValidatedItems(items: CatalogueItem[]): CatalogueItem[] {
     throw new Error(`Catalogue walk produced invalid items: ${result.error.message}`)
   }
   return result.data
+}
+
+/**
+ * Fingerprint of a walked Drive tree.
+ *
+ * Cheaply comparable: it hashes only the identity + content-bearing fields of
+ * each paper, not the whole object, so an unrelated field change cannot fake a
+ * difference and a rename cannot hide behind a reordering. The sync action
+ * compares this against the last one it stored and skips the entire diff (a
+ * full-table read plus N writes) when the tree is untouched.
+ *
+ * Sorting by id means Drive returning folders in a different order still hashes
+ * identically.
+ */
+// Field and row separators for the fingerprint. Written as escapes rather than
+// literal control characters so the source stays plain text (a raw NUL byte
+// makes the file binary to grep and to most editors).
+const FIELD_SEP = "\u0000";
+const ROW_SEP = "\u0001";
+
+export function hashCatalogueItems(items: CatalogueItem[]): string {
+  const rows = items
+    .map((item) =>
+      [
+        item.id,
+        item.title,
+        item.fileId,
+        item.fileExt,
+        item.course,
+        item.courseName,
+        item.level,
+        item.levelYear,
+        item.program,
+        item.college,
+        item.license,
+        item.teacher,
+        item.year,
+        item.sizeLabel,
+      ].join(FIELD_SEP),
+    )
+    .sort()
+    .join(ROW_SEP);
+  return contentHash(rows);
+}
+
+/**
+ * 32-bit FNV-1a, doubled with a different offset basis. Non-cryptographic on
+ * purpose: this only needs "did the tree change?", and `crypto.subtle` is not
+ * available in the default Convex runtime.
+ */
+function contentHash(input: string): string {
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  for (let i = 0; i < input.length; i++) {
+    const c = input.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193) >>> 0;
+    b = Math.imul(b + c + i, 0x85ebca6b) >>> 0;
+  }
+  return `${(a >>> 0).toString(16).padStart(8, "0")}${(b >>> 0)
+    .toString(16)
+    .padStart(8, "0")}${(input.length >>> 0).toString(16)}`;
 }
 
 /**

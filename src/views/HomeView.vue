@@ -488,7 +488,7 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 /* Quick actions grid */
 .quick-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 .quick-card {
@@ -676,7 +676,7 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 @media (max-width: 720px) {
   .hero { padding: 56px 20px 32px; }
   .section { padding: 0 20px; }
-  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+  .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-row { gap: 24px; flex-wrap: wrap; }
   .recent-card { width: 120px; }
 }

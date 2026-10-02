@@ -8,6 +8,7 @@ import { z } from "zod";
 import { zCustomQuery, zCustomMutation } from "convex-helpers/server/zod4";
 import { NoOp } from "convex-helpers/server/customFunctions";
 import { query, mutation, internalMutation } from "./_generated/server";
+import { v } from "convex/values";
 
 const HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
 const STALE_SCORE = 0.01;
@@ -74,7 +75,13 @@ export const record = zCustomMutation(mutation, NoOp)({
 // 180 days old) so the table can't grow without bound. Scheduled by the cron
 // (convex/crons.ts).
 export const pruneStale = internalMutation({
-  handler: async (ctx) => {
+  // Explicit args/returns: without them the exported function's type is inferred
+  // from the handler and references Convex's internal registration types, which
+  // cannot be named in a .d.ts. That surfaces the moment anything emits
+  // declarations for convex/ (see tsconfig.test.json).
+  args: {},
+  returns: v.null(),
+  handler: async (ctx): Promise<null> => {
     const now = Date.now();
     const rows = await ctx.db.query("searchTrends").collect();
     for (const row of rows) {
@@ -85,5 +92,6 @@ export const pruneStale = internalMutation({
         await ctx.db.delete(row._id);
       }
     }
+    return null;
   },
 });

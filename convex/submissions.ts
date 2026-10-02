@@ -9,6 +9,7 @@
 import { query, mutation, env } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
+import { internal } from "./_generated/api";
 import {
   hashString,
   estimatePages,
@@ -78,10 +79,15 @@ export const create = mutation({
       .collect();
     if (live.some((p) => p.title.toLowerCase() === normTitle))
       throw new Error("This paper looks like a duplicate of one already live.");
-    // Pending duplicates: same title + course awaiting review.
+    // Pending duplicates: same title + course awaiting review. Scoped by the
+    // status+course index so this reads the handful of submissions for this one
+    // course rather than every pending submission in the app — upload cost used
+    // to scale with the moderation queue.
     const pending = await ctx.db
       .query("submissions")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .withIndex("by_status_course", (q) =>
+        q.eq("status", "pending").eq("course", a.course),
+      )
       .collect();
     if (
       pending.some(
@@ -243,6 +249,12 @@ export const decide = mutation({
       deviceHash: a.deviceHash,
       createdAt: Date.now(),
     });
+    // An approval just inserted a catalogue row, so the web app's read snapshot
+    // is stale. Rebuild it from inside this same transaction; the action
+    // debounces, so a batch of approvals costs one rebuild.
+    if (a.status === "approved") {
+      await ctx.scheduler.runAfter(0, internal.snapshot.refresh, {});
+    }
     return { ok: true };
   },
 });
@@ -257,8 +269,14 @@ export const getFile = query({
     v.null(),
   ),
   handler: async (ctx, { subId }) => {
-    const all = await ctx.db.query("submissions").collect();
-    const s = all.find((row) => `sub_${row._id}` === subId);
+    // The public id is `sub_` + the Convex document id, so this is a point read.
+    // It used to `collect()` the entire submissions table and scan it in JS —
+    // every paper-open on mobile read every submission ever uploaded, and the
+    // cost grew with the table instead of staying constant.
+    if (!subId.startsWith("sub_")) return null;
+    const id = ctx.db.normalizeId("submissions", subId.slice(4));
+    if (!id) return null;
+    const s = await ctx.db.get("submissions", id);
     if (!s?.storageId) return null;
     const u = await ctx.storage.getUrl(s.storageId);
     if (!u) return null;

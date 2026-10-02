@@ -21,5 +21,13 @@
     "noEmit": true
   },
   "include": ["./**/*"],
-  "exclude": ["./_generated"]
+  /* Test files live in this directory because convex-test needs to import the
+   * real modules, but they are not Convex functions: they use vitest and
+   * `import.meta.glob`, neither of which exists in the Convex runtime. Without
+   * this exclusion `npx convex deploy` fails typecheck on them.
+   *
+   * They are not typechecked by nothing — see ../tsconfig.test.json, which is
+   * referenced from the root tsconfig.json and runs as part of `npm run
+   * type-check`. */
+  "exclude": ["./_generated", "**/*.test.ts", "./test"]
 }

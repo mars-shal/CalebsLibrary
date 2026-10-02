@@ -1,18 +1,29 @@
 // Bells Notes — catalogue data store (Pinia)
 //
-// The catalogue is synced to Convex by a server-side cron (convex/cron.ts
+// The catalogue is synced to Convex by a server-side cron (convex/crons.ts
 // + convex/driveSync.ts), which walks the Google Drive tree and stores the
 // results in the `catalogue` table. The browser therefore just reads the synced
-// catalogue from Convex — no Drive API calls, no API key in the client bundle.
+// catalogue — no Drive API calls, no API key in the client bundle.
 //
-// Vote/view/download metrics are stored in Convex (`metrics` table) and
-// overlaid client-side on top of the catalogue items.
+// READ PATH
+// The store reads through `/api/catalogue`, a Vercel function that serves a
+// prebuilt read model from Upstash Redis (convex/snapshot.ts writes it). That
+// exists because the old path — `catalogue.get` + `metrics.getAll` +
+// `trends.getTop`, three full-table collects every 30 seconds per open tab —
+// consumed the entire Convex Free data-egress budget in a single afternoon.
+// The polling window is now 10 minutes, pauses on a hidden tab, and an
+// unchanged poll costs about thirty bytes (a 204) instead of the whole library.
+//
+// If the endpoint is unreachable — which includes every `vite dev` session,
+// where there is no Vercel function — the store transparently falls back to the
+// original Convex queries. Redis is an optimisation here, never a dependency.
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Contributor, Course, Paper, Subject } from '@/script/design'
 import { setContributors } from '@/script/design'
 import { convex, api } from '@/script/convex'
+import { captureAppException, captureAppMessage } from '@/script/sentry'
 import {
   FOUNDER_EMAIL,
   LEVEL_DESC,
@@ -222,25 +233,29 @@ export const useDriveStore = defineStore('drive', () => {
     })
   }
 
-  // Pull the live metric counters from Convex (parallel-friendly, so load()
-  // can fire this while the catalogue query is in flight).
+  // Pull the live metric counters from Convex (fallback path only — the
+  // snapshot already carries them).
   async function fetchMetrics(): Promise<MetricRow[]> {
     try {
       const rows = await convex.query(api.metrics.getAll, {})
       return rows as MetricRow[]
     } catch (e) {
-      console.error('Metrics overlay failed:', e)
+      captureAppException(e, { fn: 'fetchMetrics' })
       return [] as MetricRow[]
     }
   }
 
   // ---------- persistence cache (localStorage) ----------
+  // Keep the Bells Notes key so existing installs keep their warm cache.
   const CACHE_KEY = 'bellsnotesCatalogueCache'
-  const CACHE_VERSION = '1'
+  // Bumped from 1 to 2: the cached shape gained `snapshotVersion`, so a v1 entry
+  // is ignored rather than misread as "no snapshot version yet".
+  const CACHE_VERSION = '2'
 
   interface CatalogueCache {
     version: string
     at: number
+    snapshotVersion: number
     papers: Paper[]
     courses: Course[]
     subjects: Subject[]
@@ -259,20 +274,38 @@ export const useDriveStore = defineStore('drive', () => {
     }
   }
 
-  function writeCache(): void {
+  function writeCache(snapshotVersion: number): void {
     try {
       const payload: CatalogueCache = {
         version: CACHE_VERSION,
         at: Date.now(),
+        snapshotVersion,
         papers: papers.value,
         courses: courses.value,
         subjects: subjects.value,
         owners: ownerList.value,
       }
       localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
-    } catch {
-      // quota exceeded / storage unavailable — cache is best-effort only
+    } catch (e) {
+      // Quota exceeded / storage unavailable — the cache is best-effort only,
+      // but a failure here is worth knowing about.
+      captureAppException(e, { fn: 'writeCache' })
     }
+  }
+
+  // Serialising the full catalogue is a synchronous main-thread cost, and the
+  // old code did it on every 30s tick regardless of whether anything changed.
+  // Now it is throttled and only runs when there is something new to store.
+  const CACHE_WRITE_MIN_INTERVAL_MS = 5 * 60 * 1000
+  let cacheDirty = false
+  let lastCacheWrite = 0
+
+  function flushCache(force = false): void {
+    if (!cacheDirty) return
+    if (!force && Date.now() - lastCacheWrite < CACHE_WRITE_MIN_INTERVAL_MS) return
+    writeCache(snapshotVersion)
+    cacheDirty = false
+    lastCacheWrite = Date.now()
   }
 
   function apply(paperList: Paper[], metricRows: MetricRow[]): void {
@@ -282,26 +315,160 @@ export const useDriveStore = defineStore('drive', () => {
     papers.value = paperList
     courses.value = computeCourses(paperList)
     subjects.value = computeSubjects(courses.value)
+    cacheDirty = true
   }
 
   // Hydrate from localStorage so the first paint is instant (no network wait).
-  // The full Convex fetch then replaces it in the background.
+  // The network fetch then replaces it in the background.
   function hydrateFromCache(): boolean {
     const cache = readCache()
     if (!cache?.papers?.length) return false
+    snapshotVersion = cache.snapshotVersion ?? 0
     papers.value = cache.papers
     courses.value = cache.courses
     subjects.value = cache.subjects
     ownerList.value = cache.owners
     setContributors(contributors.value)
     error.value = null
+    cacheDirty = false
     return true
   }
 
+  // ---------- read path ----------
+  //
+  // `/api/catalogue` is a Vercel function. It is not available under
+  // `vite dev`, and it falls back to Convex internally if Upstash is down, so
+  // the client sees one endpoint with a defined contract:
+  //   204            -> the snapshot is still `knownVersion`, do nothing
+  //   200 + payload  -> apply it
+  //   anything else  -> unhealthy, fall back to Convex below
+  const CATALOGUE_ENDPOINT = '/api/catalogue'
+
+  // The catalogue only changes every ~3 days (Drive sync) or on a rare
+  // moderation approval, and the snapshot refreshes within 15 min of a write.
+  // Polling every 30s was pure waste; 10 min still feels instant to a user.
+  const POLL_MS = 10 * 60 * 1000
+
+  interface SnapshotPayload {
+    generatedAt: number
+    // `parents` is stripped server-side (dead weight) but `Paper` is typed as
+    // the full CatalogueItem, so it is re-added as empty on hydration.
+    papers: Array<Omit<Paper, 'parents'> & { parents?: string[] }>
+    metrics: MetricRow[]
+    trends: Array<{ term: string; score: number }>
+  }
+
+  type SnapshotResult =
+    | { status: 'unchanged' }
+    | { status: 'updated'; version: number; payload: SnapshotPayload }
+
+  let snapshotVersion = 0
+  // null = not yet tested, true = healthy, false = using the Convex fallback.
+  let endpointHealthy: boolean | null = null
+  let consecutiveFailures = 0
+  let pollCount = 0
+
+  async function fetchSnapshot(knownVersion: number): Promise<SnapshotResult> {
+    const url =
+      knownVersion > 0
+        ? `${CATALOGUE_ENDPOINT}?v=${knownVersion}`
+        : CATALOGUE_ENDPOINT
+    const res = await fetch(url, { headers: { accept: 'application/json' } })
+
+    if (res.status === 204) return { status: 'unchanged' }
+    if (!res.ok) throw new Error(`catalogue endpoint responded ${res.status}`)
+
+    const version = Number(res.headers.get('x-snapshot-version') ?? 0)
+    const payload = (await res.json()) as SnapshotPayload
+    if (!Array.isArray(payload.papers)) {
+      throw new Error('catalogue endpoint returned a malformed payload')
+    }
+    return { status: 'updated', version, payload }
+  }
+
+  function hydratePapers(list: SnapshotPayload['papers']): Paper[] {
+    return list.map((p) => ({ ...p, parents: p.parents ?? [] }))
+  }
+
+  /**
+   * The pre-Redisky path, kept intact as a fallback. Reads the three legacy
+   * full-collect queries — expensive, which is exactly why this is now the
+   * exception rather than the rule.
+   */
+  async function loadFromConvex(): Promise<boolean> {
+    try {
+      const itemsP = convex.query(api.catalogue.get, {})
+      const metricsP = fetchMetrics()
+      const trendsP = convex.query(api.trends.getTop, {})
+
+      const [items, metricRows, trendRows] = await Promise.all([itemsP, metricsP, trendsP])
+
+      apply(items, metricRows)
+      searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
+      loaded.value = true
+      loading.value = false
+      flushCache(true)
+      return true
+    } catch (e) {
+      captureAppException(e, { fn: 'loadFromConvex' })
+      error.value = e instanceof Error ? e.message : 'Failed to load the library'
+      loading.value = false
+      return false
+    }
+  }
+
+  /**
+   * One poll cycle. Prefers the snapshot endpoint; falls back to Convex when it
+   * is unhealthy, retrying the endpoint on a widening interval (every 2nd, 4th,
+   * 8th, 16th poll) so a prolonged outage does not turn into a request flood
+   * while still recovering on its own.
+   */
+  async function pull(force = false): Promise<void> {
+    if (!force && document.hidden) return
+    pollCount++
+
+    if (endpointHealthy === false && !force) {
+      const retryEvery = 1 << Math.min(consecutiveFailures, 4)
+      if (pollCount % retryEvery !== 0) {
+        await loadFromConvex()
+        return
+      }
+    }
+
+    try {
+      const result = await fetchSnapshot(snapshotVersion)
+      if (endpointHealthy === false) {
+        captureAppMessage('Catalogue endpoint recovered; back on the Redis read path.', 'info')
+      }
+      endpointHealthy = true
+      consecutiveFailures = 0
+      if (result.status === 'unchanged') return
+
+      snapshotVersion = result.version
+      apply(hydratePapers(result.payload.papers), result.payload.metrics)
+      searchTrends.value = Object.fromEntries(
+        result.payload.trends.map((t) => [t.term, t.score]),
+      )
+      error.value = null
+      loaded.value = true
+      loading.value = false
+      flushCache(true)
+    } catch (e) {
+      const wasHealthy = endpointHealthy
+      endpointHealthy = false
+      consecutiveFailures++
+      // Report only the healthy -> unhealthy transition. Reporting every failed
+      // poll would turn a 10-minute cadence into 144 events a day per tab.
+      if (wasHealthy !== false) {
+        captureAppException(e, { fn: 'fetchSnapshot', consecutiveFailures })
+      }
+      await loadFromConvex()
+    }
+  }
+
   // ---------- loading ----------
-  // Async + progressive: fire the Convex queries in parallel but resolve
-  // `load()` as soon as paint-ready state exists, never blocking the UI on the
-  // full catalogue round-trip. The heavy work continues in the background.
+  // Async + progressive: resolve `load()` as soon as paint-ready state exists,
+  // never blocking the UI on the full catalogue round-trip.
   let started = false
 
   async function load(): Promise<void> {
@@ -313,35 +480,31 @@ export const useDriveStore = defineStore('drive', () => {
     hydrateFromCache()
     error.value = null
 
-    try {
-      const itemsP = convex.query(api.catalogue.get, {})
-      const metricsP = fetchMetrics()
-      const trendsP = convex.query(api.trends.getTop, {})
+    const ok = await (async () => {
+      try {
+        const result = await fetchSnapshot(snapshotVersion)
+        endpointHealthy = true
+        if (result.status === 'updated') {
+          snapshotVersion = result.version
+          apply(hydratePapers(result.payload.papers), result.payload.metrics)
+          searchTrends.value = Object.fromEntries(
+            result.payload.trends.map((t) => [t.term, t.score]),
+          )
+        }
+        loaded.value = true
+        loading.value = false
+        flushCache(true)
+        return true
+      } catch {
+        // Expected under `vite dev` (there is no Vercel function) — not worth
+        // an error report, and the Convex path below handles it. Deliberately
+        // not reported: in dev this is the normal path, not a fault.
+        endpointHealthy = false
+        return loadFromConvex()
+      }
+    })()
 
-      const items = await itemsP
-      const metricRows = await metricsP
-      const trendRows = await trendsP
-
-      apply(items, metricRows)
-      searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
-      writeCache()
-      loaded.value = true
-      loading.value = false
-      startAutoRefresh()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load the library'
-      console.error('Catalogue load failed:', e)
-      loading.value = false
-    }
-  }
-
-  async function overlayMetrics(pool: Paper[]): Promise<void> {
-    try {
-      const rows = await convex.query(api.metrics.getAll, {})
-      applyMetrics(pool, rows as MetricRow[])
-    } catch (e) {
-      console.error('Metrics overlay failed:', e)
-    }
+    if (ok) startAutoRefresh()
   }
 
   async function recordMetric(
@@ -355,10 +518,11 @@ export const useDriveStore = defineStore('drive', () => {
     else if (kind === 'downloads') p.downloads += delta
     else if (kind === 'upvotes') p.upvotes += delta
     else p.downvotes += delta
+    cacheDirty = true
     try {
       await convex.mutation(api.metrics.bump, { paper_id: id, kind, delta })
     } catch (e) {
-      console.error('Metric bump failed:', e)
+      captureAppException(e, { fn: 'recordMetric', kind })
     }
   }
 
@@ -371,41 +535,52 @@ export const useDriveStore = defineStore('drive', () => {
     try {
       await convex.mutation(api.trends.record, { term: trimmed })
     } catch (e) {
-      console.error('Search trend record failed:', e)
+      captureAppException(e, { fn: 'recordSearch' })
     }
   }
 
   let refreshTimer: ReturnType<typeof setInterval> | null = null
+  let visibilityBound = false
 
+  /**
+   * Manual/external refresh. Cheap no-op when the snapshot has not moved, which
+   * is the common case: an unchanged poll transfers ~30 bytes and re-runs none
+   * of the derived-list work below.
+   */
   async function refresh(): Promise<void> {
     if (!loaded.value || loading.value) return
-    try {
-      // Re-pull the Convex catalogue so cron updates arrive without a reload.
-      const items = await convex.query(api.catalogue.get, {})
-      const trendRows = await convex.query(api.trends.getTop, {})
+    await pull(true)
+  }
 
-      ownerList.value = deriveOwners(items)
-      setContributors(contributors.value)
-      papers.value = items
-      courses.value = computeCourses(items)
-      subjects.value = computeSubjects(courses.value)
-      searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
-      await overlayMetrics(papers.value)
-      writeCache()
-    } catch {
-      // Non-fatal — keep showing the last known good catalogue.
+  function handleVisibilityChange(): void {
+    if (document.hidden) {
+      // Persist anything the throttle has been holding before the tab sleeps.
+      flushCache(true)
+      return
     }
+    // Coming back to a backgrounded tab: check immediately rather than making
+    // the user stare at a stale library until the next tick.
+    if (loaded.value) void pull(true)
   }
 
   function startAutoRefresh(): void {
-    if (refreshTimer) return
-    refreshTimer = setInterval(refresh, 30000)
+    if (!refreshTimer) {
+      refreshTimer = setInterval(() => void pull(), POLL_MS)
+    }
+    if (!visibilityBound) {
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+      visibilityBound = true
+    }
   }
 
   function stopAutoRefresh(): void {
     if (refreshTimer) {
       clearInterval(refreshTimer)
       refreshTimer = null
+    }
+    if (visibilityBound) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      visibilityBound = false
     }
   }
 

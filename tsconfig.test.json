@@ -1,0 +1,33 @@
+{
+  // Typechecks the Convex test suites.
+  //
+  // These files live under convex/ because convex-test imports the real modules
+  // and `import.meta.glob` resolves relative to the functions directory. But
+  // they are NOT Convex functions — they use vitest and `import.meta.glob`,
+  // neither of which exists in the Convex runtime — so they are excluded from
+  // convex/tsconfig.json, which is what `npx convex deploy` typechecks.
+  //
+  // This config is the other half of that trade, so excluding them from the
+  // deploy check costs no typechecking: `npm run type-check` (vue-tsc --build)
+  // picks this up as a referenced project from the root tsconfig.json.
+  //
+  // Deliberately NOT `composite`. Composite requires every transitively
+  // imported file to be listed in `include`, and when it is not, TypeScript
+  // silently degrades the module types it derives (catalogue.ts appeared to
+  // export only two functions), producing phantom "property does not exist"
+  // errors. Listing all of convex/ instead keeps the types intact.
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "include": ["convex/**/*.ts", "src/schema/**/*.ts", "tests/**/*.ts"],
+  "compilerOptions": {
+    // vite/client supplies the `import.meta.glob` type that convex-test's
+    // module map depends on; node supplies `process` for the env helpers.
+    "types": ["node", "vite/client"],
+
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "outDir": "./node_modules/.tmp/types-tests",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo"
+  }
+}

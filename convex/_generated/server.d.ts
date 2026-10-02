@@ -32,6 +32,8 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly ADMIN_PASSPHRASE: string;
   readonly GOOGLE_DRIVE_API_KEY: string;
+  readonly UPSTASH_REDIS_REST_TOKEN: string | undefined;
+  readonly UPSTASH_REDIS_REST_URL: string | undefined;
 };
 
 /**

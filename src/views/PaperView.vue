@@ -499,7 +499,7 @@ async function postDiscussion(): Promise<void> {
 
 .header {
   display: grid;
-  grid-template-columns: 180px 1fr auto;
+  grid-template-columns: 180px minmax(0, 1fr) auto;
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -632,7 +632,7 @@ async function postDiscussion(): Promise<void> {
 
 .body {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 40px;
 }
 
@@ -879,7 +879,7 @@ async function postDiscussion(): Promise<void> {
 }
 .loading-layout {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 32px;
   margin-top: 40px;
 }
@@ -968,7 +968,7 @@ async function postDiscussion(): Promise<void> {
 
 @media (max-width: 1000px) {
   .header {
-    grid-template-columns: 140px 1fr;
+    grid-template-columns: 140px minmax(0, 1fr);
   }
   .actions {
     grid-column: 1 / -1;
@@ -977,7 +977,7 @@ async function postDiscussion(): Promise<void> {
     min-width: 0;
   }
   .body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 640px) {
@@ -985,7 +985,7 @@ async function postDiscussion(): Promise<void> {
     padding: 32px 20px;
   }
   .header {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
     margin-bottom: 32px;
   }

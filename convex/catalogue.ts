@@ -18,20 +18,25 @@
 import { z } from "zod";
 import { zCustomQuery, zCustomMutation, zCustomAction } from "convex-helpers/server/zod4";
 import { NoOp } from "convex-helpers/server/customFunctions";
-import { query, internalMutation, internalAction, env } from "./_generated/server";
+import { query, internalMutation, internalAction, internalQuery, env } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import type { PaginationOptions } from "convex/server";
 import { internal } from "./_generated/api";
-import { catalogueItemSchema, syncResultSchema } from "../src/schema/catalogue";
+import {
+  catalogueItemSchema,
+  syncResultSchema,
+  type CatalogueItem,
+  type SyncResult,
+} from "../src/schema/catalogue";
 import {
   CODE_SUBJECTS,
   LEVEL_DESC,
   parseCourseName,
   slugify,
 } from "../src/schema/catalogue";
-import { walkCatalogueTree } from "./driveSync";
+import { walkCatalogueTree, hashCatalogueItems } from "./driveSync";
 
 // Shared scope resolver: separate fully-typed index queries per branch
 // (Convex index-builder chains cannot be built conditionally in one
@@ -181,16 +186,17 @@ export const listBySubject = query({
   },
 });
 
-// Hydrate a visible set of papers by Drive id (max 50 per call).
+// Hydrate a visible set of papers by Drive id (max 100 per call).
 // The zod schema admits 100 ids; this handler previously sliced to 50, so
-// callers that passed 50–100 ids (Saved capped at 100, Downloads) silently
-// lost the tail rows. Slice to the schema's real bound instead.
+// callers that passed 50-100 ids (Saved caps at 100, Downloads) silently lost
+// the tail rows and rendered blank cards with no error.
 export const getByIds = zCustomQuery(query, NoOp)({
   args: { ids: z.array(z.string()).max(100) },
   returns: catalogueItemSchema.array(),
   handler: async (ctx, { ids }) => {
+    // No slice needed: the validator already caps this at 100.
     const rows = await Promise.all(
-      ids.slice(0, 100).map((id) =>
+      ids.map((id) =>
         ctx.db
           .query("catalogue")
           .withIndex("by_drive_id", (q) => q.eq("id", id))
@@ -288,6 +294,7 @@ export const replaceAll = zCustomMutation(internalMutation, NoOp)({
     for (const item of items) {
       await ctx.db.insert("catalogue", item);
     }
+    await ctx.scheduler.runAfter(0, internal.snapshot.refresh, { force: true });
     return { count: items.length, syncedAt: Date.now() };
   },
 });
@@ -324,21 +331,84 @@ export const applyDiff = zCustomMutation(internalMutation, NoOp)({
     for (const doc of existing) {
       if (!seen.has(doc.id)) await ctx.db.delete(doc._id);
     }
+    // Rebuild the Upstash read model in the same transaction that invalidated
+    // it, so the web app can never serve a snapshot older than the write that
+    // just landed. The refresh action debounces itself, so a sync that touches
+    // 400 rows still costs exactly one rebuild.
+    await ctx.scheduler.runAfter(0, internal.snapshot.refresh, {});
     return { count: items.length, syncedAt: Date.now() };
   },
 });
 
 // Internal action — walks Google Drive and applies the diff.
-// Scheduled by the 12h cron; not reachable from the client.
+// Scheduled by the 72h cron in convex/crons.ts; not reachable from the client.
 // The Drive API key is read from the Convex env (set via `npx convex env set`),
 // never from a client-provided value.
+/**
+ * The only scheduled writer. Walks Drive, then compares the tree's fingerprint
+ * to the last one applied:
+ *
+ *   unchanged -> return early. No diff, no reads, no writes. This is what makes
+ *                an idle week cost one Drive walk and nothing else.
+ *   changed   -> applyDiff (full read + writes for the delta only), record the
+ *                new fingerprint, and let the snapshot rebuild on its own
+ *                debounce.
+ *
+ * The walk itself always happens: Drive's API gives no cheap "did anything
+ * change?" signal for a folder tree, so the tree must be enumerated to be
+ * compared. But enumeration is free — the expensive part was always the Convex
+ * side, and that is now skipped entirely.
+ */
 export const syncDiffFromDrive = zCustomAction(internalAction, NoOp)({
   args: {},
   returns: syncResultSchema,
+  handler: async (ctx): Promise<SyncResult> => {
+    const items: CatalogueItem[] = await walkCatalogueTree(env.GOOGLE_DRIVE_API_KEY);
+    const treeHash = hashCatalogueItems(items);
+
+    const last: { hash: string; count: number } | null = await ctx.runQuery(
+      internal.catalogue.lastAppliedTreeHash,
+      {},
+    );
+    if (last && last.hash === treeHash) {
+      return { count: last.count, syncedAt: Date.now() };
+    }
+
+    const result: SyncResult = await ctx.runMutation(internal.catalogue.applyDiff, { items });
+    await ctx.runMutation(internal.catalogue.recordAppliedTreeHash, {
+      hash: treeHash,
+      count: result.count,
+    });
+    return { count: result.count, syncedAt: Date.now() };
+  },
+});
+
+/**
+ * Fingerprint of the Drive tree currently applied, or null if never synced.
+ * One singleton row, read once per sync.
+ */
+export const lastAppliedTreeHash = internalQuery({
+  args: {},
+  returns: v.union(v.object({ hash: v.string(), count: v.number() }), v.null()),
   handler: async (ctx) => {
-    const items = await walkCatalogueTree(env.GOOGLE_DRIVE_API_KEY);
-    await ctx.runMutation(internal.catalogue.applyDiff, { items });
-    return { count: items.length, syncedAt: Date.now() };
+    const row = await ctx.db.query("driveSyncState").first();
+    if (!row) return null;
+    return { hash: row.hash, count: row.count };
+  },
+});
+
+/** Record the fingerprint that `applyDiff` just made current. */
+export const recordAppliedTreeHash = internalMutation({
+  args: { hash: v.string(), count: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { hash, count }) => {
+    const row = await ctx.db.query("driveSyncState").first();
+    if (row) {
+      await ctx.db.patch(row._id, { hash, count, appliedAt: Date.now() });
+    } else {
+      await ctx.db.insert("driveSyncState", { hash, count, appliedAt: Date.now() });
+    }
+    return null;
   },
 });
 
@@ -371,18 +441,22 @@ export const facets = query({
       docs = filterCollege
         ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
         : await base.collect();
+    } else if (!filterLevel) {
+      // Program only, no level filter. The by_level_program_type index is
+      // prefixed by levelYear so there is no range to seek here, and walking
+      // by_created with a JS filter (the previous version) read the whole table
+      // on every filter change. by_program is a direct scan of just this
+      // program.
+      const base = ctx.db
+        .query("catalogue")
+        .withIndex("by_program", (q) => q.eq("program", a.program));
+      docs = filterCollege
+        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
+        : await base.collect();
     } else if (!filterProgram) {
       const base = ctx.db
         .query("catalogue")
         .withIndex("by_level_program_type", (q) => q.eq("levelYear", a.levelYear));
-      docs = filterCollege
-        ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
-        : await base.collect();
-    } else if (!filterLevel) {
-      const base = ctx.db
-        .query("catalogue")
-        .withIndex("by_created")
-        .filter((q) => q.eq(q.field("program"), a.program));
       docs = filterCollege
         ? await base.filter((q) => q.eq(q.field("college"), a.college)).collect()
         : await base.collect();

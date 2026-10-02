@@ -24,7 +24,17 @@ export default defineSchema({
     .index("by_drive_id", ["id"])
     .index("by_level_program_type", ["levelYear", "program", "type"])
     .index("by_course_type_year", ["course", "type", "year"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    // Added for `catalogue.facets`: scoping by program alone. The existing
+    // by_level_program_type index is prefixed by levelYear, so "all levels,
+    // one program" had no usable range and fell back to scanning by_created
+    // and filtering in JS — a full table read for every filter change.
+    //
+    // Deliberately NOT `staged: true`. Staged indexes cannot be queried until
+    // the flag is removed, which would ship `facets` pointing at an index that
+    // cannot resolve. Staging only pays off for tables large enough that the
+    // backfill blocks a push, which a course library is not.
+    .index("by_program", ["program"]),
 
   comments: defineTable({
     paper_id: v.string(),
@@ -92,7 +102,12 @@ export default defineSchema({
     reviewedAt: v.optional(v.number()),
   })
     .index("by_status", ["status"])
-    .index("by_device", ["deviceHash"]),
+    .index("by_device", ["deviceHash"])
+    // Added for the duplicate check in `submissions.create`: status + course
+    // narrows the scan to the one course being submitted instead of collecting
+    // every pending submission in the app. Not staged, for the same reason as
+    // catalogue.by_program.
+    .index("by_status_course", ["status", "course"]),
 
   reports: defineTable({
     paperId: v.string(),
@@ -133,6 +148,31 @@ export default defineSchema({
     deviceHash: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_target", ["targetType", "targetId"]),
+
+  // Singleton fingerprint of the Google Drive tree that produced the current
+  // catalogue. `catalogue.syncDiffFromDrive` compares the freshly-walked tree
+  // against this and returns early when they match, so an unchanged Drive costs
+  // one walk and zero database work. At most one document ever exists here.
+  driveSyncState: defineTable({
+    hash: v.string(),
+    count: v.number(),
+    appliedAt: v.number(),
+  }),
+
+  // Singleton bookkeeping for the Upstash read snapshot (convex/snapshot.ts).
+  // At most one document ever exists here; it is claimed via OCC so concurrent
+  // refresh triggers cannot both write, and it records the last content hash so
+  // the daily verify job can detect drift.
+  snapshotMeta: defineTable({
+    lastAttemptAt: v.optional(v.number()),
+    lastRefreshAt: v.optional(v.number()),
+    lastVerifiedAt: v.optional(v.number()),
+    version: v.optional(v.number()),
+    refreshCount: v.optional(v.number()),
+    count: v.optional(v.number()),
+    sha: v.optional(v.string()),
+    lastError: v.optional(v.string()),
+  }),
 
   users: defineTable({
     email: v.string(),

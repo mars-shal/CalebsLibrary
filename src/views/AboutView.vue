@@ -170,7 +170,7 @@ const moderators = computed(() => {
 }
 .rule {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 20px;
   margin-bottom: 24px;
   padding-top: 20px;
@@ -206,7 +206,7 @@ const moderators = computed(() => {
 }
 .mod-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 .mod-row {
@@ -256,11 +256,11 @@ const moderators = computed(() => {
     margin: 44px 0 16px;
   }
   .mod-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
   .rule {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .moderators-card {

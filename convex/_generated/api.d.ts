@@ -16,6 +16,7 @@ import type * as files from "../files.js";
 import type * as metrics from "../metrics.js";
 import type * as reports from "../reports.js";
 import type * as shortLink from "../shortLink.js";
+import type * as snapshot from "../snapshot.js";
 import type * as submissions from "../submissions.js";
 import type * as trends from "../trends.js";
 import type * as users from "../users.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   metrics: typeof metrics;
   reports: typeof reports;
   shortLink: typeof shortLink;
+  snapshot: typeof snapshot;
   submissions: typeof submissions;
   trends: typeof trends;
   users: typeof users;

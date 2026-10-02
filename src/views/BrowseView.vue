@@ -279,7 +279,7 @@ const breadcrumb = computed(() => {
 /* College grid */
 .college-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .college-card {
@@ -309,7 +309,7 @@ const breadcrumb = computed(() => {
 /* Program grid */
 .program-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .program-card {
@@ -339,7 +339,7 @@ const breadcrumb = computed(() => {
 /* Level grid */
 .level-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 .level-card {
@@ -434,7 +434,7 @@ const breadcrumb = computed(() => {
 
 @media (max-width: 720px) {
   .browse { padding: 20px; }
-  .college-grid, .program-grid { grid-template-columns: repeat(2, 1fr); }
-  .level-grid { grid-template-columns: repeat(3, 1fr); }
+  .college-grid, .program-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .level-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 </style>

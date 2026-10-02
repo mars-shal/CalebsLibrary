@@ -8,8 +8,10 @@ import { z } from 'zod'
 
 // NOTE: Drive-walking internals (ROOT_FOLDER_ID, DRIVE_API, DRIVE_FIELDS,
 // MATERIAL_MIME, DriveFile, detectType) live server-side in convex/driveSync.ts
-// so nothing Drive-related ships to the client bundle. The API key is a Convex
-// env var; the client only ever receives URLs baked server-side.
+// so nothing Drive-related ships in the client bundle. The API key is a Convex
+// env var and is never persisted onto a row: `downloadUrl` holds a key-free
+// public Drive URL, and keyed URLs are minted at request time by the
+// `files.downloadUrl` Convex action.
 
 // The account that owns the root tree — the library founder.
 export const FOUNDER_EMAIL = 'caleb.library.project@gmail.com'

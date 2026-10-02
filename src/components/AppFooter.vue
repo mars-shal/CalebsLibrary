@@ -85,7 +85,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 }
 .grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 40px;
 }
 .brand-logo {
@@ -145,7 +145,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 }
 @media (max-width: 900px) {
   .grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 @media (max-width: 560px) {
@@ -153,7 +153,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
     padding: 40px 20px 28px;
   }
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
 }

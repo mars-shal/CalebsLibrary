@@ -22,8 +22,10 @@ export const getByIds = zCustomQuery(query, NoOp)({
   args: { ids: z.array(z.string()).max(100) },
   returns: metricSchema.array(),
   handler: async (ctx, { ids }) => {
+    // One index range scan per id. That is the point: mobile asks for the ~20
+    // cards actually on screen instead of collecting the whole metrics table.
     const rows = await Promise.all(
-      ids.slice(0, 100).map((id) =>
+      ids.map((id) =>
         ctx.db
           .query("metrics")
           .withIndex("by_paper_id", (q) => q.eq("paper_id", id))

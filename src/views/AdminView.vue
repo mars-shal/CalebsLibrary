@@ -431,7 +431,7 @@ async function decide(status: 'approved' | 'rejected') {
 /* Queue body */
 .queue-body {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 360px minmax(0, 1fr);
   max-width: var(--max-content);
   margin: 0 auto;
   border-left: 1px solid var(--border-default);
@@ -619,7 +619,7 @@ async function decide(status: 'approved' | 'rejected') {
 }
 .checks {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 32px;
 }
@@ -723,7 +723,7 @@ async function decide(status: 'approved' | 'rejected') {
 
 @media (max-width: 900px) {
   .queue-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .rail {
     border-right: none;
@@ -764,7 +764,7 @@ async function decide(status: 'approved' | 'rejected') {
     padding: 20px;
   }
   .panel-header {
-    grid-template-columns: 100px 1fr;
+    grid-template-columns: 100px minmax(0, 1fr);
     gap: 16px;
   }
   .panel-title {
@@ -775,7 +775,7 @@ async function decide(status: 'approved' | 'rejected') {
     row-gap: 4px;
   }
   .checks {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
   .check-tile {
