@@ -1,6 +1,5 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { Analytics } from '@vercel/analytics/vue'
 import './assets/main.css'
 import App from './App.vue'
 import router from './router'
@@ -30,6 +29,5 @@ pinia.use(sentryPiniaPlugin)
 
 app.use(pinia)
 app.use(router)
-app.use(Analytics)
 
 app.mount('#app')
