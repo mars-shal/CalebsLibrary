@@ -1,6 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 @import './tokens.css';
+
+// Google Fonts moved to <link> tags in index.html. As a CSS @import the font
+// request could not start until this file had downloaded and parsed, which put
+// two extra DNS lookups and two TLS handshakes in front of first paint.
 
 * {
   transition:
