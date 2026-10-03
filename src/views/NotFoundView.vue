@@ -24,9 +24,11 @@ const stack = computed(() => {
   <div class="screen-wrap notfound">
     <!-- Fallen books -->
     <div class="stack">
-      <div v-if="stack.length" v-for="b in stack" :key="b.paper.id" class="stack-book" :class="b.cls" :style="{ opacity: b.opacity }">
-        <BookCover :paper="b.paper" :size="stack.length >= 2 && b.cls !== 'book-1' ? 'sm' : 'md'" />
-      </div>
+      <template v-if="stack.length">
+        <div v-for="b in stack" :key="b.paper.id" class="stack-book" :class="b.cls" :style="{ opacity: b.opacity }">
+          <BookCover :paper="b.paper" :size="stack.length >= 2 && b.cls !== 'book-1' ? 'sm' : 'md'" />
+        </div>
+      </template>
       <div v-else style="height: 240px" />
     </div>
 

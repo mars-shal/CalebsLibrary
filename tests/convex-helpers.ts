@@ -10,11 +10,17 @@
 // through `process.env` under the test runtime, so setting the variables there
 // is enough.
 import type { TestConvexForDataModel } from 'convex-test'
+import type { DataModel } from '../convex/_generated/dataModel'
 import { internal } from '../convex/_generated/api'
 import type { CatalogueItem } from '../src/schema/catalogue'
 
-/** The handle `convexTest(schema, modules)` returns, for helper signatures. */
-export type TestCtx = TestConvexForDataModel<any>
+/**
+ * The handle `convexTest(schema, modules)` returns, for helper signatures.
+ *
+ * Typed from the generated DataModel rather than `any`, so a schema change that
+ * breaks a helper's arguments fails typecheck instead of silently typechecking.
+ */
+export type TestCtx = TestConvexForDataModel<DataModel>
 
 const REDIS_VARS = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'] as const
 

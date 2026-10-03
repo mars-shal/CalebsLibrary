@@ -2,7 +2,9 @@
 // Inline SVG icon set — 24×24, 1.75px stroke, currentColor.
 // Ported from design_handoff_calebs_library/src/icons.jsx
 
-const props = withDefaults(
+// Props are consumed directly in the template; binding them to a local `props`
+// variable was dead code.
+withDefaults(
   defineProps<{ name: string; size?: number | string; strokeWidth?: number }>(),
   { size: 18, strokeWidth: 1.75 },
 )
