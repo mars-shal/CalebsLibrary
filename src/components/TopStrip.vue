@@ -1,12 +1,11 @@
 <script setup lang="ts">
 // Top strip — sticky nav with logo, mini search (hidden on Home), actions
 import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 import Icon from './Icon.vue'
 
 const router = useRouter()
-const route = useRoute()
 const {
   query,
   suggestions,
@@ -54,19 +53,12 @@ function handleBlur(): void {
 <template>
   <header class="strip">
     <div class="inner">
-      <button
-        v-if="route.name !== 'home'"
-        class="logo"
-        @click="goHome"
-        aria-label="Caleb's Library — home"
-      >
-
+      <button class="logo" @click="goHome" aria-label="Caleb's Library — home">
         <span class="logo-serif">Caleb's</span>
         <span class="logo-caps">Library</span>
       </button>
 
       <div
-        v-if="route.name !== 'home'"
         ref="containerRef"
         class="mini-search"
         :class="{ 'dropdown-open': showDropdown && suggestions.length }"
