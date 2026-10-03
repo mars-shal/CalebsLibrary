@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// PaperCard — IndexStack + title + one-line meta
-import IndexStack from './IndexStack.vue'
+// PaperCard — BookCover + title + one-line meta
+import BookCover from './BookCover.vue'
 import Icon from './Icon.vue'
 import { formatCount } from '@/script/design'
 import type { Paper } from '@/script/design'
@@ -11,8 +11,8 @@ defineEmits<{ (e: 'click'): void }>()
 
 <template>
   <div class="paper-card" @click="$emit('click')">
-    <IndexStack :paper="paper" :size="size" @click="$emit('click')" />
-    <div class="card-body">
+    <BookCover :paper="paper" :size="size" @click="$emit('click')" />
+    <div>
       <div class="card-title">{{ paper.title }}</div>
       <div class="card-meta">
         <span>{{ paper.type }}</span>
@@ -30,22 +30,11 @@ defineEmits<{ (e: 'click'): void }>()
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Without this the card is sized by its longest unbreakable title, which
-     pushes the whole grid track wider than 1fr and overflows the row. */
-  min-width: 0;
   cursor: pointer;
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .paper-card:hover {
   transform: translateY(-2px);
-}
-/* flex:1 so the meta line is pushed to the bottom of the row; combined with the
-   fixed title height below, every card's meta sits on the same baseline. */
-.card-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
 }
 .card-title {
   display: -webkit-box;
@@ -55,28 +44,17 @@ defineEmits<{ (e: 'click'): void }>()
   font-size: 14.5px;
   line-height: 1.3;
   font-weight: 500;
-  /* Reserve both clamped lines. Without this a one-line title makes its card
-     shorter and the meta lines in that row end up at different heights. */
-  min-height: 2.6em;
-  /* Break inside a long filename ("GET210_Introduction...") rather than
-     letting it widen the grid track. */
-  overflow-wrap: anywhere;
   margin-bottom: 4px;
   letter-spacing: -0.01em;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .card-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  /* One line always — "Lecture Notes" was wrapping to two and doubling the
-     height of some cards in a row. */
-  white-space: nowrap;
-  overflow: hidden;
-  min-width: 0;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--ink-40);
   letter-spacing: 0.02em;
 }
 .dot {

@@ -57,16 +57,16 @@ onMounted(async () => {
   padding: 0 24px;
 }
 .short-title {
-  font-family: var(--font-heading);
+  font-family: var(--font-serif);
   font-size: 28px;
   font-weight: 500;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--ink-100);
   margin: 0;
 }
 .short-sub {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   margin-top: 12px;
   max-width: 420px;
   line-height: 1.6;
@@ -75,8 +75,8 @@ onMounted(async () => {
   margin-top: 28px;
   padding: 10px 22px;
   border-radius: 8px;
-  background: var(--text-primary);
-  color: var(--bg-default);
+  background: var(--ink-100);
+  color: var(--paper);
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;

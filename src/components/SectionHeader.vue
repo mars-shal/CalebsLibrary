@@ -26,7 +26,7 @@ withDefaults(defineProps<{ eyebrow?: string; title: string }>(), { eyebrow: '' }
   letter-spacing: -0.02em;
   font-weight: 500;
   line-height: 1.1;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .action {
   flex-shrink: 0;

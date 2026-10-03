@@ -11,7 +11,7 @@ import type { Paper } from '@/script/design'
 import { convex, api } from '@/script/convex'
 import type { CommentItem } from '@/script/convex'
 import Icon from '@/components/Icon.vue'
-import IndexStack from '@/components/IndexStack.vue'
+import BookCover from '@/components/BookCover.vue'
 import Avatar from '@/components/Avatar.vue'
 import PDFPreview from '@/components/PDFPreview.vue'
 
@@ -167,12 +167,11 @@ async function share() {
 const details = computed<[string, string][]>(() => {
   if (!paper.value) return []
   const p = paper.value
-  // Only rows with real data: teacher is empty for Drive-synced papers,
-  // license falls back to the community default.
   return [
     ['Course', p.courseName],
-    ...(p.teacher ? [['Professor', p.teacher] as [string, string]] : []),
-    ['License', p.license || 'CC BY-NC 4.0'],
+    ['Professor', p.teacher || '—'],
+    ['Language', 'English'],
+    ['License', 'CC BY-NC 4.0'],
     ['Size', p.sizeLabel],
     ['Uploaded', timeAgo(p.createdAt)],
   ]
@@ -255,7 +254,7 @@ async function postDiscussion(): Promise<void> {
 
     <!-- Header -->
     <div class="header">
-      <IndexStack :paper="paper" size="lg" />
+      <BookCover :paper="paper" size="lg" />
 
       <div class="header-main">
         <div class="tags">
@@ -295,6 +294,10 @@ async function postDiscussion(): Promise<void> {
         <button class="btn btn-primary action-download" @click="download">
           <Icon name="download" :size="16" /> Download PDF
         </button>
+        <button class="btn btn-ai" disabled title="Coming soon">
+          <Icon name="sparkle" :size="16" /> AI Study Assistant
+          <span class="ai-badge">Coming soon</span>
+        </button>
         <div class="action-pair">
           <button class="btn btn-secondary" :class="{ 'is-saved': saved }" @click="toggleSaved">
             <Icon name="bookmark" :size="15" :stroke-width="1.5" /> {{ saved ? 'Saved' : 'Save' }}
@@ -313,6 +316,9 @@ async function postDiscussion(): Promise<void> {
             <Icon name="arrow-down" :size="14" /> {{ downCount }}
           </button>
         </div>
+        <button class="btn-ghost report">
+          <Icon name="flag" :size="12" /> Report an issue
+        </button>
       </div>
     </div>
 
@@ -435,7 +441,7 @@ async function postDiscussion(): Promise<void> {
             class="related-row"
             @click="router.push({ name: 'paper', params: { id: p.id } })"
           >
-            <IndexStack :paper="p" size="xs" />
+            <BookCover :paper="p" size="xs" />
             <div class="related-main">
               <div class="related-title">{{ p.title }}</div>
               <div class="mono-meta">{{ p.type }} · ▲{{ formatCount(p.upvotes) }}</div>
@@ -478,7 +484,7 @@ async function postDiscussion(): Promise<void> {
   row-gap: 6px;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   margin-bottom: 24px;
 }
 .crumb {
@@ -486,20 +492,20 @@ async function postDiscussion(): Promise<void> {
   border: none;
   padding: 0;
   font-size: 12px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   cursor: pointer;
 }
 .crumb:hover {
-  color: var(--text-primary);
+  color: var(--ink-100);
   text-decoration: underline;
 }
 .crumb-current {
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 
 .header {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) auto;
+  grid-template-columns: 180px 1fr auto;
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -514,13 +520,13 @@ async function postDiscussion(): Promise<void> {
   line-height: 1.05;
   margin: 0;
   letter-spacing: -0.03em;
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-weight: 500;
   text-wrap: balance;
 }
 .subtitle {
   font-size: 17px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   margin-top: 8px;
 }
 .meta-row {
@@ -542,20 +548,20 @@ async function postDiscussion(): Promise<void> {
 }
 .contrib-name {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-weight: 500;
 }
 .divider {
   width: 1px;
   height: 24px;
-  background: var(--border-default);
+  background: var(--rule);
 }
 .meta-item {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
 }
 
 .actions {
@@ -568,6 +574,31 @@ async function postDiscussion(): Promise<void> {
   padding: 12px 20px;
   justify-content: center;
 }
+.btn-ai {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-70);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.ai-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-40);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
 .action-pair {
   display: flex;
   gap: 6px;
@@ -578,14 +609,14 @@ async function postDiscussion(): Promise<void> {
   padding: 10px;
 }
 .btn.is-saved {
-  border-color: var(--text-primary);
-  background: var(--bg-default);
+  border-color: var(--ink-100);
+  background: var(--paper-2);
 }
 .vote-group {
   display: flex;
   align-items: center;
   gap: 2px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--rule-strong);
   border-radius: 4px;
   padding: 4px;
   margin-top: 4px;
@@ -601,13 +632,13 @@ async function postDiscussion(): Promise<void> {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   background: transparent;
   cursor: pointer;
 }
 .vote-up.active {
-  background: var(--text-primary);
-  color: var(--bg-default);
+  background: var(--ink-100);
+  color: var(--paper);
 }
 .vote-down {
   padding: 8px;
@@ -616,23 +647,31 @@ async function postDiscussion(): Promise<void> {
   align-items: center;
   justify-content: center;
   border-radius: 3px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   background: transparent;
   cursor: pointer;
 }
 .vote-down.active {
-  background: var(--text-primary);
-  color: var(--bg-default);
+  background: var(--ink-100);
+  color: var(--paper);
 }
 .vote-divider {
   width: 1px;
   height: 20px;
-  background: var(--border-default);
+  background: var(--rule);
+}
+.report {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px;
+  justify-content: center;
 }
 
 .body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 1fr 320px;
   gap: 40px;
 }
 
@@ -640,14 +679,14 @@ async function postDiscussion(): Promise<void> {
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--rule);
   margin-bottom: 24px;
 }
 .tab {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -657,17 +696,17 @@ async function postDiscussion(): Promise<void> {
   transition: color var(--dur-fast);
 }
 .tab:hover {
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--text-primary);
+  color: var(--ink-100);
+  border-bottom-color: var(--ink-100);
 }
 
 /* Preview */
 .preview-frame {
-  background: var(--bg-default);
-  border: 1px solid var(--border-default);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   padding: 32px;
   position: relative;
@@ -682,7 +721,7 @@ async function postDiscussion(): Promise<void> {
   gap: 12px;
   background: var(--overlay);
   backdrop-filter: blur(6px);
-  color: var(--bg-default);
+  color: var(--paper);
   border-radius: 999px;
   padding: 8px 14px;
   margin: 0 auto;
@@ -693,13 +732,13 @@ async function postDiscussion(): Promise<void> {
 }
 .pn-btn {
   display: flex;
-  color: var(--bg-default);
+  color: var(--paper);
 }
 .preview-hint {
   text-align: center;
   margin-top: 20px;
   font-size: 12px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
 }
 
 /* Citation */
@@ -709,7 +748,7 @@ async function postDiscussion(): Promise<void> {
   gap: 16px;
 }
 .cite-card {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   padding: 20px;
   background: var(--bg-elevated);
@@ -726,7 +765,7 @@ async function postDiscussion(): Promise<void> {
 }
 .cite-text {
   font-size: 14px;
-  color: var(--text-primary);
+  color: var(--ink-100);
   line-height: 1.6;
   white-space: pre-wrap;
   margin: 0;
@@ -742,7 +781,7 @@ async function postDiscussion(): Promise<void> {
   gap: 12px;
   margin-bottom: 24px;
   padding: 16px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--bg-elevated);
 }
@@ -754,7 +793,7 @@ async function postDiscussion(): Promise<void> {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-family: inherit;
   font-size: 14px;
   line-height: 1.55;
@@ -774,7 +813,7 @@ async function postDiscussion(): Promise<void> {
   outline: none;
   font-family: inherit;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   padding: 4px;
   flex: 1;
 }
@@ -786,7 +825,7 @@ async function postDiscussion(): Promise<void> {
   display: flex;
   gap: 12px;
   padding: 16px 4px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--rule);
 }
 .comment-main {
   flex: 1;
@@ -799,11 +838,11 @@ async function postDiscussion(): Promise<void> {
 }
 .comment-name {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-weight: 500;
 }
 .comment-body {
-  color: var(--text-secondary);
+  color: var(--ink-70);
   font-size: 14px;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -811,14 +850,19 @@ async function postDiscussion(): Promise<void> {
 .sk {
   position: relative;
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: var(--paper-3);
 }
 .sk::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--bg-skeleton);
-  animation: pulse 2s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
 }
 .sk-avatar {
   width: 32px;
@@ -832,10 +876,10 @@ async function postDiscussion(): Promise<void> {
 }
 .comments-empty {
   padding: 32px 4px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   font-size: 14px;
   text-align: center;
-  border: 1px dashed var(--border-strong);
+  border: 1px dashed var(--rule-strong);
   border-radius: 6px;
 }
 .post-notice {
@@ -844,29 +888,38 @@ async function postDiscussion(): Promise<void> {
   gap: 8px;
   margin-bottom: 20px;
   padding: 12px 14px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--bg-elevated);
-  color: var(--text-secondary);
+  color: var(--ink-70);
   font-size: 13px;
   line-height: 1.5;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 .sk {
   position: relative;
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: var(--paper-3);
   border-radius: 4px;
 }
 .sk::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--bg-skeleton);
-  animation: pulse 2s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
 }
 .sk-cover-lg {
   width: 180px;
@@ -879,7 +932,7 @@ async function postDiscussion(): Promise<void> {
 }
 .loading-layout {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: 180px 1fr;
   gap: 32px;
   margin-top: 40px;
 }
@@ -892,7 +945,7 @@ async function postDiscussion(): Promise<void> {
 
 /* Sidebar */
 .details-card {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   padding: 20px;
   margin-bottom: 24px;
@@ -903,16 +956,16 @@ async function postDiscussion(): Promise<void> {
   justify-content: space-between;
   padding: 8px 0;
   font-size: 13px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--rule);
 }
 .detail-row:last-child {
   border-bottom: none;
 }
 .detail-key {
-  color: var(--text-quiet);
+  color: var(--ink-40);
 }
 .detail-value {
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-size: 12px;
   text-align: right;
 }
@@ -933,7 +986,7 @@ async function postDiscussion(): Promise<void> {
   transition: background var(--dur-fast);
 }
 .related-row:hover {
-  background: var(--bg-default);
+  background: var(--paper-2);
 }
 .related-main {
   flex: 1;
@@ -941,7 +994,7 @@ async function postDiscussion(): Promise<void> {
 }
 .related-title {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--ink-100);
   font-weight: 500;
   line-height: 1.3;
   letter-spacing: -0.005em;
@@ -963,12 +1016,12 @@ async function postDiscussion(): Promise<void> {
 .no-title {
   font-size: 20px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 
 @media (max-width: 1000px) {
   .header {
-    grid-template-columns: 140px minmax(0, 1fr);
+    grid-template-columns: 140px 1fr;
   }
   .actions {
     grid-column: 1 / -1;
@@ -977,7 +1030,7 @@ async function postDiscussion(): Promise<void> {
     min-width: 0;
   }
   .body {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {
@@ -985,7 +1038,7 @@ async function postDiscussion(): Promise<void> {
     padding: 32px 20px;
   }
   .header {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 24px;
     margin-bottom: 32px;
   }

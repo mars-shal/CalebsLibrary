@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // Footer — 4-column link grid + bottom mono row
 import { useRouter } from 'vue-router'
-import { FOUNDER_EMAIL } from '@/schema/catalogue'
 
 const router = useRouter()
 
@@ -21,7 +20,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
       { label: 'About', to: '/about' },
       { label: 'How it works', to: '/about' },
       { label: 'Contributors', to: '/browse' },
-      { label: 'Founder’s note', to: `/profile/${FOUNDER_EMAIL}` },
+      { label: 'Founder’s note', to: '/profile/caleb' },
     ],
   },
   {
@@ -42,12 +41,12 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
       <div class="grid">
         <div class="brand">
           <div class="brand-logo">
-            <span class="logo-serif">Bells</span>
-            <span class="logo-caps">Notes</span>
+            <span class="logo-serif">Caleb's</span>
+            <span class="logo-caps">Library</span>
           </div>
           <p class="brand-copy">
-            A free library for Bells students. Notes, past questions, and study guides
-            from real students. Free to read. Free to contribute.
+            An open, community-run library of student notes, study guides, and papers.
+            Free to read. Free to contribute. No account needed.
           </p>
         </div>
         <div v-for="col in columns" :key="col.label" class="col">
@@ -65,7 +64,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
         </div>
       </div>
       <div class="bottom">
-        <span class="mono">© 2026 · Bells Notes · Built for Bells University</span>
+        <span class="mono">© 2026 · Caleb's Library · A community project</span>
         <span class="mono tagline">Made with care. Kept alive by contributors.</span>
       </div>
     </div>
@@ -74,8 +73,8 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 
 <style scoped>
 .footer {
-  background: var(--bg-default);
-  border-top: 1px solid var(--border-default);
+  background: var(--paper-2);
+  border-top: 1px solid var(--rule);
   margin-top: 96px;
 }
 .inner {
@@ -85,7 +84,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 }
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
 }
 .brand-logo {
@@ -95,23 +94,23 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
   margin-bottom: 12px;
 }
 .logo-serif {
-  font-family: var(--font-heading);
+  font-family: var(--font-serif);
   font-size: 22px;
   font-weight: 500;
   font-style: italic;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .logo-caps {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   text-transform: uppercase;
 }
 .brand-copy {
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   max-width: 340px;
 }
 .col-label {
@@ -124,28 +123,28 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
 }
 .footer-link {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   cursor: pointer;
   width: fit-content;
   transition: color var(--dur-fast);
 }
 .footer-link:hover {
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .bottom {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid var(--border-default);
+  border-top: 1px solid var(--rule);
   display: flex;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
 }
 @media (max-width: 900px) {
   .grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
   }
 }
 @media (max-width: 560px) {
@@ -153,7 +152,7 @@ const columns: { label: string; links: { label: string; to?: string }[] }[] = [
     padding: 40px 20px 28px;
   }
   .grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 24px;
   }
 }

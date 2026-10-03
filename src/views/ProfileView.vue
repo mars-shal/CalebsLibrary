@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor } from '@/script/design'
 import type { Paper } from '@/script/design'
+import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
@@ -23,21 +24,20 @@ const papers = computed<Paper[]>(() =>
 
 const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
-const tab = ref<'papers' | 'about'>('papers')
+const tab = ref<'papers' | 'shelves' | 'about'>('papers')
 const tabs = computed(() => [
   { id: 'papers' as const, label: `Papers (${papers.value.length})` },
+  { id: 'shelves' as const, label: 'Curated shelves' },
   { id: 'about' as const, label: 'About' },
 ])
 
-// Reads are summed from real per-paper counters (live metrics overlaid by
-// the store; Drive-seeded baselines included). No multipliers, no mocks.
-const reads = computed(() =>
-  papers.value.reduce((n, p) => n + p.views, 0).toLocaleString(),
-)
-const sinceYear = computed(() => {
-  const years = papers.value.map((p) => p.year).filter((y) => Number.isFinite(y))
-  return years.length ? Math.min(...years) : null
-})
+const shelves = [
+  { name: 'Beowulf & Old English', count: 8 },
+  { name: 'Modernist essays', count: 12 },
+  { name: 'First-year survival', count: 6 },
+]
+
+const reads = computed(() => (user.value.uploads * 187).toLocaleString())
 const firstName = computed(() => user.value.name.split(' ')[0] ?? user.value.name)
 
 function openPaper(p: Paper) {
@@ -103,20 +103,31 @@ function openPaper(p: Paper) {
         </div>
       </div>
 
+      <!-- Shelves -->
+      <div v-else-if="tab === 'shelves'">
+        <SectionHeader eyebrow="Personal collections" title="Curated shelves" />
+        <div class="grid-3">
+          <button
+            v-for="s in shelves"
+            :key="s.name"
+            class="shelf-card"
+            @click="router.push({ name: 'browse' })"
+          >
+            <Icon name="books" :size="20" style="color: var(--ink-100); margin-bottom: 16px" />
+            <div class="shelf-name">{{ s.name }}</div>
+            <div class="mono-meta" style="margin-top: 6px">{{ s.count }} papers</div>
+          </button>
+        </div>
+      </div>
+
       <!-- About -->
       <div v-else class="about-col">
         <SectionHeader eyebrow="Notes on a contributor" :title="`About ${firstName}`" />
         <div class="about-card">
           {{ user.bio }}
           <br /><br />
-          <template v-if="sinceYear">
-            Contributor since {{ sinceYear }}. Uploads mostly at the end of each semester, when whatever carried
-            them through gets passed forward.
-          </template>
-          <template v-else>
-            Uploads mostly at the end of each semester, when whatever carried
-            them through gets passed forward.
-          </template>
+          Contributor since 2023. Uploads mostly at the end of each semester, when whatever carried
+          them through gets passed forward.
         </div>
       </div>
     </div>
@@ -125,8 +136,8 @@ function openPaper(p: Paper) {
 
 <style scoped>
 .hero {
-  background: var(--bg-default);
-  border-bottom: 1px solid var(--border-default);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
   padding: 56px 0 40px;
 }
 .wrap {
@@ -148,13 +159,13 @@ function openPaper(p: Paper) {
   font-size: clamp(36px, 5vw, 52px);
   line-height: 1;
   margin: 0;
-  color: var(--text-primary);
+  color: var(--ink-100);
   letter-spacing: -0.035em;
   font-weight: 500;
 }
 .bio {
   margin-top: 12px;
-  color: var(--text-secondary);
+  color: var(--ink-70);
   font-size: 15px;
   max-width: 520px;
   line-height: 1.55;
@@ -165,9 +176,9 @@ function openPaper(p: Paper) {
   gap: 6px;
 }
 .tag-found {
-  background: var(--text-primary);
-  color: var(--bg-default);
-  border-color: var(--text-primary);
+  background: var(--ink-100);
+  color: var(--paper);
+  border-color: var(--ink-100);
 }
 .stats {
   display: flex;
@@ -182,14 +193,14 @@ function openPaper(p: Paper) {
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--rule);
   margin-bottom: 32px;
 }
 .tab {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -198,26 +209,54 @@ function openPaper(p: Paper) {
   transition: color var(--dur-fast);
 }
 .tab:hover {
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--text-primary);
+  color: var(--ink-100);
+  border-bottom-color: var(--ink-100);
 }
 
 .grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 32px;
 }
 .empty-slot {
   aspect-ratio: 2 / 3;
-  border: 1px dashed var(--border-strong);
+  border: 1px dashed var(--rule-strong);
   border-radius: 4px;
   display: grid;
   place-items: center;
-  color: var(--text-tertiary);
+  color: var(--ink-30);
   font-size: 12px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.shelf-card {
+  padding: 24px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--dur-fast);
+}
+.shelf-card:hover {
+  border-color: var(--ink-100);
+}
+.shelf-name {
+  font-size: 20px;
+  color: var(--ink-100);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .about-col {
@@ -226,16 +265,19 @@ function openPaper(p: Paper) {
 .about-card {
   padding: 32px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   font-size: 15px;
   line-height: 1.65;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 
 @media (max-width: 960px) {
   .grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-3 {
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {
@@ -269,7 +311,7 @@ function openPaper(p: Paper) {
     padding-top: 32px;
   }
   .grid-4 {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
   .about-card {

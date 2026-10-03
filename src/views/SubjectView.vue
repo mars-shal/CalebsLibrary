@@ -101,7 +101,7 @@ function openPaper(p: Paper) {
             v-for="c in subject.courses"
             :key="c.id"
             class="course-row"
-            @click="router.push({ name: 'browse', query: { course: c.id } })"
+            @click="router.push({ name: 'subject', params: { id: subject.id } })"
           >
             <span class="course-accent" />
             <span class="course-name">{{ c.displayName }}</span>
@@ -152,8 +152,8 @@ function openPaper(p: Paper) {
 
 <style scoped>
 .hero {
-  background: var(--bg-default);
-  border-bottom: 1px solid var(--border-default);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
   padding: 64px 0 48px;
 }
 .wrap {
@@ -166,7 +166,7 @@ function openPaper(p: Paper) {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   margin-bottom: 32px;
 }
 .crumb {
@@ -174,22 +174,22 @@ function openPaper(p: Paper) {
   border: none;
   padding: 0;
   font-size: 12px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   cursor: pointer;
 }
 .crumb:hover {
-  color: var(--text-primary);
+  color: var(--ink-100);
   text-decoration: underline;
 }
 .crumb-current {
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 .hero-title {
   font-size: clamp(40px, 6vw, 68px);
   font-weight: 500;
   letter-spacing: -0.035em;
   line-height: 1;
-  color: var(--text-primary);
+  color: var(--ink-100);
   margin: 0;
 }
 .hero-stats {
@@ -211,12 +211,12 @@ function openPaper(p: Paper) {
 }
 .grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 32px;
 }
 .courses-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 .course-row {
@@ -224,7 +224,7 @@ function openPaper(p: Paper) {
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--bg-elevated);
   cursor: pointer;
@@ -232,12 +232,12 @@ function openPaper(p: Paper) {
   transition: border-color var(--dur-fast);
 }
 .course-row:hover {
-  border-color: var(--text-primary);
+  border-color: var(--ink-100);
 }
 .course-accent {
   width: 3px;
   height: 28px;
-  background: var(--text-primary);
+  background: var(--ink-100);
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -245,7 +245,7 @@ function openPaper(p: Paper) {
   flex: 1;
   font-size: 15px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ink-100);
   letter-spacing: -0.005em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -253,19 +253,19 @@ function openPaper(p: Paper) {
 }
 .course-count {
   font-size: 11px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
 }
 .course-chevron {
-  color: var(--text-tertiary);
+  color: var(--ink-30);
 }
 .grid-6 {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 24px;
 }
 .contrib-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 .contrib-card {
@@ -274,7 +274,7 @@ function openPaper(p: Paper) {
   align-items: flex-start;
   gap: 8px;
   padding: 20px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--bg-elevated);
   cursor: pointer;
@@ -282,12 +282,12 @@ function openPaper(p: Paper) {
   transition: border-color var(--dur-fast);
 }
 .contrib-card:hover {
-  border-color: var(--text-primary);
+  border-color: var(--ink-100);
 }
 .contrib-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ink-100);
   margin-top: 4px;
   max-width: 100%;
   overflow: hidden;
@@ -305,45 +305,54 @@ function openPaper(p: Paper) {
 .no-title {
   font-size: 20px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ink-100);
 }
 
 /* Shimmer placeholders while loading */
 .sk {
   position: relative;
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: var(--paper-3);
   border-radius: 4px;
 }
 .sk::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--bg-skeleton);
-  animation: pulse 2s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+@keyframes sk-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 @media (max-width: 960px) {
   .grid-6 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
   .grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
   .courses-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
   .contrib-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 640px) {
   .grid-6 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
   .wrap {
     padding: 0 20px;
@@ -368,7 +377,7 @@ function openPaper(p: Paper) {
     gap: 16px;
   }
   .contrib-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
   .missing {
     padding: 64px 20px;

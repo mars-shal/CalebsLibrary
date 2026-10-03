@@ -48,8 +48,8 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
 .pdf-preview {
   background: var(--bg-pdf);
   border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-book);
+  border: 1px solid var(--rule);
   overflow: hidden;
   position: relative;
 }
@@ -61,7 +61,7 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
 }
 .pdf-mock {
   padding: 40px 44px;
-  color: var(--text-primary);
+  color: var(--ink-100);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -76,16 +76,16 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
 }
 .mock-sub {
   font-size: 14px;
-  color: var(--text-quiet);
+  color: var(--ink-40);
   margin-bottom: 4px;
 }
 .mock-mono {
-  color: var(--text-tertiary);
+  color: var(--ink-30);
   margin-bottom: 24px;
 }
 .mock-rule {
   height: 1px;
-  background: var(--border-strong);
+  background: var(--rule-strong);
   margin-bottom: 24px;
 }
 .mock-body {
@@ -100,7 +100,7 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
 }
 .mock-line {
   height: 8px;
-  background: var(--text-primary);
+  background: var(--ink-100);
   opacity: 0.09;
   border-radius: 2px;
 }
@@ -111,8 +111,8 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
   text-align: center;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-quiet);
-  border-top: 1px solid var(--border-default);
+  color: var(--ink-40);
+  border-top: 1px solid var(--rule);
   padding-top: 12px;
 }
 </style>
