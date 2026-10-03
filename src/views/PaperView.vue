@@ -342,13 +342,10 @@ async function postDiscussion(): Promise<void> {
         <div v-if="tab === 'preview'" class="preview-tab">
           <div class="preview-frame">
             <PDFPreview :paper="paper" :height="720" />
-            <div class="page-nav">
-              <span class="pn-btn" style="opacity: 0.5"><Icon name="arrow-left" :size="14" /></span>
-              <span>Page 1 of {{ paper.pages }}</span>
-              <span class="pn-btn"><Icon name="arrow-right" :size="14" /></span>
-            </div>
           </div>
-          <div class="preview-hint">Scroll to preview more pages · Download for the full document</div>
+          <div class="preview-hint">
+            Use the viewer's toolbar to zoom and page · Download for the full document
+          </div>
         </div>
 
         <!-- Citation -->
@@ -711,29 +708,6 @@ async function postDiscussion(): Promise<void> {
   padding: 32px;
   position: relative;
 }
-.page-nav {
-  position: absolute;
-  bottom: 32px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  background: var(--overlay);
-  backdrop-filter: blur(6px);
-  color: var(--paper);
-  border-radius: 999px;
-  padding: 8px 14px;
-  margin: 0 auto;
-  width: fit-content;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  align-items: center;
-}
-.pn-btn {
-  display: flex;
-  color: var(--paper);
-}
 .preview-hint {
   text-align: center;
   margin-top: 20px;
@@ -1074,13 +1048,7 @@ async function postDiscussion(): Promise<void> {
   .preview-frame {
     padding: 16px;
   }
-  .page-nav {
-    bottom: 16px;
-    font-size: 11px;
-    padding: 6px 12px;
-    gap: 8px;
-  }
-  .composer {
+    .composer {
     flex-direction: column;
     gap: 0;
   }

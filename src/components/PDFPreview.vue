@@ -20,6 +20,7 @@ const iframeSrc = computed(() => props.src || props.paper.previewUrl)
       class="pdf-frame"
       title="Document preview"
       allow="fullscreen"
+      allowfullscreen
     />
     <div v-else class="pdf-mock">
       <div class="smallcaps" style="margin-bottom: 32px; font-size: 10px">
