@@ -179,6 +179,14 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   <div class="screen-wrap">
     <!-- Masthead -->
     <section class="masthead">
+      <!-- Wordmark. TopStrip hides its own logo on this route (it is already the
+           nav bar and the hero owns the header), so the home page had no brand
+           mark at all. Mirrors the nav wordmark for consistency. -->
+      <div class="home-logo">
+        <img class="home-logo-mark" src="/favicon.png" alt="" width="36" height="36" />
+        <span class="home-logo-serif">Caleb's</span>
+        <span class="home-logo-caps">Library</span>
+      </div>
 
       <h1 class="masthead-title">
         <Transition name="cycle" mode="out-in">
@@ -277,6 +285,45 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
   margin: 0 auto;
   padding: 80px 32px 0;
   text-align: center;
+}
+/* Wordmark above the hero title. Type and spacing mirror the TopStrip logo so
+   the brand reads identically on the home page and on every inner page. */
+.home-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+.home-logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.home-logo-serif {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-100);
+  line-height: 1;
+}
+.home-logo-caps {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--ink-40);
+  text-transform: uppercase;
+}
+@media (max-width: 640px) {
+  .home-logo-serif {
+    font-size: 21px;
+  }
+  .home-logo-mark {
+    width: 30px;
+    height: 30px;
+  }
 }
 .masthead-title {
   font-family: var(--font-serif);
@@ -516,7 +563,7 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 }
 .grid-5 {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 24px;
 }
 .loading-box {
@@ -529,12 +576,12 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
 
 @media (max-width: 960px) {
   .grid-5 {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {
   .grid-5 {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .wrap,
   .wrap-narrow {

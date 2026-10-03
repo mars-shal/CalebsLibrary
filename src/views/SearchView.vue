@@ -441,7 +441,7 @@ function handleBlur(): void {
 
 .body {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 40px;
 }
 
@@ -603,7 +603,7 @@ function handleBlur(): void {
 }
 .result-row {
   display: grid;
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
   gap: 20px;
   padding: 24px 16px;
   border-bottom: 1px solid var(--rule);
@@ -647,7 +647,7 @@ function handleBlur(): void {
 }
 .sk-row {
   display: grid;
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
   gap: 20px;
   padding: 24px 16px;
   border-bottom: 1px solid var(--rule);
@@ -776,7 +776,7 @@ function handleBlur(): void {
 
 @media (max-width: 900px) {
   .body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .body > * {
     min-width: 0;
@@ -812,7 +812,7 @@ function handleBlur(): void {
     display: none;
   }
   .result-row {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 56px minmax(0, 1fr);
     gap: 14px;
     padding: 18px 8px;
   }

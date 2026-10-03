@@ -1,4 +1,4 @@
-// Bells Notes — catalogue data store (Pinia)
+// Caleb's Library — catalogue data store (Pinia)
 //
 // The catalogue is synced to Convex by a server-side cron (convex/crons.ts
 // + convex/driveSync.ts), which walks the Google Drive tree and stores the
@@ -150,7 +150,7 @@ function deriveOwners(pool: Paper[]): OwnerCount[] {
   if (!map.has(FOUNDER_EMAIL)) {
     map.set(FOUNDER_EMAIL, {
       id: FOUNDER_EMAIL,
-      name: 'Bells',
+      name: 'Caleb',
       email: FOUNDER_EMAIL,
       count: 1,
     })
@@ -246,7 +246,8 @@ export const useDriveStore = defineStore('drive', () => {
   }
 
   // ---------- persistence cache (localStorage) ----------
-  // Keep the Bells Notes key so existing installs keep their warm cache.
+  // NOTE: the key still says "bellsnotes". It is only a localStorage key, so
+  // renaming it would just invalidate every existing user's cache for no gain.
   const CACHE_KEY = 'bellsnotesCatalogueCache'
   // Bumped from 1 to 2: the cached shape gained `snapshotVersion`, so a v1 entry
   // is ignored rather than misread as "no snapshot version yet".

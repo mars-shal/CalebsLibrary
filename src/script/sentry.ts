@@ -1,4 +1,4 @@
-// Bells Notes — Sentry wiring.
+// Caleb's Library — Sentry wiring.
 //
 // Thin wrapper so the rest of the app never imports @sentry/vue directly and
 // never has to know whether monitoring is enabled. When VITE_SENTRY_DSN is
