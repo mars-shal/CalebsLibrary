@@ -255,7 +255,14 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
           <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
         </template>
       </SectionHeader>
-      <SkeletonCard v-if="isLoading" :count="5" size="sm" />
+      <!-- The skeletons must live inside the same .grid-5 as the real cards.
+           SkeletonCard used to own a 6-column grid of its own with no
+           responsive rules, so on a phone the placeholders rendered 6 narrow
+           covers and the real shelf then snapped to 2 wide ones — a ~3x width
+           change on every card, which is what drove CLS to 0.79. -->
+      <div v-if="isLoading" class="grid-5">
+        <SkeletonCard v-for="i in 5" :key="i" size="sm" />
+      </div>
       <div v-else-if="drive.recentPapers.length" class="grid-5">
         <PaperCard
           v-for="p in drive.recentPapers"

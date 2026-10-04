@@ -4,39 +4,65 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!--
-      Connection warm-ups and the font stylesheet, deliberately in <head> rather
-      than a CSS @import.
-
-      A CSS @import of Google Fonts is only discovered after the main stylesheet
-      has downloaded and parsed, so it serialises:
-        HTML -> our CSS -> fonts.googleapis.com CSS -> fonts.gstatic.com files
-      i.e. two extra DNS lookups and two TLS handshakes before any text renders.
-      As <link>s the browser fetches them in parallel with the CSS.
-
-      The Convex preconnect matters because the store queries the catalogue
-      immediately on mount; without it every reader pays DNS + TLS before the
-      first byte of data. %VITE_CONVEX_URL% is substituted at build time by Vite.
-    -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-    >
-    <link rel="preconnect" href="%VITE_CONVEX_URL%" crossorigin>
-    <link rel="dns-prefetch" href="https://www.googletagmanager.com">
     <title>Caleb's Library — Free. Open. No account needed.</title>
     <meta name="description" content="A free, open-source library for students by students. Share notes, past exams, study guides — no accounts, no paywalls.">
     <meta name="theme-color" content="#f5f2ea">
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4SJRWGP4SZ"></script>
+
+    <!--
+      Fonts are self-hosted and preloaded.
+
+      These used to come from a render-blocking <link> to fonts.googleapis.com.
+      A stylesheet in <head> is on the critical path to first paint, so every
+      reader waited on a DNS lookup, a TLS handshake and a 25 KB third-party
+      response before a single character could be drawn -- the bulk of the 4.5s
+      FCP. Self-hosting (tools/extract-fonts.py) drops two third-party origins
+      entirely.
+
+      Each family is a variable font, so one file covers every weight: these
+      three files (121 KB total) are the entire typographic system for Latin
+      text. Preloading them means the swap happens alongside the first paint
+      rather than after it, which is what keeps font loading out of CLS.
+      Crossorigin is required even though the files are same-origin: font
+      fetches are always made in CORS mode.
+    -->
+    <link rel="preload" href="/fonts/inter-normal-latin-3100e775.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/eb-garamond-normal-latin-88603384.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/jetbrains-mono-normal-latin-83c005d4.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!--
+      The Convex preconnect matters because the store queries the catalogue
+      immediately on mount; without it every reader pays DNS + TLS before the
+      first byte of data. %VITE_CONVEX_URL% is substituted at build time by Vite,
+      so this must resolve to the same deployment the app actually reads from.
+    -->
+    <link rel="preconnect" href="%VITE_CONVEX_URL%" crossorigin>
+
+    <!--
+      Google Analytics. Loaded from requestIdleCallback rather than a plain
+      <script async> in <head>: gtag.js is ~170 KB and competes with the app
+      entry and the fonts for a phone's bandwidth. Deferring it until the main
+      thread is idle takes it off the critical path entirely. Page views that
+      happen before it loads are queued in dataLayer and replayed on init, so no
+      hit is lost.
+    -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-4SJRWGP4SZ');
+      (function () {
+        var load = function () {
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=G-4SJRWGP4SZ';
+          document.head.appendChild(s);
+        };
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(load, { timeout: 3000 });
+        } else {
+          setTimeout(load, 1500);
+        }
+      })();
     </script>
   </head>
   <body>
