@@ -172,7 +172,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (refreshTimer) clearTimeout(refreshTimer)
 })
+// Hold the skeleton until the headline numbers describe the whole library, not
+// just the five papers this page loaded.
 const isLoading = computed(() => drive.loading && drive.papers.length === 0)
+const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
 </script>
 
 <template>
@@ -236,7 +239,7 @@ const isLoading = computed(() => drive.loading && drive.papers.length === 0)
       </div>
 
       <div class="stats-strip">
-        <template v-if="isLoading">
+        <template v-if="showStatSkeletons">
           <div v-for="i in 4" :key="i" class="sk stat-sk">
             <div class="sk stat-sk-value" />
             <div class="sk stat-sk-label" />

@@ -25,7 +25,13 @@ const subject = computed(() => (paper.value ? drive.getSubject(paper.value.subje
 const isLoading = computed(() => drive.loading && !paper.value)
 
 onMounted(() => {
-  if (paper.value) drive.recordMetric(paper.value.id, 'reads')
+  // A paper reached by direct link or search is usually not in the handful of
+  // papers the home page loaded. Fetch the rest before deciding it does not
+  // exist — otherwise a valid URL would render "not found" purely because of
+  // how much had been paged in.
+  void drive.ensureComplete().then(() => {
+    if (paper.value) drive.recordMetric(paper.value.id, 'reads')
+  })
   loadComments()
   subscribeToComments()
 })

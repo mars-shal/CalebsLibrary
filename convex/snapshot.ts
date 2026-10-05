@@ -39,6 +39,7 @@ import {
   type ActionCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { buildSummary } from "../src/schema/catalogue";
 
 // `cl:sha` and `cl:meta` from the first draft are gone: the ETag is just the
 // version, and count/generatedAt/refreshCount all live inside the payload.
@@ -124,6 +125,7 @@ export const buildPayload = internalQuery({
     papers: v.array(v.any()),
     metrics: v.array(v.any()),
     trends: v.array(v.any()),
+    summary: v.any(),
   }),
   handler: async (ctx, args) => {
     const [catalogue, metrics, trendRows] = await Promise.all([
@@ -156,6 +158,11 @@ export const buildPayload = internalQuery({
     return {
       generatedAt: now,
       papers,
+      // Catalogue-wide totals, computed here over every paper so they can ride
+      // along with each paged response. The client only ever holds one page at
+      // a time, and would otherwise report its own page size as the library
+      // size. ~300 bytes, so it is cheaper than another round-trip.
+      summary: buildSummary(papers),
       metrics: metrics.map((m) => ({
         paper_id: m.paper_id,
         reads: m.reads,

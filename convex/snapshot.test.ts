@@ -102,6 +102,65 @@ describe('snapshot.buildPayload', () => {
     expect(a).toEqual(b)
     expect(a.generatedAt).toBe(5_000)
   })
+
+  // The client loads papers a page at a time, so any total derived from
+  // `papers` would report the page size ("5 Papers") instead of the library size.
+  // These assertions are what keep that number honest on a partial load.
+  describe('whole-catalogue summary', () => {
+    test('counts every paper, not the page that happens to be loaded', async () => {
+      const t = await setup()
+      await seedCatalogue(t, [
+        { id: 'p1' },
+        { id: 'p2' },
+        { id: 'p3', subject: 'cs', subjectName: 'Computer Science' },
+      ])
+
+      const { summary } = await buildPayload(t, 1_000)
+
+      expect(summary.papers).toBe(3)
+      expect(summary.subjects.map((s) => s.id).sort()).toEqual(['cs', 'maths'])
+    })
+
+    test('sums reads into the per-month figure the home page shows', async () => {
+      const t = await setup()
+      await seedCatalogue(t, [
+        { id: 'p1', views: 120 },
+        { id: 'p2', views: 120 },
+      ])
+
+      const { summary } = await buildPayload(t, 1_000)
+
+      // 240 total reads / 12 months.
+      expect(summary.reads).toBe(20)
+    })
+
+    test('counts distinct contributors', async () => {
+      const t = await setup()
+      await seedCatalogue(t, [
+        { id: 'p1', contributor: 'a@example.com' },
+        { id: 'p2', contributor: 'b@example.com' },
+        { id: 'p3', contributor: 'a@example.com' },
+      ])
+
+      const { summary } = await buildPayload(t, 1_000)
+
+      expect(summary.contributors).toBe(2)
+    })
+
+    test('orders subjects by paper count, most first', async () => {
+      const t = await setup()
+      await seedCatalogue(t, [
+        { id: 'p1', subject: 'maths', subjectName: 'Mathematics' },
+        { id: 'p2', subject: 'cs', subjectName: 'Computer Science' },
+        { id: 'p3', subject: 'cs', subjectName: 'Computer Science' },
+      ])
+
+      const { summary } = await buildPayload(t, 1_000)
+
+      expect(summary.subjects[0]).toMatchObject({ id: 'cs', count: 2 })
+      expect(summary.subjects[1]).toMatchObject({ id: 'maths', count: 1 })
+    })
+  })
 })
 
 describe('snapshot.refresh', () => {

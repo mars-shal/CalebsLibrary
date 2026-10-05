@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Subject — department page. Ported from design_handoff Subject.jsx.
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor } from '@/script/design'
@@ -21,7 +21,12 @@ const papers = computed<Paper[]>(() =>
   subject.value ? drive.papersBySubject(subject.value.id) : [],
 )
 
-const isLoading = computed(() => drive.loading && !subject.value)
+// A department page lists every paper in that department and groups them by
+// contributor, so it needs the whole catalogue, not the page the home view
+// happened to load.
+onMounted(() => void drive.ensureComplete())
+
+const isLoading = computed(() => (drive.loading && !subject.value) || drive.completing)
 
 const essentials = computed<Paper[]>(() => papers.value.slice(0, 4))
 

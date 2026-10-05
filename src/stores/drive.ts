@@ -30,6 +30,8 @@ import {
   CODE_SUBJECTS,
   slugify,
   parseCourseName,
+  buildSummary,
+  type CatalogueSummary,
 } from '@/schema/catalogue'
 
 interface MetricRow {
@@ -170,6 +172,27 @@ export const useDriveStore = defineStore('drive', () => {
   const error = ref<string | null>(null)
   const searchTrends = ref<Record<string, number>>({})
 
+  // ---- paged catalogue state ----
+  // `papers` holds a newest-first *prefix* of the catalogue, not always all of
+  // it. The home page draws five papers; browse pages in more as you scroll;
+  // search and the drill-downs ask for the whole thing when they need it.
+  //   total    -> how many papers exist, so we know whether more remain
+  //   complete -> true when `papers` holds every one of them
+  // `complete` is load-bearing, not informational: it gates the localStorage
+  // write, because persisting a partial list under the full catalogue's version
+  // would make the next visit probe `?v=` , get "unchanged", and sit on that
+  // partial list forever with nothing logged to say why.
+  const total = ref(0)
+  const complete = ref(false)
+  const fetchingMore = ref(false)
+  const completing = ref(false)
+  let morePending = false
+
+  // Catalogue-wide totals from the server, present from the first response and
+  // independent of how many papers are actually loaded. This is what keeps the
+  // home page honest: "1,249 Papers" rather than "5 Papers".
+  const summary = ref<CatalogueSummary | null>(null)
+
   // ---------- derived values ----------
   const papersBySubject = (subjectId: string): Paper[] =>
     papers.value.filter((p) => p.subject === subjectId)
@@ -210,12 +233,31 @@ export const useDriveStore = defineStore('drive', () => {
     }))
   })
 
-  const stats = computed(() => ({
-    papers: papers.value.length,
-    contributors: new Set(papers.value.map((p) => p.contributor)).size,
-    reads: Math.round(papers.value.reduce((s, p) => s + p.views, 0) / 12),
-    subjects: subjects.value.length,
-  }))
+  const stats = computed(() => {
+    // Prefer the server's whole-catalogue totals. Deriving from `papers` is only
+    // right once every paper is loaded, and after paging that is the exception
+    // (search, a subject drill-down), not the default. Older snapshots predate
+    // `summary`, so fall back to counting what we hold.
+    const s = summary.value
+    return {
+      papers: s ? s.papers : papers.value.length,
+      contributors: s
+        ? s.contributors
+        : new Set(papers.value.map((p) => p.contributor)).size,
+      reads: s ? s.reads : Math.round(papers.value.reduce((sum, p) => sum + p.views, 0) / 12),
+      subjects: s ? s.subjects.length : subjects.value.length,
+    }
+  })
+
+  /**
+   * Whether those totals describe the whole library.
+   *
+   * A snapshot built before paging ships no `summary`, so until the catalogue is
+   * fully loaded the only numbers available are those of the loaded page — and
+   * rendering "5 Papers" for a library of 1,255 is worse than showing nothing.
+   * Callers should hold their placeholder until this is true.
+   */
+  const statsKnown = computed(() => summary.value !== null || complete.value)
 
   function search(query: string, filters: { subjects?: string[]; types?: string[]; yearMin?: number; yearMax?: number } = {}) {
     const q = query.trim().toLowerCase()
@@ -303,24 +345,52 @@ export const useDriveStore = defineStore('drive', () => {
 
   function flushCache(force = false): void {
     if (!cacheDirty) return
+    // Never persist a partial catalogue. See the note on `complete`.
+    if (!complete.value) return
     if (!force && Date.now() - lastCacheWrite < CACHE_WRITE_MIN_INTERVAL_MS) return
     writeCache(snapshotVersion)
     cacheDirty = false
     lastCacheWrite = Date.now()
   }
 
-  function apply(paperList: Paper[], metricRows: MetricRow[]): void {
+  function apply(paperList: Paper[], metricRows: MetricRow[], incomingSummary?: CatalogueSummary | null): void {
     applyMetrics(paperList, metricRows)
     ownerList.value = deriveOwners(paperList)
     setContributors(contributors.value)
     papers.value = paperList
     courses.value = computeCourses(paperList)
-    subjects.value = computeSubjects(courses.value)
+    if (incomingSummary) summary.value = incomingSummary
+    subjects.value = subjectsFromLoaded(paperList, courses.value, summary.value)
     cacheDirty = true
+  }
+
+  /**
+   * The subject list for the subject picker, the browse shelves and the home
+   * page's "All N subjects" link.
+   *
+   * Once the catalogue is complete these are just the local grouping. While it is
+   * still paged, grouping whatever happens to be loaded would advertise three
+   * subjects for a library that has nine — so the server's whole-catalogue counts
+   * are used instead. `courses` stays empty in that case, which is fine: nothing
+   * that reads a subject's courses is reachable without the full catalogue
+   * (subject pages call `ensureComplete`).
+   */
+  function subjectsFromLoaded(
+    loaded: Paper[],
+    loadedCourses: Course[],
+    totals: CatalogueSummary | null,
+  ): Subject[] {
+    if (loaded.length >= total.value && total.value > 0) return computeSubjects(loadedCourses)
+    if (!totals) return computeSubjects(loadedCourses)
+    return totals.subjects.map((s) => ({ ...s, courses: [] }))
   }
 
   // Hydrate from localStorage so the first paint is instant (no network wait).
   // The network fetch then replaces it in the background.
+  //
+  // Only ever called with a cache that was written while complete, so this is
+  // always the whole catalogue — which is what makes the fast path for a
+  // returning visitor possible at all.
   function hydrateFromCache(): boolean {
     const cache = readCache()
     if (!cache?.papers?.length) return false
@@ -330,6 +400,8 @@ export const useDriveStore = defineStore('drive', () => {
     subjects.value = cache.subjects
     ownerList.value = cache.owners
     setContributors(contributors.value)
+    total.value = cache.papers.length
+    complete.value = true
     error.value = null
     cacheDirty = false
     return true
@@ -357,39 +429,68 @@ export const useDriveStore = defineStore('drive', () => {
     papers: Array<Omit<Paper, 'parents'> & { parents?: string[] }>
     metrics: MetricRow[]
     trends: Array<{ term: string; score: number }>
+    // Catalogue-wide totals, computed server-side over every paper. Absent in
+    // snapshots built before paging shipped, so treat it as optional and fall
+    // back to deriving from whatever is loaded.
+    summary?: CatalogueSummary
+    /** Set by the endpoint when this response is one page of several. */
+    paged?: boolean
   }
 
   type SnapshotResult =
     | { status: 'unchanged' }
-    | { status: 'updated'; version: number; payload: SnapshotPayload }
+    | { status: 'updated'; version: number; payload: SnapshotPayload; total: number }
 
-  let snapshotVersion = 0
-  // null = not yet tested, true = healthy, false = using the Convex fallback.
-  let endpointHealthy: boolean | null = null
-  let consecutiveFailures = 0
-  let pollCount = 0
+  // One page of papers. `limit = 0` asks for the whole catalogue, which is what
+  // search and the drill-downs use.
+  const PAGE_SIZE = 60
+  // What the home page draws. This is the default for `load()` because the app
+  // shell loads the store before any route is known, and five papers is the
+  // smallest useful answer: it is what the landing page renders, so the common
+  // case never asks for more.
+  const HOME_PAGE = 5
 
-  async function fetchSnapshot(knownVersion: number): Promise<SnapshotResult> {
-    const url =
-      knownVersion > 0
-        ? `${CATALOGUE_ENDPOINT}?v=${knownVersion}`
-        : CATALOGUE_ENDPOINT
+  async function fetchSnapshot(
+    knownVersion: number,
+    limit = 0,
+    offset = 0,
+  ): Promise<SnapshotResult> {
+    const params = new URLSearchParams()
+    if (knownVersion > 0) params.set('v', String(knownVersion))
+    if (limit > 0) {
+      params.set('limit', String(limit))
+      params.set('offset', String(offset))
+    }
+    const qs = params.toString()
+    const url = qs ? `${CATALOGUE_ENDPOINT}?${qs}` : CATALOGUE_ENDPOINT
     const res = await fetch(url, { headers: { accept: 'application/json' } })
 
     if (res.status === 204) return { status: 'unchanged' }
     if (!res.ok) throw new Error(`catalogue endpoint responded ${res.status}`)
 
     const version = Number(res.headers.get('x-snapshot-version') ?? 0)
+    const totalPapers = Number(res.headers.get('x-catalogue-total') ?? 0)
     const payload = (await res.json()) as SnapshotPayload
     if (!Array.isArray(payload.papers)) {
       throw new Error('catalogue endpoint returned a malformed payload')
     }
-    return { status: 'updated', version, payload }
+    return { status: 'updated', version, payload, total: totalPapers }
   }
 
   function hydratePapers(list: SnapshotPayload['papers']): Paper[] {
     return list.map((p) => ({ ...p, parents: p.parents ?? [] }))
   }
+
+  /** Did this response give us every paper in the catalogue? */
+  function coversEverything(got: number, totalPapers: number): boolean {
+    return totalPapers > 0 ? got >= totalPapers : false
+  }
+
+  // null = not yet tested, true = healthy, false = using the Convex fallback.
+  let snapshotVersion = 0
+  let endpointHealthy: boolean | null = null
+  let consecutiveFailures = 0
+  let pollCount = 0
 
   /**
    * The pre-Redisky path, kept intact as a fallback. Reads the three legacy
@@ -404,8 +505,12 @@ export const useDriveStore = defineStore('drive', () => {
 
       const [items, metricRows, trendRows] = await Promise.all([itemsP, metricsP, trendsP])
 
-      apply(items, metricRows)
+      apply(items, metricRows, buildSummary(items))
       searchTrends.value = Object.fromEntries(trendRows.map((t) => [t.term, t.score]))
+      // The Convex fallback is a full collect — it has no paging — so the store
+      // is complete after it runs.
+      total.value = items.length
+      complete.value = true
       loaded.value = true
       loading.value = false
       flushCache(true)
@@ -437,7 +542,13 @@ export const useDriveStore = defineStore('drive', () => {
     }
 
     try {
-      const result = await fetchSnapshot(snapshotVersion)
+      // A paged store polls for the same window it already holds, so a paper
+      // added since the last tick appears at the top without discarding what
+      // the reader has scrolled to. A complete store keeps the old cheap
+      // whole-catalogue probe.
+      const paged = !complete.value
+      const window = paged ? Math.min(Math.max(papers.value.length, 1), 300) : 0
+      const result = await fetchSnapshot(snapshotVersion, window)
       if (endpointHealthy === false) {
         captureAppMessage('Catalogue endpoint recovered; back on the Redis read path.', 'info')
       }
@@ -446,7 +557,20 @@ export const useDriveStore = defineStore('drive', () => {
       if (result.status === 'unchanged') return
 
       snapshotVersion = result.version
-      apply(hydratePapers(result.payload.papers), result.payload.metrics)
+      const hydrated = hydratePapers(result.payload.papers)
+      if (paged) {
+        // Merge rather than replace: keep what is on screen, prepend anything
+        // genuinely new so newest-first ordering still holds.
+        const seen = new Set(papers.value.map((p) => p.id))
+        const fresh = hydrated.filter((p) => !seen.has(p.id))
+        if (fresh.length === 0) return
+        apply([...fresh, ...papers.value], result.payload.metrics, result.payload.summary)
+        if (result.total > 0) total.value = result.total
+      } else {
+        total.value = result.total || hydrated.length
+        apply(hydrated, result.payload.metrics, result.payload.summary)
+        complete.value = coversEverything(hydrated.length, total.value)
+      }
       searchTrends.value = Object.fromEntries(
         result.payload.trends.map((t) => [t.term, t.score]),
       )
@@ -472,25 +596,39 @@ export const useDriveStore = defineStore('drive', () => {
   // never blocking the UI on the full catalogue round-trip.
   let started = false
 
-  async function load(): Promise<void> {
+  /**
+   * First load. `limit` is how many papers the calling view is about to draw —
+   * the home page's five by default, and 0 for anything that needs the whole
+   * corpus.
+   *
+   * A returning visitor with a cached catalogue keeps it: the cache is always
+   * complete, and the version probe answers 204 without shipping anything.
+   */
+  async function load(limit = HOME_PAGE): Promise<void> {
     if (loaded.value || started) return
     started = true
     loading.value = true
 
     // Paint immediately from the local cache while the network fetch runs.
-    hydrateFromCache()
+    const fromCache = hydrateFromCache()
     error.value = null
 
     const ok = await (async () => {
       try {
-        const result = await fetchSnapshot(snapshotVersion)
+        const result = await fetchSnapshot(snapshotVersion, fromCache ? 0 : limit)
         endpointHealthy = true
         if (result.status === 'updated') {
           snapshotVersion = result.version
-          apply(hydratePapers(result.payload.papers), result.payload.metrics)
+          const hydrated = hydratePapers(result.payload.papers)
+          total.value = result.total || hydrated.length
+          apply(hydrated, result.payload.metrics, result.payload.summary)
+          complete.value = coversEverything(hydrated.length, total.value)
           searchTrends.value = Object.fromEntries(
             result.payload.trends.map((t) => [t.term, t.score]),
           )
+        } else {
+          // "Unchanged" — the cache we hydrated from is still authoritative.
+          complete.value = fromCache
         }
         loaded.value = true
         loading.value = false
@@ -506,6 +644,76 @@ export const useDriveStore = defineStore('drive', () => {
     })()
 
     if (ok) startAutoRefresh()
+  }
+
+  /**
+   * Append the next page. Called from the scroll sentinel in browse, so the
+   * catalogue arrives a screenful at a time instead of all at once.
+   *
+   * No version probe here on purpose: a 204 would mean "your copy is current",
+   * which is true of the prefix we hold but is not what we asked for — we asked
+   * for a page we have never seen.
+   */
+  async function fetchMore(): Promise<void> {
+    if (complete.value || morePending || loading.value) return
+    if (total.value > 0 && papers.value.length >= total.value) {
+      complete.value = true
+      return
+    }
+    morePending = true
+    fetchingMore.value = true
+    try {
+      const result = await fetchSnapshot(0, PAGE_SIZE, papers.value.length)
+      if (result.status === 'updated') {
+        const incoming = hydratePapers(result.payload.papers)
+        if (incoming.length === 0) {
+          // Nothing left to hand back — treat the catalogue as exhausted rather
+          // than letting the sentinel spin on an endpoint that keeps agreeing.
+          complete.value = true
+        } else {
+          apply([...papers.value, ...incoming], result.payload.metrics, result.payload.summary)
+          if (result.total > 0) total.value = result.total
+          complete.value = coversEverything(papers.value.length, total.value)
+        }
+      }
+    } catch (e) {
+      // Leave what we have; the sentinel will ask again on the next scroll.
+      captureAppException(e, { fn: 'fetchMore' })
+    } finally {
+      morePending = false
+      fetchingMore.value = false
+    }
+  }
+
+  /**
+   * Fetch the entire catalogue. Search and the subject/profile drill-downs
+   * filter across every paper, so they cannot answer from a prefix. This is the
+   * deliberate full download — it happens when someone actually searches, not
+   * on the way to the home page.
+   */
+  async function ensureComplete(): Promise<void> {
+    if (complete.value || completing.value) return
+    completing.value = true
+    try {
+      const result = await fetchSnapshot(0)
+      if (result.status === 'updated') {
+        snapshotVersion = result.version
+        const hydrated = hydratePapers(result.payload.papers)
+        total.value = result.total || hydrated.length
+        apply(hydrated, result.payload.metrics, result.payload.summary)
+        complete.value = true
+        searchTrends.value = Object.fromEntries(
+          result.payload.trends.map((t) => [t.term, t.score]),
+        )
+        flushCache(true)
+      } else {
+        complete.value = true
+      }
+    } catch (e) {
+      captureAppException(e, { fn: 'ensureComplete' })
+    } finally {
+      completing.value = false
+    }
   }
 
   async function recordMetric(
@@ -597,6 +805,11 @@ export const useDriveStore = defineStore('drive', () => {
     loaded,
     error,
     searchTrends,
+    total,
+    complete,
+    statsKnown,
+    fetchingMore,
+    completing,
     papersBySubject,
     papersByCourse,
     getSubject,
@@ -609,6 +822,8 @@ export const useDriveStore = defineStore('drive', () => {
     stats,
     search,
     load,
+    fetchMore,
+    ensureComplete,
     refresh,
     startAutoRefresh,
     stopAutoRefresh,

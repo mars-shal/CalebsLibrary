@@ -107,15 +107,33 @@ function revealMore(): void {
   }
 }
 
+/**
+ * The sentinel does double duty. It un-reveals another shelf of papers that are
+ * already loaded, and — because the catalogue now arrives a page at a time —
+ * asks for the next page when there are no more shelves left to reveal.
+ *
+ * `fetchMore` is a no-op while a request is in flight or the catalogue is
+ * already complete, so the observer firing repeatedly is harmless.
+ */
+function onSentinel(): void {
+  revealMore()
+  if (revealed.value >= visibleSubjects.value.length) void drive.fetchMore()
+}
+
+// Browse shows the whole library, so it walks it by page rather than grabbing it
+// all up front.
+onMounted(() => void drive.fetchMore())
+
 onMounted(() => {
   if (typeof IntersectionObserver === 'undefined') {
     revealed.value = visibleSubjects.value.length
+    void drive.fetchMore()
     return
   }
   observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) revealMore()
+        if (entry.isIntersecting) onSentinel()
       }
     },
     { rootMargin: '600px 0px' },
@@ -269,6 +287,9 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
       <div ref="sentinelEl" class="shelf-sentinel" />
       <div v-if="revealed < visibleSubjects.length" class="shelf-more">
         Scroll to load more departments…
+      </div>
+      <div v-else-if="drive.fetchingMore" class="shelf-more">
+        Loading more papers…
       </div>
     </div>
   </div>

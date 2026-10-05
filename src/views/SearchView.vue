@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Search — full-facet search with highlighted matches. Ported from Search.jsx.
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 import { useDriveStore } from '@/stores/drive'
@@ -37,6 +37,11 @@ const selTypes = ref<string[]>([])
 const sort = ref<'relevance' | 'newest' | 'votes' | 'downloads'>('relevance')
 const showFacets = ref(false)
 
+// Search filters across the entire catalogue, so a single page of papers cannot
+// answer it — a search for "Calculus" would only ever find papers from the last
+// few uploads. Pull the rest in before results are considered trustworthy.
+onMounted(() => void drive.ensureComplete())
+
 const yearBounds = computed(() => {
   const years = drive.papers.map((p) => p.year)
   const min = years.length ? Math.min(...years) : 2020
@@ -72,7 +77,9 @@ const page = ref(1)
 const pageCount = computed(() => Math.max(1, Math.ceil(results.value.length / PAGE)))
 const pageResults = computed(() => results.value.slice((page.value - 1) * PAGE, page.value * PAGE))
 
-const isLoading = computed(() => drive.loading && drive.papers.length === 0)
+const isLoading = computed(
+  () => (drive.loading && drive.papers.length === 0) || (drive.completing && drive.papers.length > 0),
+)
 
 watch([selSubjects, selTypes, sort, query], () => {
   page.value = 1

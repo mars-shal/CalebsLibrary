@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Profile — public contributor page. Ported from Profile.jsx.
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { getContributor } from '@/script/design'
@@ -22,7 +22,11 @@ const papers = computed<Paper[]>(() =>
   drive.papers.filter((p) => p.contributor === user.value.id),
 )
 
-const isLoading = computed(() => drive.loading && drive.papers.length === 0)
+// A contributor's page lists their uploads across the whole library, so it
+// needs everything.
+onMounted(() => void drive.ensureComplete())
+
+const isLoading = computed(() => (drive.loading && drive.papers.length === 0) || drive.completing)
 
 const tab = ref<'papers' | 'shelves' | 'about'>('papers')
 const tabs = computed(() => [

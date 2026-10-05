@@ -186,3 +186,89 @@ export function estimatePages(bytes: number, hash: number): number {
   }
   return 6 + (hash % 40)
 }
+
+// ---------------------------------------------------------------------------
+// Catalogue-wide aggregates.
+//
+// The client loads papers a page at a time, so anything derived from `papers`
+// is only correct once the whole catalogue has arrived. That breaks the home
+// page immediately: with five papers loaded it would advertise "5 Papers" and
+// "2 Contributors".
+//
+// So these totals are computed once, server-side, over every paper in the
+// snapshot, and ride along with every page response — a few hundred bytes of
+// JSON that keeps the headline numbers, the subject list and the paper counts
+// on a partial page honest. Lives here (not in the store) because Convex and
+// the client must agree on these numbers exactly.
+// ---------------------------------------------------------------------------
+
+/** The smallest slice of a paper the aggregates below actually read. */
+export interface SummarisablePaper {
+  id?: string
+  subject?: string
+  subjectName?: string
+  course?: string
+  courseName?: string
+  contributor?: string
+  views?: number
+}
+
+export interface CatalogueSubject {
+  id: string
+  name: string
+  code: string
+  count: number
+}
+
+export interface CatalogueSummary {
+  papers: number
+  contributors: number
+  /** Total reads divided by 12 — the "reads per month" figure on the home page. */
+  reads: number
+  subjects: CatalogueSubject[]
+}
+
+/**
+ * Aggregate the whole catalogue. `subjects` mirrors how the client groups them
+ * (by `subject` id, named from the course code where available) so a partially
+ * loaded client can render the same list and counts it would have computed
+ * locally from a full download.
+ */
+export function buildSummary(allPapers: SummarisablePaper[]): CatalogueSummary {
+  const subjects = new Map<string, CatalogueSubject & { code: string }>()
+  const contributors = new Set<string>()
+  let reads = 0
+
+  for (const p of allPapers) {
+    reads += p.views ?? 0
+    if (p.contributor) contributors.add(p.contributor)
+
+    const id = p.subject || 'general'
+    const info = p.courseName ? parseCourseName(p.courseName) : { code: '', number: '', parenthetical: '' }
+    const code = info.code
+    const existing = subjects.get(id)
+    if (existing) {
+      existing.count += 1
+      if (!existing.code && code) {
+        existing.code = code
+        existing.name = CODE_SUBJECTS[code] || code
+      }
+    } else {
+      subjects.set(id, {
+        id,
+        code,
+        name: p.subjectName || (code ? CODE_SUBJECTS[code] || code : 'General Studies'),
+        count: 1,
+      })
+    }
+  }
+
+  return {
+    papers: allPapers.length,
+    contributors: contributors.size,
+    reads: Math.round(reads / 12),
+    subjects: [...subjects.values()]
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+  }
+}
