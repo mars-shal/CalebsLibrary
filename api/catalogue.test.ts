@@ -348,7 +348,8 @@ describe('degradation', () => {
  */
 async function loadHandler() {
   vi.resetModules()
-  return import('./catalogue')
+  // `.js` extension for the same node16/nodenext reason as the source file.
+  return import('./catalogue.js')
 }
 
 /** Answer the three Convex reads the fallback makes, over a two-paper catalogue. */

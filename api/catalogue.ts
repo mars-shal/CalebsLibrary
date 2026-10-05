@@ -31,7 +31,10 @@ import { Redis } from '@upstash/redis'
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { buildSummary, type SummarisablePaper } from '../src/schema/catalogue'
+// Explicit `.js` extension: Vercel type-checks `api/` with node16/nodenext
+// module resolution, which rejects extensionless relative imports. TypeScript
+// and Vite both resolve it back to the `.ts` source.
+import { buildSummary, type SummarisablePaper } from '../src/schema/catalogue.js'
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
