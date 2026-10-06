@@ -470,7 +470,7 @@ function handleBlur(): void {
   transition: all var(--dur-fast);
 }
 .facets-toggle.open {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-color: var(--ink-100);
 }
@@ -770,7 +770,7 @@ function handleBlur(): void {
   color: var(--ink-100);
 }
 .page-btn.active {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-color: var(--ink-100);
 }

@@ -74,24 +74,24 @@ export function setContributors(list: Contributor[]): void {
 export const getContributor = (id: string): Contributor =>
   contributorRegistry.value.find((c) => c.id === id) ?? contributorRegistry.value[0]!
 
-// 16 tonal covers — dark ink on cream, plus 4 inverted cream covers
+// 16 tonal covers — indigo/royal/blue spines, plus 4 light sky-tint covers
 export const COVERS = [
-  { bg: '#171412', ink: '#f5f2ea', accent: '#8f887b' },
-  { bg: '#241f1c', ink: '#f5f2ea', accent: '#8f887b' },
-  { bg: '#2e2822', ink: '#f5f2ea', accent: '#a29a8b' },
-  { bg: '#3d3733', ink: '#f5f2ea', accent: '#b8b1a3' },
-  { bg: '#4a423c', ink: '#f5f2ea', accent: '#cec7b3' },
-  { bg: '#5c534b', ink: '#f5f2ea', accent: '#ded9cd' },
-  { bg: '#171412', ink: '#f5f2ea', accent: '#8f887b' },
-  { bg: '#241f1c', ink: '#f5f2ea', accent: '#8f887b' },
-  { bg: '#2e2822', ink: '#f5f2ea', accent: '#a29a8b' },
-  { bg: '#3d3733', ink: '#f5f2ea', accent: '#b8b1a3' },
-  { bg: '#4a423c', ink: '#f5f2ea', accent: '#cec7b3' },
-  { bg: '#5c534b', ink: '#f5f2ea', accent: '#ded9cd' },
-  { bg: '#ede9dd', ink: '#171412', accent: '#4a423c' },
-  { bg: '#e2ddce', ink: '#171412', accent: '#3d3733' },
-  { bg: '#ded9cd', ink: '#171412', accent: '#241f1c' },
-  { bg: '#cec7b3', ink: '#171412', accent: '#171412' },
+  { bg: '#1e1660', ink: '#ffffff', accent: '#7c8cad' },
+  { bg: '#232a72', ink: '#ffffff', accent: '#93a9ff' },
+  { bg: '#1f3a9e', ink: '#ffffff', accent: '#c2d6f0' },
+  { bg: '#2b3bd4', ink: '#ffffff', accent: '#d3e3f7' },
+  { bg: '#414f7a', ink: '#ffffff', accent: '#e6f0fb' },
+  { bg: '#14103a', ink: '#e2dff5', accent: '#6b639f' },
+  { bg: '#2b3bd4', ink: '#ffffff', accent: '#f26a1b' },
+  { bg: '#1f3a9e', ink: '#ffffff', accent: '#f26a1b' },
+  { bg: '#1e1660', ink: '#ffffff', accent: '#f26a1b' },
+  { bg: '#2b3bd4', ink: '#0b1440', accent: '#93a9ff' },
+  { bg: '#414f7a', ink: '#0b1440', accent: '#e6f0fb' },
+  { bg: '#f26a1b', ink: '#1e1660', accent: '#ffffff' },
+  { bg: '#e6f0fb', ink: '#1e1660', accent: '#5a6b94' },
+  { bg: '#d3e3f7', ink: '#1f3a9e', accent: '#414f7a' },
+  { bg: '#c2d6f0', ink: '#232a72', accent: '#1f3a9e' },
+  { bg: '#f26a1b', ink: '#ffffff', accent: '#1e1660' },
 ]
 
 export const PAPER_TYPES = ['Study Guide', 'Lecture Notes', 'Past Exam', 'Problem Set', 'Essay', 'Cheat Sheet', 'Slides', 'Notes']

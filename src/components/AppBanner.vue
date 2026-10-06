@@ -31,7 +31,7 @@ function close() {
 <style scoped>
 .banner {
   height: 32px;
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   display: flex;
   align-items: center;

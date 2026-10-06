@@ -111,7 +111,7 @@ function handleBlur(): void {
   position: sticky;
   top: 0;
   height: 56px;
-  background: rgba(245, 242, 234, 0.92);
+  background: var(--strip-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--rule);
   z-index: 50;

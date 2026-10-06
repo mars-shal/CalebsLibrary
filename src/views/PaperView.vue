@@ -640,7 +640,7 @@ async function postDiscussion(): Promise<void> {
   cursor: pointer;
 }
 .vote-up.active {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
 }
 .vote-down {
@@ -655,7 +655,7 @@ async function postDiscussion(): Promise<void> {
   cursor: pointer;
 }
 .vote-down.active {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
 }
 .vote-divider {

@@ -180,7 +180,7 @@ function openPaper(p: Paper) {
   gap: 6px;
 }
 .tag-found {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-color: var(--ink-100);
 }

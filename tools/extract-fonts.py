@@ -12,6 +12,7 @@ import hashlib
 import os
 import re
 import shutil
+import time
 import urllib.request
 
 SRC = "/tmp/opencode/gf.css"
@@ -62,13 +63,26 @@ for _, block in blocks:
     })
 
 # ---- download + dedupe by content hash -------------------------------------
+def fetch(url, attempts=4):
+    """gstatic drops connections often enough that a single attempt makes this
+    tool fail intermittently -- and a failure here is expensive, because the
+    cleanup step below deletes every font that isn't in the new set."""
+    last = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except Exception as exc:  # noqa: BLE001 - retry on anything transient
+            last = exc
+            print(f"  retry {i + 1}/{attempts} for {url.rsplit('/', 1)[-1]}: {exc}")
+            time.sleep(1.5 * (i + 1))
+    raise SystemExit(f"could not download {url}: {last}")
+
+
 by_hash = {}
 for face in kept:
-    tmp = os.path.join(OUT_DIR, "_tmp.woff2")
-    if not os.path.exists(tmp) or True:
-        req = urllib.request.Request(face["url"], headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            blob = r.read()
+    blob = fetch(face["url"])
     digest = hashlib.sha256(blob).hexdigest()[:8]
 
     if digest not in by_hash:
@@ -138,7 +152,7 @@ for face in kept:
         continue
     latin.setdefault(face["family"], face["file"])
 
-order = ["Inter", "EB Garamond", "JetBrains Mono"]
+order = ["Montserrat", "Inter", "EB Garamond", "JetBrains Mono"]
 print("\npreload (latin, one file per family, covers all weights):")
 total = 0
 for fam in order:

@@ -309,7 +309,7 @@ async function decide(status: 'approved' | 'rejected') {
 .gate-icon {
   width: 44px;
   height: 44px;
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-radius: 50%;
   display: grid;
@@ -408,7 +408,7 @@ async function decide(status: 'approved' | 'rejected') {
   transition: all var(--dur-fast);
 }
 .filter-chip.active {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-color: var(--ink-100);
 }
@@ -478,7 +478,7 @@ async function decide(status: 'approved' | 'rejected') {
   border-radius: 2px;
 }
 .badge-flag {
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
 }
 .badge-ai {
@@ -573,7 +573,7 @@ async function decide(status: 'approved' | 'rejected') {
 }
 .alert-bar {
   padding: 14px 18px;
-  background: var(--ink-100);
+  background: var(--surface-dark);
   color: var(--paper);
   border-radius: 4px;
   display: flex;
