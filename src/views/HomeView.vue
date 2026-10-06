@@ -1,20 +1,13 @@
 <script setup lang="ts">
 // Home — search-first landing. Ported from design_handoff Home.jsx.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { formatCount } from '@/script/design'
-import type { Paper } from '@/script/design'
-import { trendingSubjects } from '@/script/trends'
 import Icon from '@/components/Icon.vue'
-import PaperCard from '@/components/PaperCard.vue'
-import SectionHeader from '@/components/SectionHeader.vue'
 import Stat from '@/components/Stat.vue'
-import SkeletonCard from '@/components/SkeletonCard.vue'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 
 const drive = useDriveStore()
-const router = useRouter()
 const {
   query,
   suggestions,
@@ -32,16 +25,6 @@ const stats = computed(() => [
   { value: formatCount(drive.stats.reads), label: 'Reads/month' },
   { value: drive.stats.subjects.toLocaleString(), label: 'Subjects' },
 ])
-
-// Top tags by searches + views + saves — ranked in trends.ts; falls back to
-// the store's paper-count order until real usage accumulates.
-const quickSubjects = computed(() =>
-  trendingSubjects(drive.subjects, drive.papers, drive.searchTrends).slice(0, 8),
-)
-
-function openPaper(p: Paper) {
-  router.push({ name: 'paper', params: { id: p.id } })
-}
 
 function handleBlur(): void {
   window.setTimeout(() => {
@@ -78,6 +61,12 @@ const NIGHT_PHRASES = [
 ];
 
 const cycledText = ref('')
+
+// Two-tone headline: the opening word takes the accent, the rest stays indigo.
+// The leading space lives in the data, not the template — a literal space
+// between two interpolations is collapsed by Vue's whitespace handling.
+const headlineLead = computed(() => cycledText.value.split(' ')[0] ?? '')
+const headlineRest = computed(() => cycledText.value.slice(headlineLead.value.length))
 
 type Season = 'exam' | 'test' | 'term' | ''
 
@@ -184,7 +173,7 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
     <section class="masthead">
       <h1 class="masthead-title">
         <Transition name="cycle" mode="out-in">
-          <span :key="cycledText" class="serif-italic">{{ cycledText }}</span>
+          <span :key="cycledText"><span class="tone-accent">{{ headlineLead }}</span>{{ headlineRest }}</span>
         </Transition>
       </h1>
 
@@ -218,26 +207,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
         </div>
       </div>
 
-      <div class="quick-row">
-        <span class="quick-label">Or browse:</span>
-        <template v-if="isLoading">
-          <span v-for="i in 6" :key="i" class="sk pill-sk" />
-        </template>
-        <template v-else>
-          <button
-            v-for="s in quickSubjects"
-            :key="s.id"
-            class="pill"
-            @click="router.push({ name: 'subject', params: { id: s.id } })"
-          >
-            {{ s.name }}
-          </button>
-          <button class="pill pill-dashed" @click="router.push({ name: 'browse' })">
-            All {{ drive.subjects.length }} subjects →
-          </button>
-        </template>
-      </div>
-
       <div class="stats-strip">
         <template v-if="showStatSkeletons">
           <div v-for="i in 4" :key="i" class="sk stat-sk">
@@ -251,32 +220,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
       </div>
     </section>
 
-    <!-- Recently added -->
-    <section class="wrap" style="padding-top: 80px">
-      <SectionHeader eyebrow="This week" title="Recently added">
-        <template #action>
-          <button class="btn-ghost" @click="router.push({ name: 'browse' })">View all →</button>
-        </template>
-      </SectionHeader>
-      <!-- The skeletons must live inside the same .grid-5 as the real cards.
-           SkeletonCard used to own a 6-column grid of its own with no
-           responsive rules, so on a phone the placeholders rendered 6 narrow
-           covers and the real shelf then snapped to 2 wide ones — a ~3x width
-           change on every card, which is what drove CLS to 0.79. -->
-      <div v-if="isLoading" class="grid-5">
-        <SkeletonCard v-for="i in 5" :key="i" size="sm" />
-      </div>
-      <div v-else-if="drive.recentPapers.length" class="grid-5">
-        <PaperCard
-          v-for="p in drive.recentPapers"
-          :key="p.id"
-          :paper="p"
-          size="sm"
-          @click="openPaper(p)"
-        />
-      </div>
-      <div v-else class="loading-box">{{ drive.error || 'No papers yet.' }}</div>
-    </section>
   </div>
 </template>
 
@@ -288,21 +231,16 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   text-align: center;
 }
 .masthead-title {
-  font-family: var(--font-serif);
-  font-size: clamp(40px, 8vw, 80px);
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-  font-weight: 500;
-  color: var(--ink-100);
+  font-family: var(--font-sans);
+  font-size: clamp(32px, 6vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-weight: var(--weight-black);
+  text-transform: uppercase;
+  color: var(--primary);
   margin: 0;
 }
 
-.serif-plain {
-  font-style: normal;
-}
-.serif-italic {
-  font-style: normal;
-}
 .tagline {
   font-size: 18px;
   line-height: 1.55;
@@ -423,36 +361,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   opacity: 0;
   transform: translateY(-10px);
 }
-.quick-row {
-  margin-top: 32px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.quick-label {
-  color: var(--ink-40);
-  font-size: 13px;
-}
-.pill {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--rule-strong);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-100);
-  background: transparent;
-  transition: all var(--dur-fast) var(--ease-out);
-  cursor: pointer;
-}
-.pill:hover {
-  background: var(--ink-100);
-  color: var(--paper);
-}
-.pill-dashed {
-  border-style: dashed;
-}
 .stats-strip {
   margin-top: 64px;
   padding-top: 48px;
@@ -482,11 +390,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   );
   animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
 }
-.pill-sk {
-  width: 88px;
-  height: 30px;
-  border-radius: 999px;
-}
 .stat-sk {
   display: flex;
   flex-direction: column;
@@ -513,52 +416,12 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
     transform: translateX(100%);
   }
 }
-.wrap {
-  max-width: var(--max-content);
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.wrap-narrow {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.grid-5 {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 24px;
-}
-.loading-box {
-  padding: 48px;
-  text-align: center;
-  color: var(--ink-40);
-  border: 1px dashed var(--rule-strong);
-  border-radius: 8px;
-}
-
-@media (max-width: 960px) {
-  .grid-5 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 @media (max-width: 640px) {
-  .grid-5 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .wrap,
-  .wrap-narrow {
-    padding: 0 20px;
-  }
   .masthead {
     padding: 56px 20px 0;
   }
   .big-search {
     margin-top: 28px;
-  }
-  .quick-row {
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 24px;
   }
   .stats-strip {
     flex-wrap: wrap;
