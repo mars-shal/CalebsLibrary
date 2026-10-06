@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Home — search-first landing. Ported from design_handoff Home.jsx.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { formatCount } from '@/script/design'
 import Icon from '@/components/Icon.vue'
@@ -8,6 +9,7 @@ import Stat from '@/components/Stat.vue'
 import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 
 const drive = useDriveStore()
+const router = useRouter()
 const {
   query,
   suggestions,
@@ -220,6 +222,47 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
       </div>
     </section>
 
+    <!-- Quick actions: bento grid (glass). Ported from bells-notes HomeView. -->
+    <section class="section-start rise glass-zone" style="--stagger: 80ms">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 class="section-title">Start here</h2>
+        </div>
+        <div class="bento">
+          <button class="bento-card bento-main" @click="router.push('/browse')">
+            <div class="bento-icon"><Icon name="compass" :size="20" /></div>
+            <div class="bento-copy">
+              <div class="bento-title">Browse the shelves</div>
+              <div class="bento-sub">
+                Every college, every course — all {{ drive.stats.papers.toLocaleString() }} papers
+              </div>
+            </div>
+            <Icon name="chevron" :size="16" class="bento-arrow" />
+          </button>
+          <button class="bento-card" @click="router.push({ name: 'search' })">
+            <div class="bento-icon"><Icon name="search" :size="18" /></div>
+            <div class="bento-copy">
+              <div class="bento-title">Search</div>
+              <div class="bento-sub">Find specific notes</div>
+            </div>
+            <Icon name="chevron" :size="16" class="bento-arrow" />
+          </button>
+          <button class="bento-card" @click="router.push({ name: 'upload' })">
+            <div class="bento-icon"><Icon name="upload" :size="18" /></div>
+            <div class="bento-copy">
+              <div class="bento-title">Contribute</div>
+              <div class="bento-sub">Share your notes</div>
+            </div>
+            <Icon name="chevron" :size="16" class="bento-arrow" />
+          </button>
+          <button class="bento-chip" @click="router.push({ name: 'browse' })">
+            <Icon name="zap" :size="13" />
+            Saved for later
+            <Icon name="chevron" :size="14" class="bento-arrow" />
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -363,6 +406,7 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
 }
 .stats-strip {
   margin-top: 64px;
+  margin-bottom: 0;
   padding-top: 48px;
   border-top: 1px solid var(--rule);
   display: flex;
@@ -428,4 +472,204 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
     gap: 20px;
   }
 }
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-start {
+  margin-top: 72px;
+}
+.section-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.section-title {
+  font-size: 16px;
+}
+.bento {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  grid-template-areas:
+    'main a b'
+    'main c c';
+  gap: 12px;
+}
+.bento-arrow {
+  color: var(--text-quiet);
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.bento-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px;
+  background: var(--bg-elevated);
+  border: none;
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-med) var(--ease-out);
+  text-align: left;
+}
+.bento-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.bento-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.bento-sub {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+}
+.bento-chip {
+  grid-area: c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 980px;
+  background: var(--material);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: var(--hairline);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast),
+    transform var(--dur-fast) var(--ease-spring);
+}
+.rise {
+  animation: rise-in 640ms var(--ease-out) both;
+  animation-delay: var(--stagger, 0ms);
+}
+.bento .bento-main {
+  grid-area: main;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 188px;
+  padding: 22px;
+}
+.bento-main .bento-arrow {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+}
+.bento-main .bento-title {
+  font-size: 17px;
+}
+.bento-main .bento-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+.bento-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.05),
+    0 16px 36px rgba(0, 0, 0, 0.1);
+}
+.bento-card:active {
+  transform: scale(0.98);
+}
+.bento-card:hover .bento-arrow {
+  transform: translateX(3px);
+  color: var(--text-primary);
+}
+.bento-chip:hover {
+  color: var(--text-primary);
+}
+.bento-chip:active {
+  transform: scale(0.97);
+}
+.bento-chip .bento-arrow {
+  margin-left: auto;
+}
+.glass-zone .bento-card,
+.glass-zone .bento-chip {
+  background: var(--material);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.glass-zone .bento-chip {
+  background: var(--material);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.glass-zone .bento-icon {
+  background: rgba(255, 255, 255, 0.5);
+}
+.glass-zone .bento-card,
+.glass-zone .bento-chip {
+  background: var(--material);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+html.dark .glass-zone .bento-card,
+html.dark .glass-zone .bento-chip {
+  background: var(--material);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+html.dark .glass-zone .bento-icon {
+  background: rgba(255, 255, 255, 0.08);
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 720px) {
+  .section-inner {
+    padding: 0 20px;
+  }
+  .bento {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'main' 'a' 'b' 'c';
+  }
+  .bento-main {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
 </style>
