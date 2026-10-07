@@ -4,6 +4,7 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
   { path: '/browse', name: 'browse', component: () => import('@/views/BrowseView.vue') },
+  { path: '/shelves', name: 'shelves', component: () => import('@/views/ShelvesView.vue') },
   { path: '/search', name: 'search', component: () => import('@/views/SearchView.vue') },
   { path: '/subject/:id', name: 'subject', component: () => import('@/views/SubjectView.vue') },
   { path: '/paper/:id', name: 'paper', component: () => import('@/views/PaperView.vue') },
