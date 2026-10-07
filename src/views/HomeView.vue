@@ -217,7 +217,7 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
           <h2 class="section-title">Start here</h2>
         </div>
         <div class="bento">
-          <button class="bento-card bento-main" @click="router.push('/browse')">
+          <button class="bento-card bento-main" @click="router.push('/shelves')">
             <div class="bento-icon"><Icon name="compass" :size="20" /></div>
             <div class="bento-copy">
               <div class="bento-title">Browse the shelves</div>

@@ -74,24 +74,33 @@ export function setContributors(list: Contributor[]): void {
 export const getContributor = (id: string): Contributor =>
   contributorRegistry.value.find((c) => c.id === id) ?? contributorRegistry.value[0]!
 
-// 16 tonal covers — indigo/royal/blue spines, plus 4 light sky-tint covers
+// 16 tonal covers — a SINGLE-HUE monochromatic ramp in the brand blue family.
+// Every bg is a neutral-blue grey (blue leads, R≈G just below B): no orange, no
+// second hue, since orange is reserved for calls to action per tokens.css.
+//
+// MUST stay exactly 16: callers index it with `hash % 16` (convex/driveSync.ts,
+// convex/submissions.ts) and BookCover.vue with `cover % COVERS.length`.
+// Slots interleave four lightness clusters (deep navy / mid indigo / pale sky /
+// paper) so neighbouring shelf cards alternate polarity rather than creeping
+// through one blob. `ink` AND `accent` are both >= 4.5:1 vs bg because `accent`
+// renders .cover-subject, a real label down to 6.5px.
 export const COVERS = [
-  { bg: '#1e1660', ink: '#ffffff', accent: '#7c8cad' },
-  { bg: '#232a72', ink: '#ffffff', accent: '#93a9ff' },
-  { bg: '#1f3a9e', ink: '#ffffff', accent: '#c2d6f0' },
-  { bg: '#2b3bd4', ink: '#ffffff', accent: '#d3e3f7' },
-  { bg: '#414f7a', ink: '#ffffff', accent: '#e6f0fb' },
-  { bg: '#14103a', ink: '#e2dff5', accent: '#6b639f' },
-  { bg: '#2b3bd4', ink: '#ffffff', accent: '#f26a1b' },
-  { bg: '#1f3a9e', ink: '#ffffff', accent: '#f26a1b' },
-  { bg: '#1e1660', ink: '#ffffff', accent: '#f26a1b' },
-  { bg: '#2b3bd4', ink: '#0b1440', accent: '#93a9ff' },
-  { bg: '#414f7a', ink: '#0b1440', accent: '#e6f0fb' },
-  { bg: '#f26a1b', ink: '#1e1660', accent: '#ffffff' },
-  { bg: '#e6f0fb', ink: '#1e1660', accent: '#5a6b94' },
-  { bg: '#d3e3f7', ink: '#1f3a9e', accent: '#414f7a' },
-  { bg: '#c2d6f0', ink: '#232a72', accent: '#1f3a9e' },
-  { bg: '#f26a1b', ink: '#ffffff', accent: '#1e1660' },
+  { bg: '#101632', ink: '#ffffff', accent: '#bcd2f6' },
+  { bg: '#dbe6f3', ink: '#101430', accent: '#3e527e' },
+  { bg: '#25356b', ink: '#ffffff', accent: '#d8e8ff' },
+  { bg: '#8ba4cc', ink: '#101430', accent: '#1a264a' },
+  { bg: '#182053', ink: '#ffffff', accent: '#d3e3fb' },
+  { bg: '#ccdaee', ink: '#101430', accent: '#33456b' },
+  { bg: '#31437f', ink: '#ffffff', accent: '#e0ecff' },
+  { bg: '#a5bbdb', ink: '#101430', accent: '#2c3e6a' },
+  { bg: '#131a3e', ink: '#ffffff', accent: '#c6d9f8' },
+  { bg: '#e2ecf7', ink: '#101430', accent: '#46597f' },
+  { bg: '#1f3566', ink: '#ffffff', accent: '#dbe9ff' },
+  { bg: '#93aad0', ink: '#101430', accent: '#22325c' },
+  { bg: '#161e4a', ink: '#ffffff', accent: '#cfe0fa' },
+  { bg: '#d3e0f0', ink: '#101430', accent: '#3a4d78' },
+  { bg: '#2b3d78', ink: '#ffffff', accent: '#e2eeff' },
+  { bg: '#9db4d6', ink: '#101430', accent: '#2c3e6a' },
 ]
 
 export const PAPER_TYPES = ['Study Guide', 'Lecture Notes', 'Past Exam', 'Problem Set', 'Essay', 'Cheat Sheet', 'Slides', 'Notes']

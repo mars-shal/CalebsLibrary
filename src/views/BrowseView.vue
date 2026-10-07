@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import { PAPER_TYPES } from '@/script/design'
 import type { Paper, Subject } from '@/script/design'
-import Icon from '@/components/Icon.vue'
 import PaperCard from '@/components/PaperCard.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 
@@ -14,7 +13,6 @@ const router = useRouter()
 
 const subjectFilter = ref('all')
 const typeFilter = ref('all')
-const courseFilter = ref('all')
 const yearFilter = ref<'all' | number>('all')
 const sortBy = ref<'dept' | 'course' | 'year-new' | 'year-old' | 'reads' | 'upvotes'>('dept')
 
@@ -46,7 +44,6 @@ const bySubject = computed(() => {
     let list = drive.papersBySubject(s.id).filter(
       (p) =>
         visibleTypes.value.includes(p.type) &&
-        (courseFilter.value === 'all' || p.course === courseFilter.value) &&
         (yearFilter.value === 'all' || p.year === yearFilter.value),
     )
     list = sortPapers(list)
@@ -71,13 +68,6 @@ function sortPapers(list: Paper[]): Paper[] {
       return [...list]
   }
 }
-
-// Dropdown options sized to the currently-filtered set.
-const availableCourses = computed(() =>
-  drive.courses.filter(
-    (c) => subjectFilter.value === 'all' || c.subjectId === subjectFilter.value,
-  ),
-)
 
 const availableYears = computed<number[]>(() => {
   const years = new Set<number>()
@@ -146,8 +136,15 @@ onBeforeUnmount(() => {
   observer = null
 })
 
-watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
+watch([subjectFilter, typeFilter, yearFilter, sortBy], () => {
   revealed.value = RENDER_CHUNK
+})
+
+// availableYears derives from visibleSubjects, so a department whose years exclude
+// the current yearFilter would otherwise strand the page on the bare
+// "These shelves are empty" message. Resetting the year is the fix.
+watch(subjectFilter, () => {
+  yearFilter.value = 'all'
 })
 </script>
 
@@ -163,78 +160,35 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
 
     <!-- Filter bar -->
     <div class="filter-bar">
-      <div class="filter-left">
-        <Icon name="filter" :size="14" class="filter-icon" />
-        <span class="smallcaps filter-label">Filter</span>
-        <div class="pills">
-          <button
-            class="fpill"
-            :class="{ active: subjectFilter === 'all' }"
-            @click="subjectFilter = 'all'"
-          >
-            All departments
-          </button>
-          <button
-            v-for="s in drive.subjects"
-            :key="s.id"
-            class="fpill"
-            :class="{ active: subjectFilter === s.id }"
-            @click="subjectFilter = s.id"
-          >
-            {{ s.name }}
-          </button>
-        </div>
-        <div class="divider" />
-        <select
-          v-model="courseFilter"
-          class="fselect"
-          title="Filter by course"
-        >
-          <option value="all">All courses</option>
-          <option v-for="c in availableCourses" :key="c.id" :value="c.id">
-            {{ c.displayName || c.name }}
-          </option>
-        </select>
-        <div class="divider" />
-        <div class="pills">
-          <button
-            class="fpill"
-            :class="{ active: typeFilter === 'all' }"
-            @click="typeFilter = 'all'"
-          >
-            All types
-          </button>
-          <button
-            v-for="t in TYPES"
-            :key="t"
-            class="fpill"
-            :class="{ active: typeFilter === t }"
-            @click="typeFilter = t"
-          >
-            {{ t }}
-          </button>
-        </div>
-        <div class="divider" />
-        <select
-          v-model="yearFilter"
-          class="fselect"
-          title="Filter by year"
-        >
-          <option :value="'all'">All years</option>
-          <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
-        </select>
-      </div>
-      <div class="filter-right">
-        <span class="mono count">{{ totalCount.toLocaleString() }} papers</span>
-        <select v-model="sortBy" class="fselect sort-select" title="Sort shelves">
-          <option value="dept">Sort: Department</option>
-          <option value="course">Sort: Course</option>
-          <option value="year-new">Sort: Year (newest)</option>
-          <option value="year-old">Sort: Year (oldest)</option>
-          <option value="reads">Sort: Most read</option>
-          <option value="upvotes">Sort: Most upvoted</option>
-        </select>
-      </div>
+      <label class="sr-only" for="f-dept">Filter by department</label>
+      <select id="f-dept" v-model="subjectFilter" class="fselect dept-select">
+        <option value="all">All departments</option>
+        <option v-for="s in drive.subjects" :key="s.id" :value="s.id">{{ s.name }}</option>
+      </select>
+
+      <label class="sr-only" for="f-type">Filter by paper type</label>
+      <select id="f-type" v-model="typeFilter" class="fselect">
+        <option value="all">All types</option>
+        <option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option>
+      </select>
+
+      <label class="sr-only" for="f-year">Filter by year</label>
+      <select id="f-year" v-model="yearFilter" class="fselect">
+        <option :value="'all'">All years</option>
+        <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+      </select>
+
+      <span class="mono count">{{ totalCount.toLocaleString() }} papers</span>
+
+      <label class="sr-only" for="f-sort">Sort shelves</label>
+      <select id="f-sort" v-model="sortBy" class="fselect sort-select">
+        <option value="dept">Sort: Department</option>
+        <option value="course">Sort: Course</option>
+        <option value="year-new">Sort: Year (newest)</option>
+        <option value="year-old">Sort: Year (oldest)</option>
+        <option value="reads">Sort: Most read</option>
+        <option value="upvotes">Sort: Most upvoted</option>
+      </select>
     </div>
 
     <!-- Loading state -->
@@ -317,18 +271,17 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
   line-height: 1.55;
 }
 
-/* Filter bar */
+/* Filter bar — one compact row of native selects plus the count */
 .filter-bar {
   background: var(--bg-elevated);
   border: 1px solid var(--rule);
   border-radius: 6px;
   padding: 12px 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 48px;
+  margin-bottom: 32px;
 }
 .fselect {
   font: inherit;
@@ -341,6 +294,7 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
   padding: 5px 12px;
   cursor: pointer;
   max-width: 220px;
+  text-overflow: ellipsis;
 }
 .fselect:hover {
   border-color: var(--rule-strong);
@@ -349,58 +303,32 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
   outline: none;
   border-color: var(--ink-40);
 }
+/* Department names run long ("Electrical / Electronics Engineering"), so this
+   one gets more room than the rest. */
+.dept-select {
+  max-width: 280px;
+  flex: 1 1 220px;
+}
 .sort-select {
-  max-width: 180px;
-}
-.filter-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.filter-icon {
-  color: var(--ink-40);
-}
-.filter-label {
-  font-size: 10px;
-}
-.pills {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.fpill {
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-70);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-.fpill:hover {
-  background: var(--paper-2);
-  color: var(--ink-100);
-}
-.fpill.active {
-  background: var(--surface-dark);
-  color: var(--on-surface);
-}
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--rule);
-}
-.filter-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  max-width: 170px;
 }
 .count {
   font-size: 11px;
   color: var(--ink-40);
   white-space: nowrap;
+  margin-left: auto;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Empty state */
@@ -543,14 +471,10 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
   .filter-bar {
     padding: 12px;
     gap: 10px;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
-  .filter-right {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .divider {
-    display: none;
+  .count {
+    margin-left: 0;
   }
   .empty-state {
     padding: 48px 20px;

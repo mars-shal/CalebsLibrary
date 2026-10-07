@@ -274,7 +274,7 @@ const partialWarning = computed(() => {
         <Icon name="chevron" :size="15" class="back-icon" />
         <span>Back</span>
       </button>
-      <h1 class="shelves-title">Browse</h1>
+      <h1 class="shelves-title">Shelves</h1>
     </header>
 
     <!-- Breadcrumb -->
@@ -679,7 +679,10 @@ const partialWarning = computed(() => {
 .level-card:hover .level-num,
 .level-card:hover .level-label,
 .level-card:hover .level-count {
-  color: var(--paper);
+  /* --surface-dark is dark in BOTH themes, so the foreground must be the
+     on-surface token (light in dark mode) — --paper is #121212 there and
+     would land at 1.2:1 against --surface-dark #232326. */
+  color: var(--on-surface);
 }
 .level-card:hover .level-label {
   opacity: 0.75;
