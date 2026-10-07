@@ -160,18 +160,25 @@ function handleBlur(): void {
 .mini-search {
   position: relative;
   flex: 1;
+  /* min-width: 0 lets the flex item shrink below its min-content width; without
+     it the input's intrinsic size floors the track and the strip escapes its
+     share in the 481-495px band where .mini-search is still displayed. */
+  min-width: 0;
   max-width: 360px;
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--ink-0);
-  border: 1px solid var(--rule-strong);
+  background: var(--input-fill);
+  border: none;
+  box-shadow: var(--input-shadow);
   border-radius: 6px;
   padding: 6px 12px;
-  transition: border-color var(--dur-fast);
+  transition: box-shadow var(--dur-fast);
 }
+/* The ring lives on the wrapper: the input inside is borderless and
+   transparent, so focusing it must light the whole control, not one glyph. */
 .mini-search:focus-within {
-  border-color: var(--ink-100);
+  box-shadow: var(--focus-ring);
 }
 .mini-search.dropdown-open {
   border-bottom-left-radius: 0;

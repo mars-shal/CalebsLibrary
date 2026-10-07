@@ -770,8 +770,9 @@ async function postDiscussion(): Promise<void> {
 }
 .composer-input {
   width: 100%;
-  background: transparent;
+  background: var(--input-fill);
   border: none;
+  box-shadow: var(--input-shadow);
   outline: none;
   color: var(--ink-100);
   font-family: inherit;
@@ -779,6 +780,12 @@ async function postDiscussion(): Promise<void> {
   line-height: 1.55;
   resize: vertical;
   min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  transition: box-shadow var(--dur-fast);
+}
+.composer-input:focus {
+  box-shadow: var(--focus-ring);
 }
 .composer-foot {
   display: flex;
@@ -788,14 +795,21 @@ async function postDiscussion(): Promise<void> {
   gap: 12px;
 }
 .composer-name {
-  background: transparent;
+  background: var(--input-fill);
   border: none;
+  box-shadow: var(--input-shadow);
   outline: none;
   font-family: inherit;
   font-size: 12px;
   color: var(--ink-70);
   padding: 4px;
   flex: 1;
+  min-width: 0;
+  border-radius: 4px;
+  transition: box-shadow var(--dur-fast);
+}
+.composer-name:focus {
+  box-shadow: var(--focus-ring);
 }
 .composer-post {
   font-size: 13px;

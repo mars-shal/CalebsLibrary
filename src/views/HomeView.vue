@@ -6,20 +6,9 @@ import { useDriveStore } from '@/stores/drive'
 import { formatCount } from '@/script/design'
 import Icon from '@/components/Icon.vue'
 import Stat from '@/components/Stat.vue'
-import { useSearchAutocomplete } from '@/composables/useSearchAutocomplete'
 
 const drive = useDriveStore()
 const router = useRouter()
-const {
-  query,
-  suggestions,
-  showDropdown,
-  highlightedIndex,
-  selectSuggestion,
-  handleKeydown,
-  containerRef,
-  onInput,
-} = useSearchAutocomplete()
 
 const stats = computed(() => [
   { value: drive.stats.papers.toLocaleString(), label: 'Papers' },
@@ -28,12 +17,6 @@ const stats = computed(() => [
   { value: drive.stats.subjects.toLocaleString(), label: 'Subjects' },
 ])
 
-function handleBlur(): void {
-  window.setTimeout(() => {
-    showDropdown.value = false
-    highlightedIndex.value = -1
-  }, 120)
-}
 const DAY_PHRASES = [
   'What do you wanna learn today?',
   'Good morning — what are we studying?',
@@ -178,36 +161,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
           <span :key="cycledText"><span class="tone-accent">{{ headlineLead }}</span>{{ headlineRest }}</span>
         </Transition>
       </h1>
-
-      <div ref="containerRef" class="big-search">
-        <Icon name="search" :size="20" class="big-search-icon" />
-        <input
-          v-model="query"
-          class="big-search-input"
-          type="text"
-          autocomplete="off"
-          placeholder="Search the library…"
-          @input="onInput"
-          @keydown="handleKeydown"
-          @focus="onInput"
-          @blur="handleBlur"
-        />
-        <span class="enter-chip">Enter ↵</span>
-        <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
-          <button
-            v-for="(s, i) in suggestions"
-            :key="s.text + s.type"
-            class="ac-item"
-            :class="{ highlighted: highlightedIndex === i }"
-            @mousedown.prevent="selectSuggestion(s.text)"
-            @mouseenter="highlightedIndex = i"
-          >
-            <Icon :name="s.icon" :size="14" class="ac-icon" />
-            <span class="ac-text">{{ s.text }}</span>
-            <span class="ac-badge">{{ s.type }}</span>
-          </button>
-        </div>
-      </div>
     </section>
 
     <!-- Quick actions: bento grid (glass). Ported from bells-notes HomeView. -->
@@ -294,106 +247,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   margin: 24px auto 0;
   text-wrap: balance;
 }
-.big-search {
-  position: relative;
-  max-width: 640px;
-  margin: 40px auto 0;
-  display: flex;
-  align-items: center;
-}
-.big-search-icon {
-  position: absolute;
-  left: 22px;
-  color: var(--ink-40);
-  pointer-events: none;
-}
-.big-search-input {
-  width: 100%;
-  background: var(--ink-0);
-  border: 1px solid var(--rule-strong);
-  border-radius: 8px;
-  padding: 18px 22px 18px 56px;
-  font-size: 16px;
-  letter-spacing: -0.005em;
-  color: var(--ink-100);
-  font-family: var(--font-sans);
-  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
-}
-.big-search-input::placeholder {
-  color: var(--ink-30);
-}
-.big-search-input:focus {
-  outline: none;
-  border-color: var(--ink-100);
-  box-shadow: var(--shadow-focus);
-}
-.enter-chip {
-  position: absolute;
-  right: 14px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-40);
-  background: var(--paper-2);
-  border: 1px solid var(--rule);
-  padding: 3px 8px;
-  border-radius: 4px;
-  pointer-events: none;
-}
-.autocomplete-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-book);
-  overflow: hidden;
-  z-index: 100;
-  max-height: 320px;
-  overflow-y: auto;
-}
-.ac-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 14px;
-  text-align: left;
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  color: var(--text-primary);
-  background: transparent;
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-.ac-item:hover,
-.ac-item.highlighted {
-  background: var(--paper-2);
-}
-.ac-icon {
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-.ac-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ac-badge {
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-quiet);
-  background: var(--paper-3);
-  padding: 2px 6px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
 .cycle-enter-active,
 .cycle-leave-active {
   transition: opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
@@ -464,9 +317,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
 @media (max-width: 640px) {
   .masthead {
     padding: 56px 20px 0;
-  }
-  .big-search {
-    margin-top: 28px;
   }
   .stats-strip {
     flex-wrap: wrap;

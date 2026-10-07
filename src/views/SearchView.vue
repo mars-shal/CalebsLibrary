@@ -363,8 +363,9 @@ function handleBlur(): void {
 }
 .big-search-input {
   width: 100%;
-  background: var(--ink-0);
-  border: 1px solid var(--rule-strong);
+  background: var(--input-fill);
+  border: none;
+  box-shadow: var(--input-shadow);
   border-radius: 8px;
   padding: 14px 22px 14px 54px;
   font-size: 28px;
@@ -372,13 +373,14 @@ function handleBlur(): void {
   letter-spacing: -0.02em;
   color: var(--ink-100);
   font-family: var(--font-sans);
+  transition: box-shadow var(--dur-fast);
 }
 .big-search-input::placeholder {
   color: var(--ink-30);
 }
 .big-search-input:focus {
   outline: none;
-  border-color: var(--ink-100);
+  box-shadow: var(--focus-ring);
 }
 .autocomplete-dropdown {
   position: absolute;
@@ -562,6 +564,15 @@ function handleBlur(): void {
   border: 2px solid var(--paper);
   pointer-events: auto;
   cursor: pointer;
+}
+/* The range input itself is a full-width transparent overlay, so the global
+   :focus-visible outline frames the whole track rather than the handle. Ring
+   the thumb instead. */
+.year-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--focus-ring);
+}
+.year-input:focus-visible::-moz-range-thumb {
+  box-shadow: var(--focus-ring);
 }
 .year-labels {
   display: flex;

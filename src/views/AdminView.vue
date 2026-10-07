@@ -332,7 +332,7 @@ async function decide(status: 'approved' | 'rejected') {
 .gate-input {
   font-size: 15px;
   padding: 12px 14px;
-  background: var(--paper);
+  background: var(--input-fill);
 }
 .gate-error {
   margin-top: 10px;
@@ -687,8 +687,9 @@ async function decide(status: 'approved' | 'rejected') {
 }
 .decision-input {
   width: 100%;
-  background: var(--paper);
-  border: 1px solid var(--rule-strong);
+  background: var(--input-fill);
+  border: none;
+  box-shadow: var(--input-shadow);
   color: var(--ink-100);
   padding: 12px;
   border-radius: 4px;
@@ -697,9 +698,10 @@ async function decide(status: 'approved' | 'rejected') {
   resize: vertical;
   min-height: 60px;
   outline: none;
+  transition: box-shadow var(--dur-fast);
 }
 .decision-input:focus {
-  border-color: var(--ink-100);
+  box-shadow: var(--focus-ring);
 }
 .context-block {
   padding: 14px 16px;

@@ -58,6 +58,14 @@
   --blur: saturate(180%) blur(20px);
   --hairline: 0.5px solid var(--rule-strong);
 
+  /* Borderless inputs: a field with no border and the page's own background is
+     invisible. --input-fill must differ from both --paper and --bg-elevated, and
+     focus is a real ring rather than a border colour. */
+  --input-fill: var(--paper-2);
+  --input-shadow: inset 0 0 0 1px var(--rule);
+  --focus-ring-color: rgba(30, 22, 96, 0.62);
+  --focus-ring: 0 0 0 2px var(--focus-ring-color), var(--shadow-focus);
+
   --text-primary: var(--ink-100);
   --text-secondary: var(--ink-70);
   --text-tertiary: var(--ink-40);
@@ -175,6 +183,11 @@ html.dark {
   --material: rgba(38, 38, 42, 0.68);
   --blur: saturate(180%) blur(20px);
   --hairline: 0.5px solid var(--rule-strong);
+
+  /* --paper-2 (#1b1b1d) is one step off --bg-elevated (#1a1a1c) here, so the
+     input fill steps to --paper-3 to stay visible on both page and card. */
+  --input-fill: var(--paper-3);
+  --focus-ring-color: rgba(255, 255, 255, 0.68);
 }
 
 html.dark ::selection {
@@ -375,21 +388,23 @@ a {
   border-radius: var(--r-md);
 }
 
-/* Input */
+/* Input — borderless: the boundary is the filled surface plus an inset
+   hairline, and focus is a ring instead of a border colour. */
 .input {
-  background: var(--paper);
-  border: 1px solid var(--rule-strong);
+  background: var(--input-fill);
+  border: none;
+  box-shadow: var(--input-shadow);
   color: var(--text-primary);
   padding: 10px 14px;
   border-radius: var(--r-sm);
   font-family: var(--font-sans);
   font-size: 13.5px;
-  transition: border-color var(--dur-fast);
+  transition: box-shadow var(--dur-fast);
   width: 100%;
 }
 .input:focus {
   outline: none;
-  border-color: var(--ink-100);
+  box-shadow: var(--focus-ring);
 }
 .input::placeholder {
   color: var(--ink-30);
