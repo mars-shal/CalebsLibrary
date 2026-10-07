@@ -444,18 +444,37 @@ watch(subjectFilter, () => {
   text-align: center;
   padding: 16px 0;
   font-size: 13px;
+  /* Fallback fill for engines without background-clip: text, where the
+     -webkit-text-fill-color below would otherwise leave the label invisible. */
   color: var(--ink-40);
-  animation: sk-shimmer 1.6s var(--ease-in-out) infinite;
+  animation: sk-shimmer-text 1.6s var(--ease-in-out) infinite;
+  /* The highlight sweeps between two INK tokens rather than to transparent
+     white. A white highlight is invisible on the #ffffff light page and only a
+     faint smear on #121212; ink-40 -> ink-70 is a real tonal step in both
+     themes (darkens on light, lightens on dark), so the sweep reads either way. */
   background: linear-gradient(
     100deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 80%
+    var(--ink-40) 20%,
+    var(--ink-70) 50%,
+    var(--ink-40) 80%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+/* The highlight is painted THROUGH the text by background-clip, so it can only
+   move via background-position. Running the block-level `sk-shimmer` translateX
+   here slid this full-content-width element up to +/-100% of its own width off
+   the right edge (1176px wide at 1440), which is what made the page
+   intermittently horizontally scrollable. */
+@keyframes sk-shimmer-text {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 640px) {

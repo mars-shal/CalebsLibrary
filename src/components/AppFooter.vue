@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 const links: { label: string; to: string }[] = [
-  { label: 'Browse', to: '/browse' },
+  { label: 'Shelves', to: '/shelves' },
   { label: 'Search', to: '/search' },
   { label: 'Contribute', to: '/upload' },
   { label: 'About', to: '/about' },
