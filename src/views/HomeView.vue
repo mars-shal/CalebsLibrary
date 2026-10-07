@@ -497,7 +497,7 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
 }
 .bento {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
     'main a b'
     'main c c';
@@ -536,6 +536,12 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   background: var(--paper-2);
   color: var(--text-primary);
   flex-shrink: 0;
+}
+/* The cards are flex rows, so without this the text block's min-content (the
+   longest unbreakable word) sets a floor on the grid track and the 1fr columns
+   escape their share in the ~721-766px band. */
+.bento-copy {
+  min-width: 0;
 }
 .bento-title {
   font-size: 14.5px;

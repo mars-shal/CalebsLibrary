@@ -74,33 +74,37 @@ export function setContributors(list: Contributor[]): void {
 export const getContributor = (id: string): Contributor =>
   contributorRegistry.value.find((c) => c.id === id) ?? contributorRegistry.value[0]!
 
-// 16 tonal covers — a SINGLE-HUE monochromatic ramp in the brand blue family.
-// Every bg is a neutral-blue grey (blue leads, R≈G just below B): no orange, no
-// second hue, since orange is reserved for calls to action per tokens.css.
+// 16 tonal covers — a NEUTRAL GREYSCALE ramp. Every channel of every value is
+// R === G === B: no hue at all, which is what "monochrome" has to mean for a
+// book cover. Orange stays reserved for calls to action per tokens.css.
 //
 // MUST stay exactly 16: callers index it with `hash % 16` (convex/driveSync.ts,
 // convex/submissions.ts) and BookCover.vue with `cover % COVERS.length`.
-// Slots interleave four lightness clusters (deep navy / mid indigo / pale sky /
-// paper) so neighbouring shelf cards alternate polarity rather than creeping
-// through one blob. `ink` AND `accent` are both >= 4.5:1 vs bg because `accent`
-// renders .cover-subject, a real label down to 6.5px.
+//
+// The ramp jumps straight over the mid-grey dead zone (~L 0.183-0.200, roughly
+// #6b6b6b-#777777) where neither a light nor a dark ink can clear 4.5:1: the
+// darkest dark step here is L 0.107 and the lightest light step is L 0.392, so
+// nothing lands in it. Ink polarity alternates per slot because hash assignment
+// is effectively random — consecutive indices are always opposite polarity.
+// Both `ink` and `accent` clear 4.5:1 vs bg, since `accent` renders
+// .cover-subject, a real label down to 6.5px.
 export const COVERS = [
-  { bg: '#101632', ink: '#ffffff', accent: '#bcd2f6' },
-  { bg: '#dbe6f3', ink: '#101430', accent: '#3e527e' },
-  { bg: '#25356b', ink: '#ffffff', accent: '#d8e8ff' },
-  { bg: '#8ba4cc', ink: '#101430', accent: '#1a264a' },
-  { bg: '#182053', ink: '#ffffff', accent: '#d3e3fb' },
-  { bg: '#ccdaee', ink: '#101430', accent: '#33456b' },
-  { bg: '#31437f', ink: '#ffffff', accent: '#e0ecff' },
-  { bg: '#a5bbdb', ink: '#101430', accent: '#2c3e6a' },
-  { bg: '#131a3e', ink: '#ffffff', accent: '#c6d9f8' },
-  { bg: '#e2ecf7', ink: '#101430', accent: '#46597f' },
-  { bg: '#1f3566', ink: '#ffffff', accent: '#dbe9ff' },
-  { bg: '#93aad0', ink: '#101430', accent: '#22325c' },
-  { bg: '#161e4a', ink: '#ffffff', accent: '#cfe0fa' },
-  { bg: '#d3e0f0', ink: '#101430', accent: '#3a4d78' },
-  { bg: '#2b3d78', ink: '#ffffff', accent: '#e2eeff' },
-  { bg: '#9db4d6', ink: '#101430', accent: '#2c3e6a' },
+  { bg: '#1b1b1b', ink: '#f5f5f5', accent: '#848484' },
+  { bg: '#a8a8a8', ink: '#0d0d0d', accent: '#3d3d3d' },
+  { bg: '#242424', ink: '#f5f5f5', accent: '#8b8b8b' },
+  { bg: '#b8b8b8', ink: '#0d0d0d', accent: '#484848' },
+  { bg: '#2e2e2e', ink: '#f5f5f5', accent: '#969696' },
+  { bg: '#c9c9c9', ink: '#0d0d0d', accent: '#545454' },
+  { bg: '#363636', ink: '#f5f5f5', accent: '#9f9f9f' },
+  { bg: '#d1d1d1', ink: '#0d0d0d', accent: '#595959' },
+  { bg: '#424242', ink: '#f5f5f5', accent: '#afafaf' },
+  { bg: '#dedede', ink: '#0d0d0d', accent: '#616161' },
+  { bg: '#4a4a4a', ink: '#f5f5f5', accent: '#bababa' },
+  { bg: '#e6e6e6', ink: '#0d0d0d', accent: '#666666' },
+  { bg: '#555555', ink: '#f5f5f5', accent: '#cbcbcb' },
+  { bg: '#ececec', ink: '#0d0d0d', accent: '#6a6a6a' },
+  { bg: '#5c5c5c', ink: '#f5f5f5', accent: '#d5d5d5' },
+  { bg: '#f2f2f2', ink: '#0d0d0d', accent: '#6e6e6e' },
 ]
 
 export const PAPER_TYPES = ['Study Guide', 'Lecture Notes', 'Past Exam', 'Problem Set', 'Essay', 'Cheat Sheet', 'Slides', 'Notes']

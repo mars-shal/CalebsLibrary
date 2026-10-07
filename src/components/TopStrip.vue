@@ -92,7 +92,7 @@ function handleBlur(): void {
       </div>
 
       <nav class="actions">
-        <button class="nav-link" @click="router.push('/browse')">Browse</button>
+        <button class="nav-link" @click="router.push('/shelves')">Browse</button>
         <button class="nav-link" @click="router.push('/about')">About</button>
         <button
           class="theme-toggle"
