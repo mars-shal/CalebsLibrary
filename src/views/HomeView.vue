@@ -208,18 +208,6 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
           </button>
         </div>
       </div>
-
-      <div class="stats-strip">
-        <template v-if="showStatSkeletons">
-          <div v-for="i in 4" :key="i" class="sk stat-sk">
-            <div class="sk stat-sk-value" />
-            <div class="sk stat-sk-label" />
-          </div>
-        </template>
-        <template v-else>
-          <Stat v-for="s in stats" :key="s.label" :value="s.value" :label="s.label" />
-        </template>
-      </div>
     </section>
 
     <!-- Quick actions: bento grid (glass). Ported from bells-notes HomeView. -->
@@ -261,6 +249,20 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
             <Icon name="chevron" :size="14" class="bento-arrow" />
           </button>
         </div>
+      </div>
+    </section>
+
+    <section class="section-footprint">
+      <div class="stats-strip">
+        <template v-if="showStatSkeletons">
+          <div v-for="i in 4" :key="i" class="sk stat-sk">
+            <div class="sk stat-sk-value" />
+            <div class="sk stat-sk-label" />
+          </div>
+        </template>
+        <template v-else>
+          <Stat v-for="s in stats" :key="s.label" :value="s.value" :label="s.label" />
+        </template>
       </div>
     </section>
   </div>
@@ -404,11 +406,10 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   opacity: 0;
   transform: translateY(-10px);
 }
+.section-footprint {
+  margin-top: 56px;
+}
 .stats-strip {
-  margin-top: 64px;
-  margin-bottom: 0;
-  padding-top: 48px;
-  border-top: 1px solid var(--rule);
   display: flex;
   justify-content: center;
   gap: 64px;
@@ -487,7 +488,12 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
   padding: 0 32px;
 }
 .section-title {
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-transform: none;
+  margin: 0;
 }
 .bento {
   display: grid;
