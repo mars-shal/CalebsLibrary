@@ -18,8 +18,14 @@ const {
   suggestions,
   showDropdown,
   highlightedIndex,
+  listboxId,
+  optionId,
+  activeOptionId,
   selectSuggestion,
+  hoverSuggestion,
   handleKeydown,
+  handleFocus,
+  handleBlur,
   containerRef,
   onInput,
 } = useSearchAutocomplete()
@@ -146,13 +152,6 @@ const visiblePages = computed<number[]>(() => {
 function openPaper(p: Paper) {
   router.push({ name: 'paper', params: { id: p.id } })
 }
-
-function handleBlur(): void {
-  window.setTimeout(() => {
-    showDropdown.value = false
-    highlightedIndex.value = -1
-  }, 120)
-}
 </script>
 
 <template>
@@ -167,19 +166,28 @@ function handleBlur(): void {
         type="text"
         autocomplete="off"
         placeholder="Search the library…"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="showDropdown && suggestions.length > 0"
+        :aria-controls="showDropdown && suggestions.length ? listboxId : undefined"
+        :aria-activedescendant="activeOptionId"
         @input="onInput"
         @keydown="handleKeydown"
-        @focus="onInput"
+        @focus="handleFocus"
         @blur="handleBlur"
       />
-      <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
+      <div v-if="showDropdown && suggestions.length" :id="listboxId" class="autocomplete-dropdown" role="listbox">
         <button
           v-for="(s, i) in suggestions"
+          :id="optionId(i)"
           :key="s.text + s.type"
           class="ac-item"
           :class="{ highlighted: highlightedIndex === i }"
-          @mousedown.prevent="selectSuggestion(s.text)"
-          @mouseenter="highlightedIndex = i"
+          role="option"
+          tabindex="-1"
+          :aria-selected="highlightedIndex === i"
+          @click="selectSuggestion(s.text)"
+          @mouseenter="hoverSuggestion(i)"
         >
           <Icon :name="s.icon" :size="14" class="ac-icon" />
           <span class="ac-text">{{ s.text }}</span>

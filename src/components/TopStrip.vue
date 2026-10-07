@@ -11,8 +11,14 @@ const {
   suggestions,
   showDropdown,
   highlightedIndex,
+  listboxId,
+  optionId,
+  activeOptionId,
   selectSuggestion,
+  hoverSuggestion,
   handleKeydown,
+  handleFocus,
+  handleBlur,
   containerRef,
   onInput,
 } = useSearchAutocomplete()
@@ -41,13 +47,6 @@ function toggleTheme() {
 function goHome() {
   router.push({ name: 'home' })
 }
-
-function handleBlur(): void {
-  window.setTimeout(() => {
-    showDropdown.value = false
-    highlightedIndex.value = -1
-  }, 120)
-}
 </script>
 
 <template>
@@ -64,25 +63,36 @@ function handleBlur(): void {
         :class="{ 'dropdown-open': showDropdown && suggestions.length }"
       >
         <Icon name="search" :size="15" class="search-icon" />
+        <!-- type="text" on both search boxes: type="search" adds a native
+             clear affordance the design does not account for. -->
         <input
           v-model="query"
-          type="search"
+          type="text"
           autocomplete="off"
           placeholder="Search the library…"
           aria-label="Search the library"
+          role="combobox"
+          aria-autocomplete="list"
+          :aria-expanded="showDropdown && suggestions.length > 0"
+          :aria-controls="showDropdown && suggestions.length ? listboxId : undefined"
+          :aria-activedescendant="activeOptionId"
           @input="onInput"
           @keydown="handleKeydown"
-          @focus="onInput"
+          @focus="handleFocus"
           @blur="handleBlur"
         />
-        <div v-if="showDropdown && suggestions.length" class="autocomplete-dropdown">
+        <div v-if="showDropdown && suggestions.length" :id="listboxId" class="autocomplete-dropdown" role="listbox">
           <button
             v-for="(s, i) in suggestions"
+            :id="optionId(i)"
             :key="s.text + s.type"
             class="ac-item"
             :class="{ highlighted: highlightedIndex === i }"
-            @mousedown.prevent="selectSuggestion(s.text)"
-            @mouseenter="highlightedIndex = i"
+            role="option"
+            tabindex="-1"
+            :aria-selected="highlightedIndex === i"
+            @click="selectSuggestion(s.text)"
+            @mouseenter="hoverSuggestion(i)"
           >
             <Icon :name="s.icon" :size="14" class="ac-icon" />
             <span class="ac-text">{{ s.text }}</span>
