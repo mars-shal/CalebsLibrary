@@ -471,7 +471,7 @@ function handleBlur(): void {
 }
 .facets-toggle.open {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-color: var(--ink-100);
 }
 .facets {
@@ -771,7 +771,7 @@ function handleBlur(): void {
 }
 .page-btn.active {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-color: var(--ink-100);
 }
 .ellipsis {

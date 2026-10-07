@@ -44,6 +44,7 @@
   /* Deliberately not --ink-100: that inverts for dark mode, and a banner or
      a selected chip has to stay a dark surface in both themes. */
   --surface-dark: #1e1660;
+  --on-surface: #ffffff;
   --border: var(--rule);
   --divider: var(--rule);
   --divider-strong: var(--rule-strong);
@@ -127,37 +128,40 @@ html.dark {
   --secondary: #6b78ff;
   --accent-hover: #ff8534;
 
-  --paper: #14103a;
-  --paper-2: #1c1848;
-  --paper-3: #262159;
-  --paper-4: #332c6b;
+  /* Neutral greys. The dark page is #121212 rather than a tinted indigo, so
+     every surface above it steps through grey instead of blue. */
+  --paper: #121212;
+  --paper-2: #1b1b1d;
+  --paper-3: #242427;
+  --paper-4: #303034;
 
   --ink-0: #000000;
-  --ink-5: #14103a;
-  --ink-10: #241f52;
-  --ink-20: #352e70;
-  --ink-30: #6b639f; /* placeholder */
-  --ink-40: #8b83bd; /* tertiary */
-  --ink-50: #a9a2d4;
-  --ink-70: #c9c4ea; /* secondary */
-  --ink-85: #e2dff5;
-  --ink-100: #f5f3ff;
+  --ink-5: #121212;
+  --ink-10: #1e1e20;
+  --ink-20: #2c2c30;
+  --ink-30: #6e6e73; /* placeholder */
+  --ink-40: #8e8e93; /* tertiary */
+  --ink-50: #a9a9ae;
+  --ink-70: #c9c9ce; /* secondary */
+  --ink-85: #e3e3e6;
+  --ink-100: #f4f4f5;
 
-  --rule: rgba(245, 243, 255, 0.1);
-  --rule-strong: rgba(245, 243, 255, 0.18);
+  --rule: rgba(255, 255, 255, 0.1);
+  --rule-strong: rgba(255, 255, 255, 0.18);
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-book: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.25);
 
   --bg: var(--paper);
-  --bg-elevated: #1a1646;
-  --bg-pdf: #1a1646;
+  --bg-elevated: #1a1a1c;
+  --bg-pdf: #1a1a1c;
   --surface: var(--paper);
-  --surface-dark: #241f6e;
+  --surface-dark: #232326;
+  --on-surface: #f2f2f4;
   --border: var(--rule);
   --divider: var(--rule);
   --divider-strong: var(--rule-strong);
   --error: #e74c3c;
-  --overlay: rgba(20, 16, 58, 0.92);
+  --overlay: rgba(18, 18, 18, 0.92);
   --shadow-focus: 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-lifted: 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-gradient: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent);
@@ -167,15 +171,15 @@ html.dark {
   --text-tertiary: var(--ink-40);
   --text-quiet: var(--ink-30);
 
-  --strip-bg: rgba(20, 16, 58, 0.92);
-  --material: rgba(36, 31, 110, 0.68);
+  --strip-bg: rgba(24, 24, 26, 0.92);
+  --material: rgba(38, 38, 42, 0.68);
   --blur: saturate(180%) blur(20px);
   --hairline: 0.5px solid var(--rule-strong);
 }
 
 html.dark ::selection {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 
 html.dark ::-webkit-scrollbar-thumb {
@@ -188,7 +192,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 html.dark mark {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 
 /* Base */
@@ -298,7 +302,7 @@ h2 {
 
 ::selection {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 
 :focus-visible {
@@ -416,7 +420,7 @@ a {
   place-items: center;
   border-radius: 50%;
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   font-family: var(--font-sans);
   font-weight: 500;
   font-size: 13px;
@@ -512,7 +516,7 @@ a {
 /* Mark highlight (search matches) */
 mark {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   padding: 0 3px;
   border-radius: 2px;
 }

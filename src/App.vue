@@ -16,10 +16,27 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppBanner />
-  <TopStrip />
-  <main class="screen-wrap" :key="route.fullPath">
-    <RouterView />
-  </main>
-  <AppFooter />
+  <!-- Column shell so the footer sits on the viewport floor instead of riding up
+       under short pages, where it previously floated mid-screen. -->
+  <div class="app-shell">
+    <AppBanner />
+    <TopStrip />
+    <main class="screen-wrap" :key="route.fullPath">
+      <RouterView />
+    </main>
+    <AppFooter />
+  </div>
 </template>
+
+<style scoped>
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* dvh tracks the collapsing mobile URL bar; vh stays as the older fallback. */
+  min-height: 100dvh;
+}
+.screen-wrap {
+  flex: 1 0 auto;
+}
+</style>

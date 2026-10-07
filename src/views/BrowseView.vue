@@ -385,7 +385,7 @@ watch([subjectFilter, typeFilter, courseFilter, yearFilter, sortBy], () => {
 }
 .fpill.active {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 .divider {
   width: 1px;

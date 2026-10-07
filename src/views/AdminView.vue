@@ -310,7 +310,7 @@ async function decide(status: 'approved' | 'rejected') {
   width: 44px;
   height: 44px;
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -409,7 +409,7 @@ async function decide(status: 'approved' | 'rejected') {
 }
 .filter-chip.active {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-color: var(--ink-100);
 }
 .filter-count {
@@ -479,7 +479,7 @@ async function decide(status: 'approved' | 'rejected') {
 }
 .badge-flag {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 .badge-ai {
   background: var(--paper-3);
@@ -574,7 +574,7 @@ async function decide(status: 'approved' | 'rejected') {
 .alert-bar {
   padding: 14px 18px;
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-radius: 4px;
   display: flex;
   gap: 12px;

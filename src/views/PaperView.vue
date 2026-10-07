@@ -641,7 +641,7 @@ async function postDiscussion(): Promise<void> {
 }
 .vote-up.active {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 .vote-down {
   padding: 8px;
@@ -656,7 +656,7 @@ async function postDiscussion(): Promise<void> {
 }
 .vote-down.active {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
 }
 .vote-divider {
   width: 1px;

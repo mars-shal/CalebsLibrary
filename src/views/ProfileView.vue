@@ -181,7 +181,7 @@ function openPaper(p: Paper) {
 }
 .tag-found {
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   border-color: var(--ink-100);
 }
 .stats {

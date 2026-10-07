@@ -32,7 +32,7 @@ function close() {
 .banner {
   height: 32px;
   background: var(--surface-dark);
-  color: var(--paper);
+  color: var(--on-surface);
   display: flex;
   align-items: center;
   gap: 10px;
