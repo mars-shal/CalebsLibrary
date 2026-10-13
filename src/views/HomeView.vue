@@ -3,17 +3,21 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
-import { formatCount } from '@/script/design'
 import Icon from '@/components/Icon.vue'
 import Stat from '@/components/Stat.vue'
 
 const drive = useDriveStore()
 const router = useRouter()
 
+// Three tiles, not four. "Reads/month" was derived from `summary.reads`, which
+// sums catalogue `views` — a field that only became real when views stopped
+// being seeded from a hash of the Drive file id. Until it has accumulated it
+// advertised a made-up number as a headline, so the tile is gone rather than
+// showing a near-zero placeholder. `drive.stats.reads` still exists on the store
+// (src/schema/catalogue.ts still computes it) for any future consumer.
 const stats = computed(() => [
   { value: drive.stats.papers.toLocaleString(), label: 'Papers' },
   { value: drive.stats.contributors.toLocaleString(), label: 'Contributors' },
-  { value: formatCount(drive.stats.reads), label: 'Reads/month' },
   { value: drive.stats.subjects.toLocaleString(), label: 'Subjects' },
 ])
 
@@ -208,7 +212,7 @@ const showStatSkeletons = computed(() => isLoading.value || !drive.statsKnown)
     <section class="section-footprint">
       <div class="stats-strip">
         <template v-if="showStatSkeletons">
-          <div v-for="i in 4" :key="i" class="sk stat-sk">
+          <div v-for="i in 3" :key="i" class="sk stat-sk">
             <div class="sk stat-sk-value" />
             <div class="sk stat-sk-label" />
           </div>

@@ -21,6 +21,7 @@ import { NoOp } from "convex-helpers/server/customFunctions";
 import { query, internalMutation, internalAction, internalQuery, env } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import type { GenericId } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import type { PaginationOptions } from "convex/server";
 import { internal } from "./_generated/api";
@@ -337,6 +338,91 @@ export const applyDiff = zCustomMutation(internalMutation, NoOp)({
     // 400 rows still costs exactly one rebuild.
     await ctx.scheduler.runAfter(0, internal.snapshot.refresh, {});
     return { count: items.length, syncedAt: Date.now() };
+  },
+});
+
+/**
+ * Zero the engagement counters that `driveSync.buildPaper` used to fabricate.
+ *
+ * WHY A BACKFILL AND NOT "JUST RUN THE SYNC AGAIN"
+ * `applyDiff` above would in fact correct these rows — it compares every field
+ * of a freshly walked item against the stored row and patches the whole row on
+ * any mismatch, so `views: 0` against a stored `views: 10343` marks it dirty and
+ * the patch zeroes it. But `syncDiffFromDrive` never reaches `applyDiff` when
+ * the Drive tree is unchanged: it compares `hashCatalogueItems` to
+ * `lastAppliedTreeHash` and returns early. That fingerprint covers only
+ * identity/content fields (id, title, fileId, fileExt, course, courseName,
+ * level, levelYear, program, college, license, teacher, year, sizeLabel), so
+ * changing what `buildPaper` emits for the counters cannot move it. A sync that
+ * finds the tree untouched therefore costs one Drive walk and zero writes, and
+ * the invented numbers sit in the database indefinitely. Hence this.
+ *
+ * WHY THE `metrics` TABLE IS THE LINE BETWEEN REAL AND FAKE
+ * Nothing ever writes a real counter onto a catalogue row. `metrics.bump` and
+ * `votes.toggle` write to `metrics`; `applyMetrics` (src/stores/drive.ts)
+ * overlays those rows onto the catalogue client-side, and it replaces all four
+ * fields whenever a row exists. So a paper WITH a `metrics` entry is already
+ * displaying real numbers and its stored counters are inert — skipped here, so
+ * no accumulated data can be clobbered. A paper WITHOUT one has genuinely
+ * never been read, downloaded or voted on, and its stored counters are pure
+ * invention.
+ *
+ * Idempotent: only rows that actually hold a non-zero counter are written, so
+ * a second run is a no-op (`patched: 0`) and running it twice is harmless.
+ *
+ * `internal` on purpose — this rewrites every row of the catalogue, so it must
+ * not be reachable from a client. Run it deliberately with:
+ *   npx convex run internal:catalogue/zeroFabricatedMetrics
+ */
+export const zeroFabricatedMetrics = internalMutation({
+  args: {
+    // Caps the writes per call so a catalogue larger than a single transaction's
+    // write budget can be corrected by looping rather than failing outright.
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    done: v.boolean(),
+    scanned: v.number(),
+    patched: v.number(),
+    // Rows left alone because real accumulated counters exist for them.
+    spared: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 5000;
+    const measured = new Set((await ctx.db.query("metrics").collect()).map((m) => m.paper_id));
+    const rows = await ctx.db.query("catalogue").collect();
+
+    const dirty: { _id: GenericId<"catalogue"> }[] = [];
+    let spared = 0;
+    for (const row of rows) {
+      if (measured.has(row.id)) {
+        spared++;
+        continue;
+      }
+      if (row.upvotes === 0 && row.downvotes === 0 && row.downloads === 0 && row.views === 0) continue;
+      dirty.push({ _id: row._id });
+    }
+
+    const batch = dirty.slice(0, limit);
+    for (const row of batch) {
+      await ctx.db.patch(row._id, { upvotes: 0, downvotes: 0, downloads: 0, views: 0 });
+    }
+
+    // The web app reads the Upstash read model, not these tables, so without
+    // this the live site would keep serving the fabricated numbers until the
+    // next debounced rebuild (up to 15 min) or the daily verify. Forced, not
+    // debounced: a sync that ran moments ago may already have claimed the
+    // window, and this is a one-off correction that must not be swallowed.
+    if (batch.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.snapshot.refresh, { force: true });
+    }
+
+    return {
+      done: batch.length >= dirty.length,
+      scanned: rows.length,
+      patched: batch.length,
+      spared,
+    };
   },
 });
 

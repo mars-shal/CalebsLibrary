@@ -16,10 +16,17 @@ defineEmits<{ (e: 'click'): void }>()
       <div class="card-title">{{ paper.title }}</div>
       <div class="card-meta">
         <span>{{ paper.type }}</span>
-        <span class="dot">·</span>
-        <span class="up">
-          <Icon name="arrow-up" :size="11" />{{ formatCount(paper.upvotes) }}
-        </span>
+        <!-- Vote count is hidden at zero. 1,242 of the catalogue's papers have
+             never been voted on, so a permanent "↑ 0" on every card said the
+             same true-but-useless thing dozens of times and buried the handful
+             of papers that carry real community signal. Not a statistic worth
+             reporting until someone has reported one. -->
+        <template v-if="paper.upvotes > 0">
+          <span class="dot">·</span>
+          <span class="up">
+            <Icon name="arrow-up" :size="11" />{{ formatCount(paper.upvotes) }}
+          </span>
+        </template>
       </div>
     </div>
   </div>

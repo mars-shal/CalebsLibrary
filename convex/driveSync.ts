@@ -123,11 +123,22 @@ function buildPaper(f: DriveFile, path: Path, types: string[]): CatalogueItem {
     courseName,
     type,
     year: f.createdTime ? new Date(f.createdTime).getFullYear() : new Date().getFullYear(),
+    // ESTIMATE from file size, not a measured count — Drive's API reports no
+    // page count. Kept (and labelled "est." wherever it renders) because it
+    // is a useful size hint.
     pages: estimatePages(sizeBytes, hash),
-    upvotes: 40 + (hash % 900),
-    downvotes: hash % 40,
-    downloads: 200 + ((hash >> 4) % 3000),
-    views: 600 + ((hash >> 8) % 12000),
+    // DO NOT derive these from `hash`. They used to be (`40 + hash % 900`,
+    // `600 + (hash >> 8) % 12000`, …), which put invented read/download/vote
+    // counts on every paper in the library — indistinguishable from measured
+    // data to the reader, and never any paper's real numbers. Real counters
+    // accumulate in the `metrics` table (metrics.bump / votes.toggle) and are
+    // overlaid client-side by `applyMetrics`; no `metrics` row means the paper
+    // genuinely has had none, so 0 is the honest value. Rows written before
+    // this change are cleaned up by `catalogue.zeroFabricatedMetrics`.
+    upvotes: 0,
+    downvotes: 0,
+    downloads: 0,
+    views: 0,
     contributor,
     contributorName,
     teacher: '',

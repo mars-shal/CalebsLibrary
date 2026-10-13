@@ -48,7 +48,16 @@ const subjectLabel = computed(() => props.paper.subjectName || 'Notes')
       <div class="cover-title">{{ paper.title }}</div>
       <div class="cover-flex" />
       <div class="cover-rule-bottom" />
-      <div class="cover-meta">{{ paper.year }} · {{ paper.pages }}pp</div>
+      <!-- `pages` is extrapolated from the file size (Google Drive reports no
+           page count), so it is labelled at every size rather than only on the
+           detail page. The tilde carries the estimate; the tooltip spells it out
+           for anyone who hovers. -->
+      <div
+        class="cover-meta"
+        :title="`${paper.pages} pages estimated from file size — Google Drive does not report page counts`"
+      >
+        {{ paper.year }} · ~{{ paper.pages }}pp
+      </div>
     </div>
   </div>
 </template>

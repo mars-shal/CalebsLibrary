@@ -283,8 +283,21 @@ async function postDiscussion(): Promise<void> {
             </div>
           </button>
           <div class="divider" />
-          <div class="meta-item">
-            <Icon name="file" :size="14" /> {{ paper.pages }} pages · {{ paper.fileExt.toUpperCase() || 'PDF' }}
+          <!-- `pages` is extrapolated from the file size — Drive's API reports no page
+               count — so it is named as an estimate here. `sizeLabel` is the
+               measurement the estimate is derived from, so it sits right next to
+               it: the reader can see the actual input rather than take the guess
+               on faith. -->
+          <div
+            class="meta-item"
+            :title="`${paper.pages} pages estimated from the ${paper.sizeLabel} file size — Google Drive does not report page counts`"
+          >
+            <Icon name="file" :size="14" />
+            <span class="meta-est">~{{ paper.pages }} pages est.</span>
+            <span class="dot">·</span>
+            <span>{{ paper.fileExt.toUpperCase() || 'PDF' }}</span>
+            <span class="dot">·</span>
+            <span>{{ paper.sizeLabel }}</span>
           </div>
           <div class="meta-item">
             <Icon name="eye" :size="14" /> {{ paper.views.toLocaleString() }}
@@ -447,7 +460,12 @@ async function postDiscussion(): Promise<void> {
             <BookCover :paper="p" size="xs" />
             <div class="related-main">
               <div class="related-title">{{ p.title }}</div>
-              <div class="mono-meta">{{ p.type }} · ▲{{ formatCount(p.upvotes) }}</div>
+              <div class="mono-meta">
+                <!-- Same rule as PaperCard: a zero here says nothing, and most
+                     related papers have none. -->
+                <template v-if="p.upvotes > 0">{{ p.type }} · ▲{{ formatCount(p.upvotes) }}</template>
+                <template v-else>{{ p.type }}</template>
+              </div>
             </div>
           </button>
         </div>
@@ -565,6 +583,16 @@ async function postDiscussion(): Promise<void> {
   gap: 6px;
   font-size: 13px;
   color: var(--ink-70);
+}
+/* The estimate is set in the mono face so it reads as a derived figure sitting
+   among measurements, and the `~` marker does the rest. */
+.meta-est {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-40);
+}
+.dot {
+  opacity: 0.4;
 }
 
 .actions {

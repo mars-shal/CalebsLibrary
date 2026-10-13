@@ -312,12 +312,20 @@ function openPaper(p: Paper) {
                 <span class="dot">·</span>
                 <span>{{ p.year }}</span>
                 <span class="dot">·</span>
-                <span>{{ p.pages }} pages</span>
+                <!-- Size-derived estimate, not a measured page count — see the `estimatePages`
+                     contract in src/schema/catalogue.ts. -->
+                <span :title="`${p.pages} pages estimated from file size — Google Drive does not report page counts`"
+                  >~{{ p.pages }} pages</span
+                >
               </div>
             </div>
-            <div class="result-side">
-              <span class="mono votes">▲ {{ formatCount(p.upvotes) }}</span>
-              <span class="mono-meta">{{ formatCount(p.downloads) }} downloads</span>
+            <!-- Hidden entirely when nothing has been voted or downloaded. Rendering
+                   "▲ 0" and "0 downloads" on every row put twenty zero figures
+                   on one screen and made the few rows with real numbers
+                   invisible; the row-sorts above still work off the data. -->
+            <div v-if="p.upvotes > 0 || p.downloads > 0" class="result-side">
+              <span v-if="p.upvotes > 0" class="mono votes">▲ {{ formatCount(p.upvotes) }}</span>
+              <span v-if="p.downloads > 0" class="mono-meta">{{ formatCount(p.downloads) }} downloads</span>
             </div>
           </div>
         </div>

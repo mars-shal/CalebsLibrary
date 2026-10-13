@@ -184,7 +184,19 @@ export function formatBytes(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`
 }
 
-// Pages estimated from byte size (deterministic per-file hash fallback)
+/**
+ * Pages ESTIMATED from byte size — NOT a real page count. Google Drive's API
+ * reports no page count for a file, so nothing better exists, and the figure is
+ * a linear guess: a scanned 300 MB archive and a 300 MB text dump both land
+ * near the 250-page ceiling.
+ *
+ * Consequence: the number must never be presented as a measurement. It renders
+ * as `~N pp` / `~N pages est.` on covers, the index stack, search results and
+ * the paper detail page, always beside `sizeLabel` (the real Drive byte size)
+ * and with a tooltip naming the method. Do not "tidy" it back into a bare
+ * `N pages`, and do not replace the `~`/`est.` markers — a bare page count here
+ * reads as fact and is the exact failure this estimate is documented to avoid.
+ */
 export function estimatePages(bytes: number, hash: number): number {
   if (bytes > 0) {
     const bySize = Math.round(bytes / 30000)

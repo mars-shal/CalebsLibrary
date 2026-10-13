@@ -46,7 +46,14 @@ const subjectLabel = computed(() => props.paper.subjectName || 'Notes')
       <div class="front-title">{{ paper.title }}</div>
       <div class="front-flex" />
       <div class="front-rule-bottom" />
-      <div class="front-meta">{{ paper.year }} · {{ paper.pages }}pp</div>
+      <!-- Mirrors BookCover: `pages` is a size-derived estimate, so it is marked as
+           one on every surface rather than being left to read as a measurement. -->
+      <div
+        class="front-meta"
+        :title="`${paper.pages} pages estimated from file size — Google Drive does not report page counts`"
+      >
+        {{ paper.year }} · ~{{ paper.pages }}pp
+      </div>
     </div>
   </div>
 </template>
