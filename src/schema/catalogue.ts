@@ -53,6 +53,12 @@ export const CODE_SUBJECTS: Record<string, string> = {
   BIO: 'Biology',
   AMS: 'Applied Mathematics & Statistics',
   ENG: 'Engineering',
+  // INFERRED, not stated by the catalogue. Both codes are in the live payload
+  // (MCB on 19 papers, CEE on 1) and both were leaking as raw codes. The
+  // expansions are read off the courses filed under them — "CEE 101
+  // (Introduction to Civil Engineering)" — so treat them as a correction point.
+  MCB: 'Microbiology',
+  CEE: 'Civil Engineering',
 }
 
 export const LEVEL_DESC: Record<string, string> = {

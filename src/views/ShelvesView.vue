@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Shelves — College → Program → Level → Papers drill-down.
+// Shelves — College → Level → Department → Course → Papers drill-down.
 // Modelled on the bells-notes BrowseView, but reading Caleb's Library's own
 // catalogue through the drive store (there is no second fetch path here).
 //
@@ -7,10 +7,16 @@
 // something asks for the rest, so every count on this screen would be wrong if
 // it were derived before `ensureComplete()` settles. Hence the explicit ready
 // flag — nothing below is rendered until the whole corpus is in hand.
+//
+// The shelves are a path, not a set of refs. `selected` holds one key per tier
+// picked, from the root down, and everything on screen — the grid, the heading,
+// the breadcrumb, Back — is derived by walking it. Adding a tier means adding a
+// shelf-namer below, not rewriting the navigation around it.
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDriveStore } from '@/stores/drive'
 import type { Paper } from '@/script/design'
+import { CODE_SUBJECTS, LEVEL_DESC, parseCourseName } from '@/schema/catalogue'
 import BookCover from '@/components/BookCover.vue'
 import Icon from '@/components/Icon.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
@@ -18,36 +24,11 @@ import SkeletonCard from '@/components/SkeletonCard.vue'
 const drive = useDriveStore()
 const router = useRouter()
 
-// Papers without a program (149 of them in the current catalogue) still belong
-// to a college, so they get their own branch instead of being dropped or
-// folded into a real program.
+// Papers with no college, level, program or course (149 of them in the current
+// catalogue) still belong where they are, so they get their own branch instead
+// of being dropped or folded into a real sibling.
 const UNCATEGORISED = '__uncategorised__'
 const UNCATEGORISED_LABEL = 'Uncategorised'
-
-interface LevelNode {
-  key: string
-  /** Short form for the big numeral — '' for the level-less bucket. */
-  num: string
-  /** Screen-reader-friendly label, e.g. "Level 101". */
-  label: string
-  papers: Paper[]
-}
-
-interface ProgramNode {
-  key: string
-  /** Program code as it appears in the catalogue ("MTH"), or the fallback label. */
-  code: string
-  papers: Paper[]
-  levels: LevelNode[]
-}
-
-interface CollegeNode {
-  key: string
-  /** Full catalogue string, e.g. "College of Computing (COLCOMP)". */
-  label: string
-  papers: Paper[]
-  programs: ProgramNode[]
-}
 
 interface Breadcrumb {
   label: string
@@ -55,10 +36,49 @@ interface Breadcrumb {
   to: (() => void) | null
 }
 
+/** One shelf. Every tier has this shape, so the template draws them alike. */
+interface Shelf {
+  key: string
+  label: string
+  /** The quieter second line — a paper count, or how many shelves sit below. */
+  sub: string
+  count: number
+  icon: string
+  /** The oversized numeral on a level card; empty on every other tier. */
+  num: string
+  /** Which tier it sits on: 0 colleges, 1 levels, 2 departments, 3 courses. */
+  tier: number
+  /** The tier below this one. Empty only on the papers themselves. */
+  kids: Shelf[]
+  papers: Paper[]
+}
+
+/** What a tier needs to name one of its shelves. */
+interface ShelfText {
+  label: string
+  sub: string
+  icon: string
+  num: string
+}
+
+interface ShelfDraft {
+  key: string
+  count: number
+  kids: Shelf[]
+  /** Raw course names folded into this shelf, with counts. */
+  spellings: Map<string, number>
+}
+
+interface Tier {
+  /** What the tier is called in the heading above the grid. */
+  noun: string
+  icon: string
+  name: (draft: ShelfDraft) => ShelfText
+  sort: (a: Shelf, b: Shelf) => number
+}
+
 const ready = ref(false)
-const selectedCollege = ref<string | null>(null)
-const selectedProgram = ref<string | null>(null)
-const selectedLevel = ref<string | null>(null)
+const selected = ref<string[]>([])
 
 onMounted(async () => {
   await drive.ensureComplete()
@@ -66,111 +86,6 @@ onMounted(async () => {
 })
 
 const isLoading = computed(() => !ready.value || drive.loading)
-
-// ---- the tree ---------------------------------------------------------------
-// One pass over the loaded corpus. Every paper lands in exactly one leaf:
-// program-less papers go to the Uncategorised program of their college, and
-// papers with no level go to the level-less bucket of their program. Neither
-// count is ever added to a real sibling.
-const tree = computed<CollegeNode[]>(() => {
-  type LevelDraft = { papers: Paper[] }
-  type ProgramDraft = { papers: Paper[]; levels: Map<string, LevelDraft> }
-  const colleges = new Map<string, { papers: Paper[]; programs: Map<string, ProgramDraft> }>()
-
-  for (const p of drive.papers) {
-    const collegeKey = p.college?.trim() || UNCATEGORISED
-    const programKey = p.program?.trim() || UNCATEGORISED
-    const levelKey = p.level?.trim() || UNCATEGORISED
-
-    let college = colleges.get(collegeKey)
-    if (!college) {
-      college = { papers: [], programs: new Map() }
-      colleges.set(collegeKey, college)
-    }
-    college.papers.push(p)
-
-    let program = college.programs.get(programKey)
-    if (!program) {
-      program = { papers: [], levels: new Map() }
-      college.programs.set(programKey, program)
-    }
-    program.papers.push(p)
-
-    let level = program.levels.get(levelKey)
-    if (!level) {
-      level = { papers: [] }
-      program.levels.set(levelKey, level)
-    }
-    level.papers.push(p)
-  }
-
-  const byCount = (a: number, b: number) => b - a
-  const nodes: CollegeNode[] = []
-  for (const [collegeKey, draft] of colleges) {
-    const programs: ProgramNode[] = []
-    for (const [programKey, pdraft] of draft.programs) {
-      const levels: LevelNode[] = [...pdraft.levels.entries()].map(([key, l]) => ({
-        key,
-        num: key === UNCATEGORISED ? '' : key,
-        label: key === UNCATEGORISED ? 'No level' : `Level ${key}`,
-        papers: l.papers,
-      }))
-      levels.sort((a, b) => {
-        const an = Number(a.num)
-        const bn = Number(b.num)
-        if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn
-        return a.label.localeCompare(b.label)
-      })
-      programs.push({
-        key: programKey,
-        code: programKey === UNCATEGORISED ? UNCATEGORISED_LABEL : programKey,
-        papers: pdraft.papers,
-        levels,
-      })
-    }
-    // Uncategorised always sinks to the bottom — it is the leftover, not a peer.
-    programs.sort((a, b) => {
-      if (a.key === UNCATEGORISED) return 1
-      if (b.key === UNCATEGORISED) return -1
-      return byCount(a.papers.length, b.papers.length) || a.code.localeCompare(b.code)
-    })
-    nodes.push({
-      key: collegeKey,
-      label: collegeKey === UNCATEGORISED ? UNCATEGORISED_LABEL : collegeKey,
-      papers: draft.papers,
-      programs,
-    })
-  }
-  nodes.sort((a, b) => byCount(a.papers.length, b.papers.length) || a.label.localeCompare(b.label))
-  return nodes
-})
-
-const currentCollege = computed<CollegeNode | null>(
-  () => tree.value.find((c) => c.key === selectedCollege.value) ?? null,
-)
-
-const currentProgram = computed<ProgramNode | null>(
-  () => currentCollege.value?.programs.find((p) => p.key === selectedProgram.value) ?? null,
-)
-
-const currentLevel = computed<LevelNode | null>(
-  () => currentProgram.value?.levels.find((l) => l.key === selectedLevel.value) ?? null,
-)
-
-// The Uncategorised branch has no meaningful level to pick, so it goes straight
-// to the papers it holds.
-const atLeaf = computed(() => {
-  if (!currentProgram.value) return false
-  if (selectedLevel.value !== null) return true
-  return currentProgram.value.key === UNCATEGORISED
-})
-
-const leafPapers = computed<Paper[]>(() => {
-  const level = currentLevel.value
-  if (level) return level.papers
-  if (atLeaf.value && currentProgram.value) return currentProgram.value.papers
-  return []
-})
 
 // ---- labels -----------------------------------------------------------------
 function stripCode(collegeLabel: string): string {
@@ -181,72 +96,289 @@ function plural(n: number, one: string, many: string): string {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`
 }
 
-const tierLabel = computed(() => {
-  if (!currentCollege.value) return 'Choose a college'
-  if (!currentProgram.value) return `Programs in ${stripCode(currentCollege.value.label)}`
-  return 'Pick a level'
+function collegeShelf({ key, count }: ShelfDraft): ShelfText {
+  return {
+    label: key === UNCATEGORISED ? UNCATEGORISED_LABEL : stripCode(key),
+    sub: plural(count, 'paper', 'papers'),
+    icon: 'books',
+    num: '',
+  }
+}
+
+function levelShelf({ key, count }: ShelfDraft): ShelfText {
+  return {
+    // LevelDesc covers '1'–'5', but only the years the catalogue actually holds
+    // are ever built, so there are no dead cards for a level with no papers.
+    label: key === UNCATEGORISED ? 'No level' : LEVEL_DESC[key] || `Level ${key}`,
+    sub: plural(count, 'paper', 'papers'),
+    icon: 'trending',
+    num: key === UNCATEGORISED ? '' : key,
+  }
+}
+
+function departmentShelf({ key, count, kids }: ShelfDraft): ShelfText {
+  return {
+    label: key === UNCATEGORISED ? UNCATEGORISED_LABEL : CODE_SUBJECTS[key] || key,
+    sub:
+      key === UNCATEGORISED
+        ? `${plural(count, 'paper', 'papers')} · no program`
+        : plural(kids.length, 'course', 'courses'),
+    icon: key === UNCATEGORISED ? 'flag' : 'book',
+    num: '',
+  }
+}
+
+function courseShelf({ key, count, spellings }: ShelfDraft): ShelfText {
+  return {
+    label: key === UNCATEGORISED ? UNCATEGORISED_LABEL : courseLabel(spellings),
+    sub: plural(count, 'paper', 'papers'),
+    icon: key === UNCATEGORISED ? 'flag' : 'file',
+    num: '',
+  }
+}
+
+/**
+ * A shelf can collect several spellings of one course — the key is folded, so
+ * "Arc 205" and "ARC 205" are the same shelf. Name it after the spelling the
+ * folder itself uses, not after whichever one the sort happened to surface.
+ */
+function courseLabel(spellings: Map<string, number>): string {
+  let label = ''
+  let best = 0
+  for (const [name, count] of spellings) {
+    if (count > best) {
+      label = name
+      best = count
+    }
+  }
+  const info = parseCourseName(label)
+  // Not a course folder at all ("Project Gate house", "2022-23"), or one the
+  // catalogue merged ("GST 208,GST 212,GST 312"). Show it as it stands.
+  if (!info.code) return label
+  if (!info.parenthetical) return `${info.code} ${info.number}`
+  return `${info.code} ${info.number} — ${info.parenthetical}`
+}
+
+// ---- the tree ---------------------------------------------------------------
+// Largest shelf first, ties broken by name. The Uncategorised shelf always sinks:
+// it is the leftover, not a peer.
+function byShelf(a: Shelf, b: Shelf): number {
+  if (a.key === UNCATEGORISED) return 1
+  if (b.key === UNCATEGORISED) return -1
+  return b.count - a.count || a.label.localeCompare(b.label)
+}
+
+// Levels run in academic order rather than by size. Number('') is 0 and counts
+// as finite, so the level-less shelf is matched out of the numeric branch and
+// sunk like every other fallback — otherwise it would open the shelf, above
+// Foundation.
+function byLevel(a: Shelf, b: Shelf): number {
+  if (a.key === UNCATEGORISED) return 1
+  if (b.key === UNCATEGORISED) return -1
+  const an = Number(a.key)
+  const bn = Number(b.key)
+  if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn
+  return a.label.localeCompare(b.label)
+}
+
+// The tiers, in tree order. A fifth shelf is a fifth entry here plus a fifth key
+// in `shelfKeys`; nothing below has to move.
+const TIERS: Tier[] = [
+  { noun: 'Colleges', icon: 'compass', name: collegeShelf, sort: byShelf },
+  { noun: 'Levels', icon: 'trending', name: levelShelf, sort: byLevel },
+  { noun: 'Departments', icon: 'book', name: departmentShelf, sort: byShelf },
+  { noun: 'Courses', icon: 'file', name: courseShelf, sort: byShelf },
+]
+
+/** The course tier — the papers hang off it. */
+const COURSE_TIER = TIERS.length - 1
+
+/**
+ * The shelves one paper belongs on, root first.
+ *
+ * The level is `levelYear`, not `level`: `level` holds the course number
+ * ("312"), which is a course axis, and `levelYear` its leading digit is the
+ * academic tier this shelf is sorted by.
+ *
+ * The course is keyed on `courseName`, never on `course`. The schema calls
+ * `course` a Drive folder id, and in 8 of 1,276 papers it is one — the "General"
+ * folder in COLENG carries eight distinct ids, so keying on it would shatter
+ * that one course into eight single-paper shelves. The name is folded so that
+ * names differing only by case or whitespace share a shelf; the label keeps the
+ * most common original spelling.
+ */
+function shelfKeys(p: Paper): string[] {
+  return [
+    p.college?.trim() || UNCATEGORISED,
+    p.levelYear?.trim() || UNCATEGORISED,
+    p.program?.trim() || UNCATEGORISED,
+    p.courseName.trim().replace(/\s+/g, ' ').toLowerCase() || UNCATEGORISED,
+  ]
+}
+
+// One pass over the loaded corpus. Every paper is pushed into exactly one course
+// shelf, so the course shelves hold the catalogue between them — 1,276 in,
+// 1,276 out, with nothing merged away.
+const tree = computed<Shelf[]>(() => {
+  const root = new Map<string, Branch>()
+  for (const p of drive.papers) buildBranch(root, shelfKeys(p), p)
+  return shelves(root, 0)
 })
 
-const tierIcon = computed(() => {
-  if (!currentCollege.value) return 'compass'
-  if (!currentProgram.value) return 'books'
-  return 'trending'
-})
+/** A working node, before the labels and the sort order are attached. */
+interface Branch {
+  papers: Paper[]
+  kids: Map<string, Branch>
+  spellings: Map<string, number>
+}
+
+function buildBranch(level: Map<string, Branch>, keys: string[], paper: Paper): void {
+  let here = level
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i]!
+    let node = here.get(key)
+    if (!node) {
+      node = { papers: [], kids: new Map(), spellings: new Map() }
+      here.set(key, node)
+    }
+    if (i === keys.length - 1) {
+      node.papers.push(paper)
+      const raw = paper.courseName.trim().replace(/\s+/g, ' ')
+      node.spellings.set(raw, (node.spellings.get(raw) ?? 0) + 1)
+    }
+    here = node.kids
+  }
+}
+
+function shelves(level: Map<string, Branch>, depth: number): Shelf[] {
+  const tier = TIERS[depth]
+  const nodes: Shelf[] = []
+  for (const [key, node] of level) {
+    const kids = depth + 1 < TIERS.length ? shelves(node.kids, depth + 1) : []
+    // Only a course holds papers of its own; every tier above it counts its
+    // whole subtree, so a college's number is every paper filed beneath it.
+    const count = node.papers.length + kids.reduce((sum, k) => sum + k.count, 0)
+    const text = tier ? tier.name({ key, count, kids, spellings: node.spellings }) : null
+    nodes.push({
+      key,
+      label: text?.label ?? key,
+      sub: text?.sub ?? '',
+      count,
+      icon: text?.icon ?? 'books',
+      num: text?.num ?? '',
+      tier: depth,
+      kids,
+      papers: node.papers,
+    })
+  }
+  const sort = tier?.sort
+  if (sort) nodes.sort(sort)
+  return nodes
+}
 
 // ---- navigation -------------------------------------------------------------
-function selectCollege(key: string): void {
-  selectedCollege.value = key
-  selectedProgram.value = null
-  selectedLevel.value = null
+/**
+ * Walk the tree along `keys`, one key per tier, and return the shelves landed on.
+ *
+ * A tier holding exactly one shelf is not a choice, so the walk steps through it
+ * without spending a key: "No level" always has the one department Uncategorised
+ * under it, and COLMANS runs one level, one department and one course deep.
+ * Asking for those clicks before six papers is asking for nothing, so COLMANS
+ * lands on its papers in one. The three-tier view skipped the level shelf for the
+ * Uncategorised programme for the same reason — a boolean could only skip that
+ * one case, whereas this falls out of the walk.
+ *
+ * A key that no longer resolves — a catalogue that moved under us — truncates
+ * the path instead of throwing.
+ */
+function walk(keys: string[]): Shelf[] {
+  const nodes: Shelf[] = []
+  let level = tree.value
+  for (const key of keys) {
+    const node = level.find((n) => n.key === key)
+    if (!node) break
+    nodes.push(node)
+    level = node.kids
+    let stepped: Shelf = node
+    while (stepped.tier < COURSE_TIER && stepped.kids.length === 1) {
+      const only = stepped.kids[0]
+      if (!only) break
+      nodes.push(only)
+      level = only.kids
+      stepped = only
+    }
+  }
+  return nodes
 }
 
-function selectProgram(key: string): void {
-  selectedProgram.value = key
-  selectedLevel.value = null
-}
+const trail = computed<Shelf[]>(() => walk(selected.value))
 
-function selectLevel(key: string): void {
-  selectedLevel.value = key
-}
+/** How many tiers the path runs through — also the next key's position. */
+const depth = computed(() => trail.value.length)
 
-function goUpToCollege(): void {
-  selectedCollege.value = null
-  selectedProgram.value = null
-  selectedLevel.value = null
-}
+const shelf = computed<Shelf | null>(() => trail.value[depth.value - 1] ?? null)
 
-function goUpToProgram(): void {
-  selectedProgram.value = null
-  selectedLevel.value = null
+/** Which tier the grid is drawing — 0 at the root, 3 for the course grid. */
+const tierIndex = computed(() => Math.min((shelf.value?.tier ?? -1) + 1, COURSE_TIER))
+
+const atLeaf = computed(() => shelf.value?.tier === COURSE_TIER)
+
+/** The shelves on offer at the tier being drawn. */
+const children = computed<Shelf[]>(() => shelf.value?.kids ?? tree.value)
+
+const leafPapers = computed<Paper[]>(() => shelf.value?.papers ?? [])
+
+// A click extends the path — the grid only ever offers children of the deepest
+// shelf on it. Truncating is what Back and the breadcrumb are for.
+function select(key: string): void {
+  selected.value = [...selected.value, key]
 }
 
 function goBack(): void {
-  if (selectedLevel.value !== null) {
-    selectedLevel.value = null
-    return
-  }
-  if (selectedProgram.value !== null) {
-    goUpToProgram()
-    return
-  }
-  if (selectedCollege.value !== null) goUpToCollege()
+  // A tier the walk stepped through on its own is not a place to stop: backing
+  // out of COLMANS's papers should return to the colleges, not to the one
+  // Uncategorised card it never asked for.
+  let end = depth.value
+  while (end > 1 && trail.value[end - 2]?.kids.length === 1) end -= 1
+  selected.value = selected.value.slice(0, end - 1)
 }
 
-const canGoBack = computed(() => selectedCollege.value !== null)
+function goToDepth(target: number): void {
+  selected.value = selected.value.slice(0, target)
+}
+
+const canGoBack = computed(() => selected.value.length > 0)
 
 const breadcrumb = computed<Breadcrumb[]>(() => {
-  const crumbs: Breadcrumb[] = []
-  if (currentCollege.value) {
-    crumbs.push({ label: currentCollege.value.label, to: goUpToCollege })
-  }
-  if (currentProgram.value) {
-    crumbs.push({ label: currentProgram.value.code, to: goUpToProgram })
-  }
-  if (currentLevel.value) {
-    crumbs.push({ label: currentLevel.value.label, to: null })
-  }
-  return crumbs
+  const nodes = trail.value
+  return nodes
+    .map((node, i) => ({ node, i }))
+    // A tier the walk stepped through was never picked, so it gets no crumb.
+    .filter(({ i }) => i === 0 || nodes[i - 1]?.kids.length !== 1)
+    .map(({ node, i }) => ({
+      label: node.label,
+      to: i === nodes.length - 1 ? null : () => goToDepth(i + 1),
+    }))
 })
+
+const tierLabel = computed(() => {
+  if (tierIndex.value === 0) return 'Choose a college'
+  const noun = TIERS[tierIndex.value]?.noun ?? 'Shelves'
+  // The deepest shelf actually picked — a skipped tier has no crumb of its own.
+  const parent = breadcrumb.value[breadcrumb.value.length - 1]
+  return parent ? `${noun} in ${parent.label}` : noun
+})
+
+const tierIcon = computed(() => TIERS[tierIndex.value]?.icon ?? 'books')
+
+/** The level shelf keeps its oversized numeral; the rest share the node card. */
+function nodeClass(tier: number): string {
+  if (tier === 1) return 'level-card'
+  return ['node-card', tier === 0 ? 'college-card' : tier === 2 ? 'program-card' : 'course-card'].join(' ')
+}
+
+// Re-keyed on every step so the tier and its cards replay their entrance.
+const pathKey = computed(() => JSON.stringify(selected.value))
 
 function openPaper(p: Paper): void {
   router.push({ name: 'paper', params: { id: p.id } })
@@ -279,7 +411,7 @@ const partialWarning = computed(() => {
 
     <!-- Breadcrumb -->
     <nav v-if="breadcrumb.length" class="breadcrumb" aria-label="Breadcrumb">
-      <button type="button" class="crumb crumb-link" @click="goUpToCollege">All</button>
+      <button type="button" class="crumb crumb-link" @click="goToDepth(0)">All</button>
       <template v-for="(c, i) in breadcrumb" :key="`${c.label}-${i}`">
         <Icon name="chevron" :size="11" class="crumb-sep" />
         <button v-if="c.to" type="button" class="crumb crumb-link" @click="c.to">{{ c.label }}</button>
@@ -311,8 +443,8 @@ const partialWarning = computed(() => {
     </div>
 
     <template v-else>
-      <!-- Papers (level 4) -->
-      <section v-if="atLeaf" class="tier" :key="`leaf-${currentProgram?.key ?? ''}-${selectedLevel ?? ''}`">
+      <!-- The papers — the bottom of the tree -->
+      <section v-if="atLeaf" class="tier" :key="`leaf-${pathKey}`">
         <div class="tier-label">
           <Icon name="file" :size="13" />
           {{ plural(leafPapers.length, 'paper', 'papers') }}
@@ -344,71 +476,33 @@ const partialWarning = computed(() => {
         </div>
       </section>
 
-      <section v-else class="tier" :key="`tier-${selectedCollege}-${selectedProgram}`">
+      <!-- The shelves on offer, whatever tier we are on -->
+      <section v-else class="tier" :key="`tier-${pathKey}`">
         <div class="tier-label"><Icon :name="tierIcon" :size="13" /> {{ tierLabel }}</div>
 
-        <!-- Level 1 — colleges -->
-        <div v-if="!currentCollege" class="grid-3">
+        <div class="grid-3">
           <button
-            v-for="(c, i) in tree"
-            :key="c.key"
+            v-for="(node, i) in children"
+            :key="node.key"
             type="button"
-            class="node-card college-card rise"
+            :class="[nodeClass(tierIndex), 'rise']"
             :style="{ '--stagger': `${Math.min(i, 12) * 40}ms` }"
-            @click="selectCollege(c.key)"
+            :aria-label="`${node.label}, ${node.sub}`"
+            @click="select(node.key)"
           >
-            <span class="node-icon"><Icon name="books" :size="18" /></span>
-            <span class="node-body">
-              <span class="node-title">{{ c.label }}</span>
-              <span class="node-sub">{{ plural(c.papers.length, 'paper', 'papers') }}</span>
-            </span>
-            <Icon name="chevron" :size="15" class="node-arrow" />
-          </button>
-        </div>
-
-        <!-- Level 2 — programs -->
-        <div v-else-if="!currentProgram" class="grid-3">
-          <button
-            v-for="(p, i) in currentCollege.programs"
-            :key="p.key"
-            type="button"
-            class="node-card program-card rise"
-            :style="{ '--stagger': `${Math.min(i, 12) * 40}ms` }"
-            :aria-label="
-              p.key === UNCATEGORISED
-                ? `${UNCATEGORISED_LABEL}, ${plural(p.papers.length, 'paper', 'papers')}`
-                : `${p.code}, ${plural(p.levels.length, 'level', 'levels')}`
-            "
-            @click="selectProgram(p.key)"
-          >
-            <span class="node-icon"><Icon :name="p.key === UNCATEGORISED ? 'flag' : 'book'" :size="17" /></span>
-            <span class="node-body">
-              <span class="node-title mono">{{ p.code }}</span>
-              <span class="node-sub">
-                <template v-if="p.key === UNCATEGORISED">
-                  {{ plural(p.papers.length, 'paper', 'papers') }} · no program
-                </template>
-                <template v-else>{{ plural(p.levels.length, 'level', 'levels') }}</template>
+            <template v-if="tierIndex === 1">
+              <span class="level-num">{{ node.num || '—' }}</span>
+              <span class="level-label">{{ node.label }}</span>
+              <span class="level-count mono">{{ node.count.toLocaleString() }}</span>
+            </template>
+            <template v-else>
+              <span class="node-icon"><Icon :name="node.icon" :size="18" /></span>
+              <span class="node-body">
+                <span class="node-title">{{ node.label }}</span>
+                <span class="node-sub">{{ node.sub }}</span>
               </span>
-            </span>
-            <Icon name="chevron" :size="15" class="node-arrow" />
-          </button>
-        </div>
-
-        <!-- Level 3 — levels -->
-        <div v-else class="grid-3">
-          <button
-            v-for="(l, i) in currentProgram.levels"
-            :key="l.key"
-            type="button"
-            class="level-card rise"
-            :style="{ '--stagger': `${Math.min(i, 12) * 40}ms` }"
-            :aria-label="`${l.label}, ${plural(l.papers.length, 'paper', 'papers')}`"
-            @click="selectLevel(l.key)"
-          >
-            <span class="level-num">{{ l.num || '—' }}</span>
-            <span class="level-label">{{ l.label }}</span>
-            <span class="level-count mono">{{ l.papers.length.toLocaleString() }}</span>
+              <Icon name="chevron" :size="15" class="node-arrow" />
+            </template>
           </button>
         </div>
       </section>
@@ -612,6 +706,16 @@ const partialWarning = computed(() => {
 .node-sub {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+}
+/* Course cards carry a code and a title ("GET 207 — Applied Mechanics"), so
+   they run longer than a department name and want the smaller icon box. */
+.course-card .node-icon {
+  width: 38px;
+  height: 38px;
+}
+.course-card .node-title {
+  font-size: var(--text-base);
+  line-height: 1.3;
 }
 .node-arrow {
   flex-shrink: 0;
